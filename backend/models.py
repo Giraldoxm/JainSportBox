@@ -1,0 +1,224 @@
+"""
+Modelos SQLAlchemy para el sistema de gestión de CrossFit Box.
+Define las tablas: Usuarios, Planes, Pagos, WODs, Resultados, Inventario y Ventas.
+"""
+
+from datetime import datetime, date
+from typing import Optional, List
+
+from sqlalchemy import (
+    create_engine,
+    String,
+    Integer,
+    Float,
+    Boolean,
+    Text,
+    Date,
+    DateTime,
+    ForeignKey,
+    Enum as SAEnum,
+)
+from sqlalchemy.orm import (
+    DeclarativeBase,
+    Mapped,
+    mapped_column,
+    relationship,
+)
+import enum
+
+
+# ──────────────────────────── Enums ────────────────────────────
+
+class RolUsuario(str, enum.Enum):
+    ADMIN = "admin"
+    COACH = "coach"
+    CLIENTE = "cliente"
+
+
+# ──────────────────────────── Base ────────────────────────────
+
+class Base(DeclarativeBase):
+    pass
+
+
+# ──────────────────────────── Usuarios ────────────────────────
+
+class Usuario(Base):
+    __tablename__ = "usuarios"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    nombre: Mapped[str] = mapped_column(String(120), nullable=False)
+    email: Mapped[str] = mapped_column(String(120), unique=True, nullable=False)
+    password_hash: Mapped[str] = mapped_column(String(256), nullable=False)
+    rol: Mapped[RolUsuario] = mapped_column(SAEnum(RolUsuario), default=RolUsuario.CLIENTE, nullable=False)
+    huella_id: Mapped[Optional[str]] = mapped_column(String(100), unique=True, nullable=True)
+    fecha_vencimiento: Mapped[Optional[date]] = mapped_column(Date, nullable=True)
+    esta_en_gym: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+
+    # ── Relaciones ──
+    pagos: Mapped[List["Pago"]] = relationship("Pago", back_populates="usuario", cascade="all, delete-orphan")
+    resultados: Mapped[List["ResultadoWOD"]] = relationship("ResultadoWOD", back_populates="usuario", cascade="all, delete-orphan")
+    ventas: Mapped[List["Venta"]] = relationship("Venta", back_populates="usuario", cascade="all, delete-orphan")
+    asistencias: Mapped[List["Asistencia"]] = relationship("Asistencia", back_populates="usuario", cascade="all, delete-orphan")
+
+    def __repr__(self) -> str:
+        return f"<Usuario {self.id} – {self.nombre} ({self.rol.value})>"
+
+
+# ──────────────────────────── Planes ──────────────────────────
+
+class Plan(Base):
+    __tablename__ = "planes"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    nombre: Mapped[str] = mapped_column(String(80), nullable=False)          # Ej: "Mensual", "Trimestral"
+    precio: Mapped[float] = mapped_column(Float, nullable=False)
+    duracion_dias: Mapped[int] = mapped_column(Integer, nullable=False)       # 30, 90, etc.
+    descripcion: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    activo: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
+
+    # ── Relaciones ──
+    pagos: Mapped[List["Pago"]] = relationship("Pago", back_populates="plan")
+
+    def __repr__(self) -> str:
+        return f"<Plan {self.id} – {self.nombre} (${self.precio})>"
+
+
+# ──────────────────────────── Pagos ───────────────────────────
+
+class Pago(Base):
+    __tablename__ = "pagos"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    usuario_id: Mapped[int] = mapped_column(Integer, ForeignKey("usuarios.id"), nullable=False)
+    plan_id: Mapped[int] = mapped_column(Integer, ForeignKey("planes.id"), nullable=False)
+    fecha_pago: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+    monto: Mapped[float] = mapped_column(Float, nullable=False)
+    metodo_pago: Mapped[Optional[str]] = mapped_column(String(50), nullable=True)   # efectivo, transferencia, etc.
+
+    # ── Relaciones ──
+    usuario: Mapped["Usuario"] = relationship("Usuario", back_populates="pagos")
+    plan: Mapped["Plan"] = relationship("Plan", back_populates="pagos")
+
+    def __repr__(self) -> str:
+        return f"<Pago {self.id} – Usuario {self.usuario_id} → Plan {self.plan_id}>"
+
+
+# ──────────────────────────── WODs ────────────────────────────
+
+class WOD(Base):
+    """Workout Of the Day – Rutina del día."""
+    __tablename__ = "wods"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    titulo: Mapped[str] = mapped_column(String(150), nullable=False)
+    descripcion: Mapped[str] = mapped_column(Text, nullable=False)
+    fecha: Mapped[date] = mapped_column(Date, nullable=False, unique=True)   # Un WOD por día
+    coach_id: Mapped[Optional[int]] = mapped_column(Integer, ForeignKey("usuarios.id"), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+
+    # ── Relaciones ──
+    coach: Mapped[Optional["Usuario"]] = relationship("Usuario", foreign_keys=[coach_id])
+    resultados: Mapped[List["ResultadoWOD"]] = relationship("ResultadoWOD", back_populates="wod", cascade="all, delete-orphan")
+
+    def __repr__(self) -> str:
+        return f"<WOD {self.id} – {self.titulo} ({self.fecha})>"
+
+
+# ──────────────────────── Resultados WOD ──────────────────────
+
+class ResultadoWOD(Base):
+    """Resultado / marca de un cliente en un WOD específico."""
+    __tablename__ = "resultados_wod"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    usuario_id: Mapped[int] = mapped_column(Integer, ForeignKey("usuarios.id"), nullable=False)
+    wod_id: Mapped[int] = mapped_column(Integer, ForeignKey("wods.id"), nullable=False)
+    tiempo_segundos: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)    # Para WODs "For Time"
+    rondas: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)             # Para AMRAPs
+    peso_kg: Mapped[Optional[float]] = mapped_column(Float, nullable=True)            # Para WODs de fuerza
+    notas: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    rx: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)          # ¿Hizo RX (prescrito)?
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+
+    # ── Relaciones ──
+    usuario: Mapped["Usuario"] = relationship("Usuario", back_populates="resultados")
+    wod: Mapped["WOD"] = relationship("WOD", back_populates="resultados")
+
+    def __repr__(self) -> str:
+        return f"<ResultadoWOD {self.id} – Usuario {self.usuario_id} / WOD {self.wod_id}>"
+
+
+# ──────────────────────────── Inventario ──────────────────────
+
+class Producto(Base):
+    """Producto de la tienda del box."""
+    __tablename__ = "productos"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    nombre: Mapped[str] = mapped_column(String(150), nullable=False)
+    descripcion: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    precio: Mapped[float] = mapped_column(Float, nullable=False)
+    stock: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
+    categoria: Mapped[Optional[str]] = mapped_column(String(80), nullable=True)
+    activo: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
+
+    # ── Relaciones ──
+    ventas: Mapped[List["Venta"]] = relationship("Venta", back_populates="producto")
+
+    def __repr__(self) -> str:
+        return f"<Producto {self.id} – {self.nombre} (stock: {self.stock})>"
+
+
+# ──────────────────────────── Ventas ──────────────────────────
+
+class Venta(Base):
+    """Registro de venta de productos de la tienda."""
+    __tablename__ = "ventas"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    producto_id: Mapped[int] = mapped_column(Integer, ForeignKey("productos.id"), nullable=False)
+    usuario_id: Mapped[Optional[int]] = mapped_column(Integer, ForeignKey("usuarios.id"), nullable=True)
+    cantidad: Mapped[int] = mapped_column(Integer, nullable=False, default=1)
+    precio_unitario: Mapped[float] = mapped_column(Float, nullable=False)
+    total: Mapped[float] = mapped_column(Float, nullable=False)
+    fecha_venta: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+
+    # ── Relaciones ──
+    producto: Mapped["Producto"] = relationship("Producto", back_populates="ventas")
+    usuario: Mapped[Optional["Usuario"]] = relationship("Usuario", back_populates="ventas")
+
+    def __repr__(self) -> str:
+        return f"<Venta {self.id} – {self.cantidad}x Producto {self.producto_id}>"
+
+
+# ──────────────────────────── Asistencia ──────────────────────
+
+class Asistencia(Base):
+    """Registro de entrada/salida al gym via huella."""
+    __tablename__ = "asistencias"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    usuario_id: Mapped[int] = mapped_column(Integer, ForeignKey("usuarios.id"), nullable=False)
+    tipo: Mapped[str] = mapped_column(String(10), nullable=False, default="entrada")  # entrada / salida
+    fecha_hora: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+
+    # ── Relaciones ──
+    usuario: Mapped["Usuario"] = relationship("Usuario", back_populates="asistencias")
+
+    def __repr__(self) -> str:
+        return f"<Asistencia {self.id} – Usuario {self.usuario_id} ({self.tipo})>"
+
+
+# ──────────────────── Utilidad: crear tablas ──────────────────
+
+def init_db(database_url: str = "sqlite:///crossfit_box.db") -> None:
+    """Crea todas las tablas en la base de datos."""
+    engine = create_engine(database_url, echo=True)
+    Base.metadata.create_all(engine)
+    print("✅ Tablas creadas exitosamente.")
+
+
+if __name__ == "__main__":
+    init_db()
