@@ -2,6 +2,12 @@
 FastAPI - Backend del sistema de gestion CrossFit Box.
 """
 
+import models
+from database import engine
+
+# ESTA LÍNEA ES LA MAGIA: Crea las tablas si no existen
+models.Base.metadata.create_all(bind=engine)
+
 from datetime import datetime, date, timedelta
 from typing import Optional, List
 
@@ -9,8 +15,17 @@ from fastapi import FastAPI, Depends, HTTPException, Query, status
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
+from fastapi.security import OAuth2PasswordRequestForm
+from datetime import timedelta
 
 from database import get_db
+from security import (
+    verify_password,
+    get_password_hash,
+    create_access_token,
+    get_current_user,
+    ACCESS_TOKEN_EXPIRE_MINUTES
+)
 from models import (
     Usuario, RolUsuario,
     Producto,
@@ -179,6 +194,24 @@ def health_check():
     return {"status": "ok", "message": "Gym System Online"}
 
 
+# ═══════════════════════ AUTH ═════════════════════════════════
+
+@app.post("/login", tags=["Auth"])
+def login_for_access_token(form_data: OAuth2PasswordRequestForm = Depends(), db: Session = Depends(get_db)):
+    usuario = db.query(Usuario).filter(Usuario.email == form_data.username).first()
+    if not usuario or not verify_password(form_data.password, usuario.password_hash):
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Incorrect username or password",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+    access_token_expires = timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
+    access_token = create_access_token(
+        data={"sub": usuario.email}, expires_delta=access_token_expires
+    )
+    return {"access_token": access_token, "token_type": "bearer"}
+
+
 # ═══════════════════════ USUARIOS ═════════════════════════════
 
 @app.post(
@@ -199,7 +232,7 @@ def crear_usuario(payload: UsuarioCreate, db: Session = Depends(get_db)):
     nuevo = Usuario(
         nombre=payload.nombre,
         email=payload.email,
-        password_hash=payload.password,  # TODO: hashear con bcrypt
+        password_hash=get_password_hash(payload.password),
         rol=payload.rol,
         huella_id=payload.huella_id,
     )
@@ -210,13 +243,13 @@ def crear_usuario(payload: UsuarioCreate, db: Session = Depends(get_db)):
 
 
 @app.get("/usuarios/", response_model=List[UsuarioResponse], tags=["Usuarios"])
-def listar_usuarios(db: Session = Depends(get_db)):
+def listar_usuarios(db: Session = Depends(get_db), current_user: Usuario = Depends(get_current_user)):
     """Devuelve todos los usuarios registrados."""
     return db.query(Usuario).all()
 
 
 @app.get("/usuarios/huella/{huella_id}", response_model=UsuarioResponse, tags=["Usuarios"])
-def buscar_por_huella(huella_id: str, db: Session = Depends(get_db)):
+def buscar_por_huella(huella_id: str, db: Session = Depends(get_db), current_user: Usuario = Depends(get_current_user)):
     """Busca un usuario por su ID de huella digital."""
     usuario = db.query(Usuario).filter(Usuario.huella_id == huella_id).first()
     if not usuario:
@@ -230,6 +263,7 @@ def buscar_por_huella(huella_id: str, db: Session = Depends(get_db)):
 def listar_productos(
     solo_activos: bool = Query(True, description="Filtrar solo productos activos"),
     db: Session = Depends(get_db),
+    current_user: Usuario = Depends(get_current_user),
 ):
     """Devuelve la lista de productos de la tienda."""
     query = db.query(Producto)
@@ -239,7 +273,7 @@ def listar_productos(
 
 
 @app.get("/productos/{producto_id}", response_model=ProductoResponse, tags=["Productos"])
-def obtener_producto(producto_id: int, db: Session = Depends(get_db)):
+def obtener_producto(producto_id: int, db: Session = Depends(get_db), current_user: Usuario = Depends(get_current_user)):
     """Obtiene un producto por su ID."""
     producto = db.query(Producto).filter(Producto.id == producto_id).first()
     if not producto:
@@ -253,7 +287,7 @@ def obtener_producto(producto_id: int, db: Session = Depends(get_db)):
     status_code=status.HTTP_201_CREATED,
     tags=["Productos"],
 )
-def crear_producto(payload: ProductoCreate, db: Session = Depends(get_db)):
+def crear_producto(payload: ProductoCreate, db: Session = Depends(get_db), current_user: Usuario = Depends(get_current_user)):
     """Agrega un nuevo producto al inventario."""
     nuevo = Producto(
         nombre=payload.nombre,
@@ -269,7 +303,7 @@ def crear_producto(payload: ProductoCreate, db: Session = Depends(get_db)):
 
 
 @app.put("/productos/{producto_id}", response_model=ProductoResponse, tags=["Productos"])
-def editar_producto(producto_id: int, payload: ProductoUpdate, db: Session = Depends(get_db)):
+def editar_producto(producto_id: int, payload: ProductoUpdate, db: Session = Depends(get_db), current_user: Usuario = Depends(get_current_user)):
     """Edita los datos de un producto existente (nombre, precio, stock, etc.)."""
     producto = db.query(Producto).filter(Producto.id == producto_id).first()
     if not producto:
@@ -292,7 +326,7 @@ def editar_producto(producto_id: int, payload: ProductoUpdate, db: Session = Dep
     status_code=status.HTTP_201_CREATED,
     tags=["Ventas"],
 )
-def registrar_venta(payload: VentaCreate, db: Session = Depends(get_db)):
+def registrar_venta(payload: VentaCreate, db: Session = Depends(get_db), current_user: Usuario = Depends(get_current_user)):
     """Registra una venta y descuenta automaticamente del stock."""
 
     # Validar producto
