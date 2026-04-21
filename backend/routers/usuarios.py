@@ -7,7 +7,7 @@ from fastapi import APIRouter, Depends, File, HTTPException, UploadFile, status
 from sqlalchemy.orm import Session
 
 from database import get_db
-from models import Usuario
+from models import RolUsuario, Usuario
 from schemas.usuario import UsuarioCreate, UsuarioResponse, UsuarioUpdate
 from security import get_current_user, get_password_hash
 
@@ -19,8 +19,18 @@ ALLOWED_TYPES = {"image/jpeg", "image/png", "image/webp"}
 router = APIRouter(prefix="/usuarios", tags=["Usuarios"])
 
 
+def _require_admin_or_coach(current_user: Usuario = Depends(get_current_user)):
+    if current_user.rol not in (RolUsuario.ADMIN, RolUsuario.COACH):
+        raise HTTPException(status_code=403, detail="Solo admin o coach pueden realizar esta acción.")
+    return current_user
+
+
 @router.post("/", response_model=UsuarioResponse, status_code=status.HTTP_201_CREATED)
-def crear_usuario(payload: UsuarioCreate, db: Session = Depends(get_db)):
+def crear_usuario(
+    payload: UsuarioCreate,
+    db: Session = Depends(get_db),
+    current_user: Usuario = Depends(_require_admin_or_coach),
+):
     if db.query(Usuario).filter(Usuario.email == payload.email).first():
         raise HTTPException(status_code=400, detail="Ya existe un usuario con ese email.")
     nuevo = Usuario(
@@ -29,6 +39,7 @@ def crear_usuario(payload: UsuarioCreate, db: Session = Depends(get_db)):
         password_hash=get_password_hash(payload.password),
         rol=payload.rol,
         huella_id=payload.huella_id,
+        telefono=payload.telefono,
     )
     db.add(nuevo)
     db.commit()
@@ -41,7 +52,7 @@ def actualizar_usuario(
     usuario_id: int,
     payload: UsuarioUpdate,
     db: Session = Depends(get_db),
-    current_user: Usuario = Depends(get_current_user),
+    current_user: Usuario = Depends(_require_admin_or_coach),
 ):
     usuario = db.query(Usuario).filter(Usuario.id == usuario_id).first()
     if not usuario:
@@ -60,6 +71,9 @@ def actualizar_usuario(
     if payload.password is not None:
         usuario.password_hash = get_password_hash(payload.password)
 
+    if payload.telefono is not None:
+        usuario.telefono = payload.telefono
+
     db.commit()
     db.refresh(usuario)
     return usuario
@@ -70,6 +84,7 @@ def subir_foto(
     usuario_id: int,
     foto: UploadFile = File(...),
     db: Session = Depends(get_db),
+    current_user: Usuario = Depends(_require_admin_or_coach),
 ):
     if foto.content_type not in ALLOWED_TYPES:
         raise HTTPException(status_code=400, detail="Formato no permitido. Usa JPG, PNG o WEBP.")
@@ -100,7 +115,7 @@ def subir_foto(
 def eliminar_usuario(
     usuario_id: int,
     db: Session = Depends(get_db),
-    current_user: Usuario = Depends(get_current_user),
+    current_user: Usuario = Depends(_require_admin_or_coach),
 ):
     usuario = db.query(Usuario).filter(Usuario.id == usuario_id).first()
     if not usuario:
@@ -116,7 +131,7 @@ def eliminar_usuario(
 @router.get("/", response_model=List[UsuarioResponse])
 def listar_usuarios(
     db: Session = Depends(get_db),
-    current_user: Usuario = Depends(get_current_user),
+    current_user: Usuario = Depends(_require_admin_or_coach),
 ):
     return db.query(Usuario).all()
 

@@ -1,11 +1,11 @@
 <template>
-  <div class="min-h-screen flex items-center justify-center bg-gray-100 px-4">
+  <div class="min-h-screen flex items-center justify-center bg-black px-4">
     <div class="max-w-md w-full bg-white rounded-xl shadow-lg p-8 relative overflow-hidden">
       <!-- Decorador Superior -->
-      <div class="absolute top-0 left-0 w-full h-2 bg-indigo-600"></div>
+      <div class="absolute top-0 left-0 w-full h-2 bg-red-600"></div>
       
       <div class="text-center mb-8">
-        <div class="inline-flex items-center justify-center w-16 h-16 rounded-full bg-indigo-100 text-indigo-600 mb-4 shadow-sm">
+        <div class="inline-flex items-center justify-center w-16 h-16 rounded-full bg-red-100 text-red-600 mb-4 shadow-sm">
           <svg xmlns="http://www.w3.org/2000/svg" class="h-8 w-8" fill="none" viewBox="0 0 24 24" stroke="currentColor">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 11c0 3.517-1.009 6.799-2.753 9.571m-3.44-2.04l.054-.09A13.916 13.916 0 008 11a4 4 0 118 0c0 1.017-.07 2.019-.203 3m-2.118 6.844A21.88 21.88 0 0015.171 17m3.839 1.132c.645-2.266.99-4.659.99-7.132A8 8 0 008 4.07M3 15.364c.64-1.319 1-2.8 1-4.364 0-1.457.39-2.823 1.07-4" />
           </svg>
@@ -21,7 +21,7 @@
             v-model="email" 
             type="email" 
             required 
-            class="w-full px-4 py-3 rounded-lg border border-gray-300 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none transition-all placeholder-gray-400 font-medium" 
+            class="w-full px-4 py-3 rounded-lg border border-gray-300 focus:ring-2 focus:ring-red-500 focus:border-red-500 outline-none transition-all placeholder-gray-400 font-medium" 
             placeholder="ejemplo@correo.com"
           >
         </div>
@@ -32,7 +32,7 @@
             v-model="password" 
             type="password" 
             required 
-            class="w-full px-4 py-3 rounded-lg border border-gray-300 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none transition-all placeholder-gray-400 font-medium" 
+            class="w-full px-4 py-3 rounded-lg border border-gray-300 focus:ring-2 focus:ring-red-500 focus:border-red-500 outline-none transition-all placeholder-gray-400 font-medium" 
             placeholder="••••••••"
           >
         </div>
@@ -47,7 +47,7 @@
         <button 
           type="submit" 
           :disabled="loading" 
-          class="w-full bg-indigo-600 hover:bg-indigo-700 disabled:bg-indigo-300 text-white font-bold py-3 px-4 rounded-lg shadow-md transition-transform transform active:scale-95 flex items-center justify-center gap-2"
+          class="w-full bg-red-600 hover:bg-red-700 disabled:bg-red-300 text-white font-bold py-3 px-4 rounded-lg shadow-md transition-transform transform active:scale-95 flex items-center justify-center gap-2"
         >
           <span v-if="loading" class="animate-spin rounded-full h-5 w-5 border-b-2 border-white"></span>
           {{ loading ? 'Autenticando...' : 'Ingresar al Panel' }}
@@ -78,9 +78,12 @@ const handleLogin = async () => {
     formData.append('password', password.value)
 
     const response = await api.post('/login', formData)
-    
-    // Almacenar el JWT localmente e ir al Dashboard
     localStorage.setItem('token', response.data.access_token)
+
+    const me = await api.get('/me')
+    localStorage.setItem('userRol', me.data.rol)
+    localStorage.setItem('userName', me.data.nombre)
+
     router.push('/')
   } catch (error) {
     console.error('Login error:', error)

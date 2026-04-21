@@ -8,7 +8,12 @@ class WODCreate(BaseModel):
     titulo: str = Field(..., min_length=1, max_length=150)
     descripcion: str = Field(..., min_length=1)
     fecha: date
-    coach_id: Optional[int] = None
+
+
+class WODUpdate(BaseModel):
+    titulo: Optional[str] = Field(None, min_length=1, max_length=150)
+    descripcion: Optional[str] = Field(None, min_length=1)
+    fecha: Optional[date] = None
 
 
 class WODResponse(BaseModel):

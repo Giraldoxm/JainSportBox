@@ -1,13 +1,10 @@
-"""
-Inserta los planes por defecto si no existen.
-"""
 from database import SessionLocal
 from models import Plan
 
 PLANES_DEFAULT = [
-    {"nombre": "1 Día",    "precio": 5000,  "duracion_dias": 1,  "descripcion": "Acceso por un día"},
-    {"nombre": "15 Días",  "precio": 60000, "duracion_dias": 15, "descripcion": "Acceso por quince días"},
-    {"nombre": "30 Días",  "precio": 100000,"duracion_dias": 30, "descripcion": "Acceso mensual"},
+    {"nombre": "1 Semana",  "precio": 35000,  "duracion_dias": 7,  "descripcion": "Acceso por 7 días"},
+    {"nombre": "15 Días",   "precio": 60000,  "duracion_dias": 15, "descripcion": "Acceso por quince días"},
+    {"nombre": "1 Mes",     "precio": 100000, "duracion_dias": 30, "descripcion": "Acceso por un mes"},
 ]
 
 def seed_planes():
