@@ -22,8 +22,17 @@
           Tienda POS
         </router-link>
       </nav>
-      <div class="p-6 border-t border-gray-800 text-xs text-gray-500 text-center">
-        &copy; 2026 Admin System
+      <div class="p-4 border-t border-gray-800">
+        <button
+          @click="logout"
+          class="w-full flex items-center gap-3 py-3 px-4 rounded-lg text-gray-400 hover:bg-red-600 hover:text-white transition-colors"
+        >
+          <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
+          </svg>
+          <span class="font-semibold text-sm">Cerrar Sesión</span>
+        </button>
+        <p class="text-xs text-gray-600 text-center mt-3">&copy; 2026 Admin System</p>
       </div>
     </aside>
 
@@ -42,4 +51,12 @@
 </template>
 
 <script setup>
+import { useRouter } from 'vue-router'
+
+const router = useRouter()
+
+const logout = () => {
+  localStorage.removeItem('token')
+  router.push('/login')
+}
 </script>

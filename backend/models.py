@@ -54,6 +54,7 @@ class Usuario(Base):
     huella_id: Mapped[Optional[str]] = mapped_column(String(100), unique=True, nullable=True)
     fecha_vencimiento: Mapped[Optional[date]] = mapped_column(Date, nullable=True)
     esta_en_gym: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
+    foto_url: Mapped[Optional[str]] = mapped_column(String(300), nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
 
     # ── Relaciones ──

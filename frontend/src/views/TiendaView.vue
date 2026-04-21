@@ -66,7 +66,7 @@
 
 <script setup>
 import { ref, onMounted } from 'vue'
-import axios from 'axios'
+import api from '../api'
 
 const productos = ref([])
 const loading = ref(true)
@@ -75,7 +75,7 @@ const selling = ref(null)
 const fetchProductos = async () => {
   loading.value = true
   try {
-    const response = await axios.get('http://127.0.0.1:8080/inventario/')
+    const response = await api.get('/productos/')
     productos.value = response.data
   } catch (error) {
     console.error('Error fetching inventory:', error)
@@ -87,7 +87,7 @@ const fetchProductos = async () => {
 const venderProducto = async (producto) => {
   selling.value = producto.id
   try {
-    await axios.post('http://127.0.0.1:8080/ventas/', {
+    await api.post('/ventas/', {
       producto_id: producto.id,
       cantidad: 1
     })
