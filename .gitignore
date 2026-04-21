@@ -1,0 +1,16 @@
+# Python
+__pycache__/
+*.pyc
+*.pyo
+.venv/
+*.db
+
+# Uploads (fotos de usuarios)
+backend/uploads/
+
+# Node
+frontend/node_modules/
+frontend/dist/
+
+# Claude
+.claude/

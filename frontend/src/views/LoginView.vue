@@ -59,7 +59,7 @@
 
 <script setup>
 import { ref } from 'vue'
-import axios from 'axios'
+import api from '../api'
 import { useRouter } from 'vue-router'
 
 const email = ref('')
@@ -71,14 +71,13 @@ const router = useRouter()
 const handleLogin = async () => {
   errorMsg.value = ''
   loading.value = true
-  
+
   try {
-    // OAuth2PasswordRequestForm needs Form Data, not raw JSON
     const formData = new URLSearchParams()
     formData.append('username', email.value)
     formData.append('password', password.value)
 
-    const response = await axios.post('http://127.0.0.1:8080/login', formData)
+    const response = await api.post('/login', formData)
     
     // Almacenar el JWT localmente e ir al Dashboard
     localStorage.setItem('token', response.data.access_token)
