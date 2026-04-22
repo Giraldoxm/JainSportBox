@@ -122,7 +122,8 @@ class WOD(Base):
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
     titulo: Mapped[str] = mapped_column(String(150), nullable=False)
     descripcion: Mapped[str] = mapped_column(Text, nullable=False)
-    fecha: Mapped[date] = mapped_column(Date, nullable=False, unique=True)   # Un WOD por día
+    fecha: Mapped[date] = mapped_column(Date, nullable=False)
+    activo: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
     coach_id: Mapped[Optional[int]] = mapped_column(Integer, ForeignKey("usuarios.id"), nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
 

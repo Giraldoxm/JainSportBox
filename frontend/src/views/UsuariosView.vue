@@ -29,95 +29,134 @@
       </button>
     </div>
 
-    <!-- Tabla -->
-    <div class="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
-      <div class="overflow-x-auto">
-        <table class="min-w-full divide-y divide-gray-200">
-          <thead class="bg-gray-50">
-            <tr>
-              <th class="px-6 py-4 text-left text-xs font-bold text-gray-500 uppercase tracking-wider">Usuario</th>
-              <th class="px-6 py-4 text-left text-xs font-bold text-gray-500 uppercase tracking-wider">Rol</th>
-              <th class="px-6 py-4 text-left text-xs font-bold text-gray-500 uppercase tracking-wider">Membresía</th>
-              <th class="px-6 py-4 text-left text-xs font-bold text-gray-500 uppercase tracking-wider">Estado</th>
-              <th class="px-6 py-4 text-left text-xs font-bold text-gray-500 uppercase tracking-wider">Acciones</th>
-            </tr>
-          </thead>
-          <tbody class="bg-white divide-y divide-gray-100">
-            <tr v-for="user in usuariosFiltrados" :key="user.id" class="hover:bg-gray-50 transition-colors group">
-              <td class="px-6 py-4 whitespace-nowrap">
-                <div class="flex items-center gap-3">
-                  <img class="h-10 w-10 rounded-full object-cover bg-gray-100 flex-shrink-0" :src="fotoSrc(user)" alt="" />
-                  <div>
-                    <div class="text-sm font-semibold text-gray-900 group-hover:text-red-600 transition-colors">{{ user.nombre }}</div>
-                    <div class="text-xs text-gray-500">{{ user.email }}</div>
-                  </div>
-                </div>
-              </td>
-              <td class="px-6 py-4 whitespace-nowrap">
-                <span class="px-3 py-1 inline-flex text-xs leading-5 font-semibold rounded-full"
-                  :class="{
-                    'bg-purple-100 text-purple-800': user.rol === 'admin',
-                    'bg-blue-100 text-blue-800': user.rol === 'coach',
-                    'bg-gray-100 text-gray-700': user.rol === 'cliente',
-                  }">
-                  {{ user.rol }}
-                </span>
-              </td>
-              <td class="px-6 py-4 whitespace-nowrap">
-                <template v-if="user.fecha_vencimiento">
-                  <div class="flex items-center gap-2">
-                    <span class="w-2 h-2 rounded-full flex-shrink-0"
-                      :class="colorPuntoDias(diasRestantes(user.fecha_vencimiento))"></span>
-                    <div>
-                      <p class="text-sm font-semibold" :class="colorTextoDias(diasRestantes(user.fecha_vencimiento))">
-                        {{ etiquetaDias(diasRestantes(user.fecha_vencimiento)) }}
-                      </p>
-                      <p class="text-xs text-gray-400">Vence {{ formatFecha(user.fecha_vencimiento) }}</p>
-                    </div>
-                  </div>
-                </template>
-                <span v-else class="text-sm text-gray-400 italic">Sin membresía</span>
-              </td>
-              <td class="px-6 py-4 whitespace-nowrap">
-                <span class="px-3 py-1 inline-flex items-center gap-1.5 text-xs font-semibold rounded-full border shadow-sm"
-                  :class="user.esta_en_gym ? 'bg-green-100 text-green-800 border-green-200' : 'bg-gray-100 text-gray-600 border-gray-200'">
-                  <span class="w-2 h-2 rounded-full" :class="user.esta_en_gym ? 'bg-green-500' : 'bg-gray-400'"></span>
-                  {{ user.esta_en_gym ? 'En el Box' : 'Fuera' }}
-                </span>
-              </td>
-              <td class="px-6 py-4 whitespace-nowrap">
-                <div class="flex items-center gap-2">
-                  <button @click="verUsuario(user)" title="Ver detalle"
-                    class="p-1.5 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors">
-                    <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/></svg>
-                  </button>
-                  <button @click="confirmarEliminar(user)" title="Eliminar"
-                    class="p-1.5 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors">
-                    <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>
-                  </button>
-                </div>
-              </td>
-            </tr>
-            <tr v-if="usuariosFiltrados.length === 0 && !loading">
-              <td colspan="5" class="px-6 py-12 text-center text-gray-400 bg-gray-50">
-                <svg xmlns="http://www.w3.org/2000/svg" class="h-12 w-12 mx-auto text-gray-300 mb-3" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z"/></svg>
-                {{ tabs.find(t => t.key === filtroActivo)?.emptyMsg || 'No hay usuarios.' }}
-              </td>
-            </tr>
-            <tr v-if="loading">
-              <td colspan="5" class="px-6 py-12 text-center">
-                <div class="animate-spin rounded-full h-8 w-8 border-b-2 border-red-600 mx-auto"></div>
-              </td>
-            </tr>
-          </tbody>
-        </table>
-      </div>
+    <!-- Loading -->
+    <div v-if="loading" class="flex justify-center py-16">
+      <div class="animate-spin rounded-full h-8 w-8 border-b-2 border-red-600"></div>
     </div>
 
+    <!-- Empty -->
+    <div v-else-if="usuariosFiltrados.length === 0" class="bg-white rounded-xl border border-gray-100 px-6 py-12 text-center text-gray-400">
+      <svg xmlns="http://www.w3.org/2000/svg" class="h-12 w-12 mx-auto text-gray-300 mb-3" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z"/></svg>
+      {{ tabs.find(t => t.key === filtroActivo)?.emptyMsg || 'No hay usuarios.' }}
+    </div>
+
+    <template v-else>
+      <!-- ── Cards (móvil) ── -->
+      <div class="sm:hidden space-y-3">
+        <div v-for="user in usuariosFiltrados" :key="user.id"
+          class="bg-white rounded-xl border border-gray-100 shadow-sm p-4">
+          <div class="flex items-center gap-3 mb-3">
+            <img class="h-11 w-11 rounded-full object-cover bg-gray-100 flex-shrink-0" :src="fotoSrc(user)" alt="" />
+            <div class="min-w-0 flex-1">
+              <p class="font-semibold text-gray-900 truncate">{{ user.nombre }}</p>
+              <p class="text-xs text-gray-500 truncate">{{ user.email }}</p>
+            </div>
+            <span class="px-2 py-0.5 text-xs font-semibold rounded-full flex-shrink-0"
+              :class="{
+                'bg-purple-100 text-purple-800': user.rol === 'admin',
+                'bg-blue-100 text-blue-800': user.rol === 'coach',
+                'bg-gray-100 text-gray-700': user.rol === 'cliente',
+              }">{{ user.rol }}</span>
+          </div>
+          <div class="flex items-center justify-between">
+            <div>
+              <template v-if="user.fecha_vencimiento">
+                <p class="text-sm font-semibold" :class="colorTextoDias(diasRestantes(user.fecha_vencimiento))">
+                  {{ etiquetaDias(diasRestantes(user.fecha_vencimiento)) }}
+                </p>
+                <p class="text-xs text-gray-400">Vence {{ formatFecha(user.fecha_vencimiento) }}</p>
+              </template>
+              <span v-else class="text-sm text-gray-400 italic">Sin membresía</span>
+            </div>
+            <div class="flex items-center gap-2">
+              <span class="flex items-center gap-1 text-xs font-semibold px-2 py-1 rounded-full border"
+                :class="user.esta_en_gym ? 'bg-green-100 text-green-800 border-green-200' : 'bg-gray-100 text-gray-600 border-gray-200'">
+                <span class="w-1.5 h-1.5 rounded-full" :class="user.esta_en_gym ? 'bg-green-500' : 'bg-gray-400'"></span>
+                {{ user.esta_en_gym ? 'En Box' : 'Fuera' }}
+              </span>
+              <button @click="verUsuario(user)" class="p-2 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors">
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/></svg>
+              </button>
+              <button @click="confirmarEliminar(user)" class="p-2 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors">
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ── Tabla (desktop) ── -->
+      <div class="hidden sm:block bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
+        <div class="overflow-x-auto">
+          <table class="min-w-full divide-y divide-gray-200">
+            <thead class="bg-gray-50">
+              <tr>
+                <th class="px-6 py-4 text-left text-xs font-bold text-gray-500 uppercase tracking-wider">Usuario</th>
+                <th class="px-6 py-4 text-left text-xs font-bold text-gray-500 uppercase tracking-wider">Rol</th>
+                <th class="px-6 py-4 text-left text-xs font-bold text-gray-500 uppercase tracking-wider">Membresía</th>
+                <th class="px-6 py-4 text-left text-xs font-bold text-gray-500 uppercase tracking-wider">Estado</th>
+                <th class="px-6 py-4 text-left text-xs font-bold text-gray-500 uppercase tracking-wider">Acciones</th>
+              </tr>
+            </thead>
+            <tbody class="bg-white divide-y divide-gray-100">
+              <tr v-for="user in usuariosFiltrados" :key="user.id" class="hover:bg-gray-50 transition-colors group">
+                <td class="px-6 py-4 whitespace-nowrap">
+                  <div class="flex items-center gap-3">
+                    <img class="h-10 w-10 rounded-full object-cover bg-gray-100 flex-shrink-0" :src="fotoSrc(user)" alt="" />
+                    <div>
+                      <div class="text-sm font-semibold text-gray-900 group-hover:text-red-600 transition-colors">{{ user.nombre }}</div>
+                      <div class="text-xs text-gray-500">{{ user.email }}</div>
+                    </div>
+                  </div>
+                </td>
+                <td class="px-6 py-4 whitespace-nowrap">
+                  <span class="px-3 py-1 inline-flex text-xs leading-5 font-semibold rounded-full"
+                    :class="{
+                      'bg-purple-100 text-purple-800': user.rol === 'admin',
+                      'bg-blue-100 text-blue-800': user.rol === 'coach',
+                      'bg-gray-100 text-gray-700': user.rol === 'cliente',
+                    }">{{ user.rol }}</span>
+                </td>
+                <td class="px-6 py-4 whitespace-nowrap">
+                  <template v-if="user.fecha_vencimiento">
+                    <div class="flex items-center gap-2">
+                      <span class="w-2 h-2 rounded-full flex-shrink-0" :class="colorPuntoDias(diasRestantes(user.fecha_vencimiento))"></span>
+                      <div>
+                        <p class="text-sm font-semibold" :class="colorTextoDias(diasRestantes(user.fecha_vencimiento))">{{ etiquetaDias(diasRestantes(user.fecha_vencimiento)) }}</p>
+                        <p class="text-xs text-gray-400">Vence {{ formatFecha(user.fecha_vencimiento) }}</p>
+                      </div>
+                    </div>
+                  </template>
+                  <span v-else class="text-sm text-gray-400 italic">Sin membresía</span>
+                </td>
+                <td class="px-6 py-4 whitespace-nowrap">
+                  <span class="px-3 py-1 inline-flex items-center gap-1.5 text-xs font-semibold rounded-full border shadow-sm"
+                    :class="user.esta_en_gym ? 'bg-green-100 text-green-800 border-green-200' : 'bg-gray-100 text-gray-600 border-gray-200'">
+                    <span class="w-2 h-2 rounded-full" :class="user.esta_en_gym ? 'bg-green-500' : 'bg-gray-400'"></span>
+                    {{ user.esta_en_gym ? 'En el Box' : 'Fuera' }}
+                  </span>
+                </td>
+                <td class="px-6 py-4 whitespace-nowrap">
+                  <div class="flex items-center gap-2">
+                    <button @click="verUsuario(user)" title="Ver detalle" class="p-1.5 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors">
+                      <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/></svg>
+                    </button>
+                    <button @click="confirmarEliminar(user)" title="Eliminar" class="p-1.5 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors">
+                      <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>
+                    </button>
+                  </div>
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </template>
+
     <!-- ── Modal: Ver detalle ── -->
-    <div v-if="usuarioSeleccionado" class="fixed inset-0 flex items-center justify-center bg-gray-900/60 backdrop-blur-sm z-50 p-4">
-      <div class="bg-white rounded-2xl w-full max-w-md shadow-2xl overflow-hidden">
-        <div class="bg-gradient-to-r from-red-600 to-red-700 px-8 py-6 flex items-center gap-4">
+    <div v-if="usuarioSeleccionado" class="fixed inset-0 flex items-end sm:items-center justify-center bg-gray-900/60 backdrop-blur-sm z-50 p-4">
+      <div class="bg-white rounded-2xl w-full max-w-md shadow-2xl overflow-hidden max-h-[90vh] flex flex-col">
+        <div class="bg-gradient-to-r from-red-600 to-red-700 px-5 py-5 sm:px-8 sm:py-6 flex items-center gap-4 flex-shrink-0">
           <img class="h-16 w-16 rounded-full border-4 border-white shadow-md object-cover" :src="fotoSrc(usuarioSeleccionado, 128)" alt="" />
           <div>
             <h3 class="text-xl font-bold text-white">{{ usuarioSeleccionado.nombre }}</h3>
@@ -127,7 +166,7 @@
             <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
           </button>
         </div>
-        <div class="px-8 py-6 space-y-4">
+        <div class="px-5 py-5 sm:px-8 sm:py-6 space-y-4 overflow-y-auto flex-1">
           <div class="grid grid-cols-2 gap-4">
             <div class="bg-gray-50 rounded-xl p-4">
               <p class="text-xs text-gray-400 font-semibold uppercase tracking-wide mb-1">Email</p>
@@ -179,7 +218,7 @@
     </div>
 
     <!-- ── Modal: Renovar membresía ── -->
-    <div v-if="showRenovar" class="fixed inset-0 flex items-center justify-center bg-gray-900/60 backdrop-blur-sm z-50 p-4">
+    <div v-if="showRenovar" class="fixed inset-0 flex items-end sm:items-center justify-center bg-gray-900/60 backdrop-blur-sm z-50 p-4">
       <div class="bg-white rounded-2xl w-full max-w-lg shadow-2xl max-h-[90vh] flex flex-col overflow-hidden">
         <div class="bg-gradient-to-r from-emerald-500 to-emerald-600 px-6 py-5 flex items-center gap-3 flex-shrink-0">
           <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/></svg>
@@ -279,8 +318,8 @@
     </div>
 
     <!-- ── Modal: Editar usuario ── -->
-    <div v-if="showEditar" class="fixed inset-0 flex items-center justify-center bg-gray-900/60 backdrop-blur-sm z-50 p-4">
-      <div class="bg-white rounded-2xl p-8 w-full max-w-lg shadow-2xl max-h-[90vh] overflow-y-auto">
+    <div v-if="showEditar" class="fixed inset-0 flex items-end sm:items-center justify-center bg-gray-900/60 backdrop-blur-sm z-50 p-4">
+      <div class="bg-white rounded-2xl p-5 sm:p-8 w-full max-w-lg shadow-2xl max-h-[90vh] overflow-y-auto">
         <div class="flex justify-between items-center mb-6">
           <div>
             <h3 class="text-2xl font-bold text-gray-900">Editar Usuario</h3>
@@ -330,8 +369,8 @@
     </div>
 
     <!-- ── Modal: Crear usuario ── -->
-    <div v-if="showForm" class="fixed inset-0 flex items-center justify-center bg-gray-900/60 backdrop-blur-sm z-50 p-4">
-      <div class="bg-white rounded-2xl p-8 w-full max-w-lg shadow-2xl max-h-[90vh] overflow-y-auto">
+    <div v-if="showForm" class="fixed inset-0 flex items-end sm:items-center justify-center bg-gray-900/60 backdrop-blur-sm z-50 p-4">
+      <div class="bg-white rounded-2xl p-5 sm:p-8 w-full max-w-lg shadow-2xl max-h-[90vh] overflow-y-auto">
         <div class="flex justify-between items-center mb-6">
           <h3 class="text-2xl font-bold text-gray-900">Registrar Usuario</h3>
           <button @click="cerrarFormulario" class="text-gray-400 hover:text-gray-600">
@@ -420,6 +459,23 @@
                 class="w-full px-3 py-2 rounded-lg border border-gray-300 focus:ring-2 focus:ring-red-500 outline-none text-sm"
                 :placeholder="'Sugerido: $' + (planes.find(p => p.id === planSeleccionado)?.precio?.toLocaleString() || '')">
             </div>
+
+            <!-- Método de pago: visible cuando se elige cualquier plan -->
+            <div v-if="planSeleccionado !== 'ninguno'" class="mt-3">
+              <label class="block text-gray-600 text-xs font-semibold mb-1">Método de pago <span class="text-red-500">*</span></label>
+              <div class="grid grid-cols-2 gap-2">
+                <label class="flex items-center gap-2 p-2.5 rounded-lg border-2 cursor-pointer transition-all"
+                  :class="metodoPago === 'efectivo' ? 'border-red-500 bg-red-50' : 'border-gray-200 hover:border-gray-300'">
+                  <input type="radio" v-model="metodoPago" value="efectivo" class="sr-only">
+                  <span class="text-sm font-semibold" :class="metodoPago === 'efectivo' ? 'text-red-700' : 'text-gray-600'">💵 Efectivo</span>
+                </label>
+                <label class="flex items-center gap-2 p-2.5 rounded-lg border-2 cursor-pointer transition-all"
+                  :class="metodoPago === 'transferencia' ? 'border-red-500 bg-red-50' : 'border-gray-200 hover:border-gray-300'">
+                  <input type="radio" v-model="metodoPago" value="transferencia" class="sr-only">
+                  <span class="text-sm font-semibold" :class="metodoPago === 'transferencia' ? 'text-red-700' : 'text-gray-600'">🏦 Transferencia</span>
+                </label>
+              </div>
+            </div>
           </div>
 
           <div class="flex justify-end gap-3 pt-4 border-t border-gray-100">
@@ -473,6 +529,7 @@ const nuevoUsuario = ref({ nombre: '', email: '', password: '', rol: 'cliente', 
 const planSeleccionado = ref('ninguno')
 const montoPlanDefault = ref('')
 const planPersonalizado = ref({ dias: '', monto: '' })
+const metodoPago = ref('efectivo')
 const fotoArchivo = ref(null)
 const fotoPreview = ref(null)
 
@@ -618,6 +675,7 @@ const cerrarFormulario = () => {
   planSeleccionado.value = 'ninguno'
   montoPlanDefault.value = ''
   planPersonalizado.value = { dias: '', monto: '' }
+  metodoPago.value = 'efectivo'
   fotoArchivo.value = null
   fotoPreview.value = null
 }
@@ -643,10 +701,20 @@ const crearUsuario = async () => {
     }
 
     if (planSeleccionado.value === 'personalizado') {
-      await api.post('/pagos/directo/', { usuario_id: nuevo.id, duracion_dias: planPersonalizado.value.dias, monto: planPersonalizado.value.monto })
+      await api.post('/pagos/directo/', {
+        usuario_id: nuevo.id,
+        duracion_dias: planPersonalizado.value.dias,
+        monto: planPersonalizado.value.monto,
+        metodo_pago: metodoPago.value,
+      })
     } else if (planSeleccionado.value !== 'ninguno') {
       const plan = planes.value.find(p => p.id === planSeleccionado.value)
-      await api.post('/pagos/', { usuario_id: nuevo.id, plan_id: planSeleccionado.value, monto: montoPlanDefault.value || plan?.precio || 0 })
+      await api.post('/pagos/', {
+        usuario_id: nuevo.id,
+        plan_id: planSeleccionado.value,
+        monto: montoPlanDefault.value || plan?.precio || 0,
+        metodo_pago: metodoPago.value,
+      })
     }
 
     cerrarFormulario()

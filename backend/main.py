@@ -18,6 +18,29 @@ with engine.connect() as _conn:
         except Exception:
             pass
 
+# Migración: reconstruir tabla wods (quitar unique en fecha, agregar activo)
+with engine.connect() as _conn:
+    _cols = [row[1] for row in _conn.execute(text("PRAGMA table_info(wods)")).fetchall()]
+    if "activo" not in _cols:
+        _conn.execute(text("""
+            CREATE TABLE wods_new (
+                id INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT,
+                titulo VARCHAR(150) NOT NULL,
+                descripcion TEXT NOT NULL,
+                fecha DATE NOT NULL,
+                activo BOOLEAN NOT NULL DEFAULT 1,
+                coach_id INTEGER REFERENCES usuarios(id),
+                created_at DATETIME NOT NULL
+            )
+        """))
+        _conn.execute(text(
+            "INSERT INTO wods_new (id, titulo, descripcion, fecha, activo, coach_id, created_at) "
+            "SELECT id, titulo, descripcion, fecha, 1, coach_id, created_at FROM wods"
+        ))
+        _conn.execute(text("DROP TABLE wods"))
+        _conn.execute(text("ALTER TABLE wods_new RENAME TO wods"))
+        _conn.commit()
+
 from pathlib import Path
 
 from fastapi import FastAPI
@@ -47,6 +70,7 @@ app.add_middleware(
 
 UPLOADS_DIR = Path(__file__).parent / "uploads"
 UPLOADS_DIR.mkdir(exist_ok=True)
+
 app.mount("/uploads", StaticFiles(directory=UPLOADS_DIR), name="uploads")
 
 

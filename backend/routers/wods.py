@@ -24,8 +24,6 @@ def crear_wod(
     db: Session = Depends(get_db),
     current_user: Usuario = Depends(_require_admin_or_coach),
 ):
-    if db.query(WOD).filter(WOD.fecha == payload.fecha).first():
-        raise HTTPException(status_code=400, detail=f"Ya existe un WOD para la fecha {payload.fecha}.")
     data = payload.model_dump()
     data["coach_id"] = current_user.id
     wod = WOD(**data)
@@ -52,6 +50,21 @@ def actualizar_wod(
     return wod
 
 
+@router.patch("/{wod_id}/toggle", response_model=WODResponse)
+def toggle_wod(
+    wod_id: int,
+    db: Session = Depends(get_db),
+    current_user: Usuario = Depends(_require_admin_or_coach),
+):
+    wod = db.query(WOD).filter(WOD.id == wod_id).first()
+    if not wod:
+        raise HTTPException(status_code=404, detail="WOD no encontrado.")
+    wod.activo = not wod.activo
+    db.commit()
+    db.refresh(wod)
+    return wod
+
+
 @router.delete("/{wod_id}", status_code=status.HTTP_204_NO_CONTENT)
 def eliminar_wod(
     wod_id: int,
@@ -65,15 +78,16 @@ def eliminar_wod(
     db.commit()
 
 
-@router.get("/hoy", response_model=WODResponse)
-def wod_de_hoy(
+@router.get("/hoy", response_model=List[WODResponse])
+def wods_de_hoy(
     db: Session = Depends(get_db),
     current_user: Usuario = Depends(get_current_user),
 ):
-    wod = db.query(WOD).filter(WOD.fecha == date.today()).first()
-    if not wod:
-        raise HTTPException(status_code=404, detail="No hay WOD programado para hoy.")
-    return wod
+    es_staff = current_user.rol in (RolUsuario.ADMIN, RolUsuario.COACH)
+    q = db.query(WOD).filter(WOD.fecha == date.today())
+    if not es_staff:
+        q = q.filter(WOD.activo == True)
+    return q.order_by(WOD.id).all()
 
 
 @router.get("/", response_model=List[WODResponse])
@@ -82,4 +96,8 @@ def listar_wods(
     db: Session = Depends(get_db),
     current_user: Usuario = Depends(get_current_user),
 ):
-    return db.query(WOD).order_by(WOD.fecha.desc()).limit(limit).all()
+    es_staff = current_user.rol in (RolUsuario.ADMIN, RolUsuario.COACH)
+    q = db.query(WOD)
+    if not es_staff:
+        q = q.filter(WOD.activo == True)
+    return q.order_by(WOD.fecha.desc(), WOD.id.desc()).limit(limit).all()

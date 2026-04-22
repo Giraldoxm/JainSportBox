@@ -1,12 +1,30 @@
 <template>
   <div class="flex h-screen bg-gray-50 font-sans">
-    <!-- Sidebar -->
-    <aside class="w-64 bg-black text-white flex flex-col shadow-xl">
+
+    <!-- ── Overlay móvil ── -->
+    <div
+      v-if="sidebarOpen"
+      class="fixed inset-0 bg-black/50 z-30 md:hidden"
+      @click="sidebarOpen = false"
+    />
+
+    <!-- ── Sidebar ── -->
+    <aside
+      class="fixed inset-y-0 left-0 z-40 w-64 bg-black text-white flex flex-col shadow-xl transform transition-transform duration-300 md:relative md:translate-x-0 md:flex"
+      :class="sidebarOpen ? 'translate-x-0' : '-translate-x-full'"
+    >
+      <!-- Logo -->
       <div class="p-6 border-b border-gray-800 flex items-center gap-3">
-        <svg xmlns="http://www.w3.org/2000/svg" class="h-8 w-8 text-red-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+        <svg xmlns="http://www.w3.org/2000/svg" class="h-8 w-8 text-red-500 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
           <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z" />
         </svg>
         <h1 class="text-xl font-extrabold tracking-wider">CrossFit Box</h1>
+        <!-- Cerrar en móvil -->
+        <button @click="sidebarOpen = false" class="ml-auto md:hidden text-gray-400 hover:text-white p-1">
+          <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+          </svg>
+        </button>
       </div>
 
       <!-- User info -->
@@ -20,78 +38,100 @@
           }">
           {{ rolLabel }}
         </span>
+
+        <!-- Membresía (solo clientes) -->
+        <div v-if="isCliente" class="mt-3 rounded-xl p-3 text-center"
+          :class="estadoMembresia.bg">
+          <p class="text-xs font-bold uppercase tracking-wide mb-1" :class="estadoMembresia.labelColor">
+            {{ estadoMembresia.label }}
+          </p>
+          <p v-if="fechaVencimiento" class="text-sm font-black" :class="estadoMembresia.dateColor">
+            {{ formatFechaVenc(fechaVencimiento) }}
+          </p>
+          <p v-if="fechaVencimiento" class="text-xs mt-0.5" :class="estadoMembresia.subColor">
+            {{ estadoMembresia.dias }}
+          </p>
+          <p v-if="!fechaVencimiento" class="text-xs" :class="estadoMembresia.subColor">Sin plan activo</p>
+        </div>
       </div>
 
-      <nav class="flex-1 mt-4 px-4 space-y-2">
-        <!-- Admin & Coach only -->
+      <!-- Nav links -->
+      <nav class="flex-1 mt-4 px-4 space-y-2 overflow-y-auto">
         <template v-if="canManage">
-          <router-link to="/usuarios" class="flex items-center gap-3 py-3 px-4 rounded-lg hover:bg-gray-800 transition-colors" active-class="bg-red-600 hover:bg-red-700 font-semibold shadow-md">
-            <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <router-link to="/usuarios" @click="sidebarOpen = false"
+            class="flex items-center gap-3 py-3 px-4 rounded-lg hover:bg-gray-800 transition-colors"
+            active-class="bg-red-600 hover:bg-red-700 font-semibold shadow-md">
+            <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z" />
             </svg>
             Usuarios
           </router-link>
-          <router-link to="/tienda" class="flex items-center gap-3 py-3 px-4 rounded-lg hover:bg-gray-800 transition-colors" active-class="bg-red-600 hover:bg-red-700 font-semibold shadow-md">
-            <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <router-link to="/tienda" @click="sidebarOpen = false"
+            class="flex items-center gap-3 py-3 px-4 rounded-lg hover:bg-gray-800 transition-colors"
+            active-class="bg-red-600 hover:bg-red-700 font-semibold shadow-md">
+            <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 11V7a4 4 0 00-8 0v4M5 9h14l1 12H4L5 9z" />
             </svg>
             Tienda POS
           </router-link>
-          <router-link to="/alertas" class="flex items-center gap-3 py-3 px-4 rounded-lg hover:bg-gray-800 transition-colors" active-class="bg-red-600 hover:bg-red-700 font-semibold shadow-md">
-            <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <router-link to="/alertas" @click="sidebarOpen = false"
+            class="flex items-center gap-3 py-3 px-4 rounded-lg hover:bg-gray-800 transition-colors"
+            active-class="bg-red-600 hover:bg-red-700 font-semibold shadow-md">
+            <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
             </svg>
             Alertas WhatsApp
-            <span v-if="alertasPendientes > 0"
-              class="ml-auto bg-red-500 text-white text-xs font-black px-1.5 py-0.5 rounded-full min-w-[20px] text-center">
-              {{ alertasPendientes }}
-            </span>
           </router-link>
         </template>
 
-        <!-- Admin only: Finanzas -->
         <template v-if="isAdmin">
           <div class="pt-2 pb-1 px-2">
             <p class="text-xs font-bold text-gray-500 uppercase tracking-widest">Administración</p>
           </div>
-          <router-link to="/finanzas" class="flex items-center gap-3 py-3 px-4 rounded-lg hover:bg-gray-800 transition-colors" active-class="bg-red-600 hover:bg-red-700 font-semibold shadow-md">
-            <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <router-link to="/finanzas" @click="sidebarOpen = false"
+            class="flex items-center gap-3 py-3 px-4 rounded-lg hover:bg-gray-800 transition-colors"
+            active-class="bg-red-600 hover:bg-red-700 font-semibold shadow-md">
+            <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
             </svg>
             Finanzas
           </router-link>
         </template>
 
-        <!-- Todos los roles -->
         <div class="pt-2 pb-1 px-2" v-if="canManage">
           <p class="text-xs font-bold text-gray-500 uppercase tracking-widest">Operaciones</p>
         </div>
-        <router-link to="/wods" class="flex items-center gap-3 py-3 px-4 rounded-lg hover:bg-gray-800 transition-colors" active-class="bg-red-600 hover:bg-red-700 font-semibold shadow-md">
-          <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+        <router-link to="/wods" @click="sidebarOpen = false"
+          class="flex items-center gap-3 py-3 px-4 rounded-lg hover:bg-gray-800 transition-colors"
+          active-class="bg-red-600 hover:bg-red-700 font-semibold shadow-md">
+          <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z" />
           </svg>
           WODs
         </router-link>
-        <router-link v-if="isCliente" to="/tienda" class="flex items-center gap-3 py-3 px-4 rounded-lg hover:bg-gray-800 transition-colors" active-class="bg-red-600 hover:bg-red-700 font-semibold shadow-md">
-          <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+        <router-link v-if="isCliente" to="/tienda" @click="sidebarOpen = false"
+          class="flex items-center gap-3 py-3 px-4 rounded-lg hover:bg-gray-800 transition-colors"
+          active-class="bg-red-600 hover:bg-red-700 font-semibold shadow-md">
+          <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 11V7a4 4 0 00-8 0v4M5 9h14l1 12H4L5 9z" />
           </svg>
           Tienda
         </router-link>
-        <router-link v-if="isCliente" to="/salud" class="flex items-center gap-3 py-3 px-4 rounded-lg hover:bg-gray-800 transition-colors" active-class="bg-red-600 hover:bg-red-700 font-semibold shadow-md">
-          <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+        <router-link v-if="isCliente" to="/salud" @click="sidebarOpen = false"
+          class="flex items-center gap-3 py-3 px-4 rounded-lg hover:bg-gray-800 transition-colors"
+          active-class="bg-red-600 hover:bg-red-700 font-semibold shadow-md">
+          <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z" />
           </svg>
           Mi Salud
         </router-link>
       </nav>
 
+      <!-- Logout -->
       <div class="p-4 border-t border-gray-800">
-        <button
-          @click="logout"
-          class="w-full flex items-center gap-3 py-3 px-4 rounded-lg text-gray-400 hover:bg-red-600 hover:text-white transition-colors"
-        >
-          <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+        <button @click="logout"
+          class="w-full flex items-center gap-3 py-3 px-4 rounded-lg text-gray-400 hover:bg-red-600 hover:text-white transition-colors">
+          <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
           </svg>
           <span class="font-semibold text-sm">Cerrar Sesión</span>
@@ -100,12 +140,29 @@
       </div>
     </aside>
 
-    <!-- Main Content -->
-    <main class="flex-1 overflow-x-hidden overflow-y-auto">
-      <div class="p-8">
-        <router-view></router-view>
-      </div>
-    </main>
+    <!-- ── Main ── -->
+    <div class="flex-1 flex flex-col min-w-0 overflow-hidden">
+
+      <!-- Top bar móvil -->
+      <header class="md:hidden flex items-center gap-3 px-4 py-3 bg-black text-white shadow-lg flex-shrink-0">
+        <button @click="sidebarOpen = true" class="p-1.5 rounded-lg hover:bg-gray-800 transition-colors">
+          <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"/>
+          </svg>
+        </button>
+        <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 text-red-500 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"/>
+        </svg>
+        <span class="font-extrabold tracking-wider text-base">CrossFit Box</span>
+      </header>
+
+      <!-- Content -->
+      <main class="flex-1 overflow-x-hidden overflow-y-auto">
+        <div class="p-4 sm:p-6 md:p-8">
+          <router-view></router-view>
+        </div>
+      </main>
+    </div>
   </div>
 </template>
 
@@ -118,17 +175,70 @@ import api from '../api'
 const router = useRouter()
 const { nombre, rol, isAdmin, isCoach, isCliente, canManage } = useAuth()
 
-const alertasPendientes = ref(0)
+const sidebarOpen = ref(false)
+const fechaVencimiento = ref(localStorage.getItem('fechaVencimiento') || '')
 
-async function cargarConteoAlertas() {
-  if (!canManage.value) return
+// Refresca la fecha de vencimiento desde el servidor
+onMounted(async () => {
+  if (!isCliente.value) return
   try {
-    const { data } = await api.get('/alertas/contar')
-    alertasPendientes.value = data.pendientes
+    const { data } = await api.get('/me')
+    fechaVencimiento.value = data.fecha_vencimiento || ''
+    localStorage.setItem('fechaVencimiento', fechaVencimiento.value)
   } catch { /* silencioso */ }
+})
+
+function formatFechaVenc(fecha) {
+  if (!fecha) return ''
+  const [y, m, d] = fecha.split('-')
+  const meses = ['ene','feb','mar','abr','may','jun','jul','ago','sep','oct','nov','dic']
+  return `${parseInt(d)} ${meses[parseInt(m) - 1]} ${y}`
 }
 
-onMounted(cargarConteoAlertas)
+const estadoMembresia = computed(() => {
+  if (!fechaVencimiento.value) {
+    return {
+      label: 'Sin membresía',
+      dias: '',
+      bg: 'bg-gray-800/60',
+      labelColor: 'text-gray-400',
+      dateColor: 'text-gray-300',
+      subColor: 'text-gray-500',
+    }
+  }
+  const hoy = new Date(); hoy.setHours(0, 0, 0, 0)
+  const vence = new Date(fechaVencimiento.value + 'T00:00:00')
+  const diff = Math.round((vence - hoy) / 86400000)
+
+  if (diff < 0) {
+    return {
+      label: 'Membresía vencida',
+      dias: `Venció hace ${Math.abs(diff)} día${Math.abs(diff) !== 1 ? 's' : ''}`,
+      bg: 'bg-red-900/60',
+      labelColor: 'text-red-300',
+      dateColor: 'text-white',
+      subColor: 'text-red-400',
+    }
+  }
+  if (diff <= 5) {
+    return {
+      label: 'Vence pronto',
+      dias: `${diff} día${diff !== 1 ? 's' : ''} restante${diff !== 1 ? 's' : ''}`,
+      bg: 'bg-amber-900/50',
+      labelColor: 'text-amber-300',
+      dateColor: 'text-white',
+      subColor: 'text-amber-400',
+    }
+  }
+  return {
+    label: 'Membresía activa',
+    dias: `${diff} días restantes`,
+    bg: 'bg-emerald-900/40',
+    labelColor: 'text-emerald-400',
+    dateColor: 'text-white',
+    subColor: 'text-emerald-500',
+  }
+})
 
 const rolLabel = computed(() => {
   const labels = { admin: 'Administrador', coach: 'Coach', cliente: 'Cliente' }
@@ -139,6 +249,7 @@ const logout = () => {
   localStorage.removeItem('token')
   localStorage.removeItem('userRol')
   localStorage.removeItem('userName')
+  localStorage.removeItem('fechaVencimiento')
   router.push('/login')
 }
 </script>

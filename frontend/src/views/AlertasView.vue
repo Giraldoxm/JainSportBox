@@ -16,17 +16,6 @@
       </button>
     </div>
 
-    <!-- Info -->
-    <div class="bg-amber-50 border border-amber-200 rounded-xl p-4 mb-6 flex gap-3 items-start">
-      <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 text-amber-500 flex-shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
-      </svg>
-      <div class="text-sm text-amber-800">
-        <p class="font-semibold mb-0.5">¿Cómo funciona?</p>
-        <p>Cada vez que presiones <strong>Actualizar</strong> el sistema revisa y genera alertas para cualquier usuario cuya membresía venza en los próximos <strong>7 días</strong>. Se crea <strong>una sola alerta por ciclo de membresía</strong> (sin duplicados). Si el usuario tiene WhatsApp registrado puedes enviarle el recordatorio directamente; si no, aparece indicado para que puedas agregar su número.</p>
-      </div>
-    </div>
-
     <!-- Toast -->
     <Transition enter-from-class="opacity-0 translate-y-4" enter-active-class="transition-all duration-300" leave-to-class="opacity-0 translate-y-4" leave-active-class="transition-all duration-300">
       <div v-if="toast" class="fixed bottom-6 right-6 bg-gray-900 text-white px-5 py-3 rounded-xl shadow-2xl flex items-center gap-3 z-50">

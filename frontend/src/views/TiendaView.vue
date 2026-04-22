@@ -130,7 +130,7 @@
     <!-- ════════════════════════════════════════
          TAB: POS (admin/coach) + CATÁLOGO (cliente)
     ════════════════════════════════════════ -->
-    <div v-if="!canManage || tabActivo === 'pos'" class="flex gap-6">
+    <div v-if="!canManage || tabActivo === 'pos'" class="flex flex-col lg:flex-row gap-6">
 
       <!-- Productos -->
       <div class="flex-1 min-w-0">
@@ -211,8 +211,8 @@
       </div>
 
       <!-- ── Carrito (solo admin/coach) ── -->
-      <div v-if="canManage" class="w-80 flex-shrink-0">
-        <div class="bg-white rounded-2xl border border-gray-100 shadow-sm sticky top-6">
+      <div v-if="canManage" class="w-full lg:w-80 lg:flex-shrink-0">
+        <div class="bg-white rounded-2xl border border-gray-100 shadow-sm lg:sticky lg:top-6">
           <div class="p-5 border-b border-gray-100">
             <h3 class="font-bold text-gray-800 flex items-center gap-2">
               <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 text-red-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">

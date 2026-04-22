@@ -83,6 +83,7 @@ const handleLogin = async () => {
     const me = await api.get('/me')
     localStorage.setItem('userRol', me.data.rol)
     localStorage.setItem('userName', me.data.nombre)
+    localStorage.setItem('fechaVencimiento', me.data.fecha_vencimiento || '')
 
     router.push('/')
   } catch (error) {

@@ -34,4 +34,6 @@ def me(current_user: Usuario = Depends(get_current_user)):
         "nombre": current_user.nombre,
         "email": current_user.email,
         "rol": current_user.rol.value,
+        "fecha_vencimiento": current_user.fecha_vencimiento,
+        "esta_en_gym": current_user.esta_en_gym,
     }
