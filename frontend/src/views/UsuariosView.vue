@@ -14,6 +14,22 @@
       </button>
     </div>
 
+    <!-- Buscador -->
+    <div class="relative mb-4">
+      <svg xmlns="http://www.w3.org/2000/svg" class="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-4.35-4.35M17 11A6 6 0 1 1 5 11a6 6 0 0 1 12 0z"/>
+      </svg>
+      <input
+        v-model="busqueda"
+        type="text"
+        placeholder="Buscar por nombre o documento de identidad..."
+        class="w-full pl-9 pr-4 py-2.5 rounded-xl border border-gray-200 focus:ring-2 focus:ring-red-500 focus:border-red-500 outline-none text-sm transition-all"
+      >
+      <button v-if="busqueda" @click="busqueda = ''" class="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600">
+        <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+      </button>
+    </div>
+
     <!-- Filtros -->
     <div class="flex flex-wrap gap-2 mb-5">
       <button v-for="tab in tabs" :key="tab.key" @click="filtroActivo = tab.key"
@@ -171,6 +187,10 @@
             <div class="bg-gray-50 rounded-xl p-4">
               <p class="text-xs text-gray-400 font-semibold uppercase tracking-wide mb-1">Email</p>
               <p class="text-sm font-semibold text-gray-800 break-all">{{ usuarioSeleccionado.email }}</p>
+            </div>
+            <div class="bg-gray-50 rounded-xl p-4">
+              <p class="text-xs text-gray-400 font-semibold uppercase tracking-wide mb-1">Documento</p>
+              <p class="text-sm font-semibold text-gray-800">{{ usuarioSeleccionado.documento_identidad }}</p>
             </div>
             <div class="bg-gray-50 rounded-xl p-4">
               <p class="text-xs text-gray-400 font-semibold uppercase tracking-wide mb-1">ID Huella</p>
@@ -398,6 +418,10 @@
             <input v-model="nuevoUsuario.nombre" type="text" class="w-full px-4 py-3 rounded-lg border border-gray-300 focus:ring-2 focus:ring-red-500 outline-none transition-all" placeholder="Ej. Juan Pérez" required>
           </div>
           <div class="mb-5">
+            <label class="block text-gray-700 text-sm font-semibold mb-2">Documento de Identidad <span class="text-red-500">*</span></label>
+            <input v-model="nuevoUsuario.documento_identidad" type="text" required minlength="5" maxlength="20" class="w-full px-4 py-3 rounded-lg border border-gray-300 focus:ring-2 focus:ring-red-500 outline-none transition-all" placeholder="Ej. 1020456789">
+          </div>
+          <div class="mb-5">
             <label class="block text-gray-700 text-sm font-semibold mb-2">Email</label>
             <input v-model="nuevoUsuario.email" type="email" class="w-full px-4 py-3 rounded-lg border border-gray-300 focus:ring-2 focus:ring-red-500 outline-none transition-all" placeholder="Ej. juan@correo.com" required>
           </div>
@@ -501,6 +525,7 @@ const planes = ref([])
 const loading = ref(true)
 const usuarioSeleccionado = ref(null)
 const filtroActivo = ref('todos')
+const busqueda = ref('')
 
 // ── Filtros ──────────────────────────────────────────────────
 const hoy = () => { const d = new Date(); d.setHours(0,0,0,0); return d }
@@ -511,9 +536,15 @@ const tieneMembresia = (u) => {
 }
 
 const usuariosFiltrados = computed(() => {
-  if (filtroActivo.value === 'activos')    return usuarios.value.filter(u => u.esta_en_gym)
-  if (filtroActivo.value === 'membresia') return usuarios.value.filter(tieneMembresia)
-  return usuarios.value
+  let lista = usuarios.value
+  if (filtroActivo.value === 'activos')   lista = lista.filter(u => u.esta_en_gym)
+  if (filtroActivo.value === 'membresia') lista = lista.filter(tieneMembresia)
+  const q = busqueda.value.trim().toLowerCase()
+  if (q) lista = lista.filter(u =>
+    u.nombre.toLowerCase().includes(q) ||
+    u.documento_identidad?.toLowerCase().includes(q)
+  )
+  return lista
 })
 
 const tabs = computed(() => [
@@ -525,7 +556,7 @@ const tabs = computed(() => [
 // ── Crear ────────────────────────────────────────────────────
 const showForm = ref(false)
 const saving = ref(false)
-const nuevoUsuario = ref({ nombre: '', email: '', password: '', rol: 'cliente', telefono: '' })
+const nuevoUsuario = ref({ nombre: '', documento_identidad: '', email: '', password: '', rol: 'cliente', telefono: '' })
 const planSeleccionado = ref('ninguno')
 const montoPlanDefault = ref('')
 const planPersonalizado = ref({ dias: '', monto: '' })
@@ -671,7 +702,7 @@ const confirmarRenovacion = async () => {
 // ── Crear ────────────────────────────────────────────────────
 const cerrarFormulario = () => {
   showForm.value = false
-  nuevoUsuario.value = { nombre: '', email: '', password: '', rol: 'cliente', telefono: '' }
+  nuevoUsuario.value = { nombre: '', documento_identidad: '', email: '', password: '', rol: 'cliente', telefono: '' }
   planSeleccionado.value = 'ninguno'
   montoPlanDefault.value = ''
   planPersonalizado.value = { dias: '', monto: '' }

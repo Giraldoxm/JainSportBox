@@ -74,6 +74,14 @@
             </svg>
             Tienda POS
           </router-link>
+          <router-link to="/planes" @click="sidebarOpen = false"
+            class="flex items-center gap-3 py-3 px-4 rounded-lg hover:bg-gray-800 transition-colors"
+            active-class="bg-red-600 hover:bg-red-700 font-semibold shadow-md">
+            <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+            </svg>
+            Planes
+          </router-link>
           <router-link to="/alertas" @click="sidebarOpen = false"
             class="flex items-center gap-3 py-3 px-4 rounded-lg hover:bg-gray-800 transition-colors"
             active-class="bg-red-600 hover:bg-red-700 font-semibold shadow-md">
@@ -109,13 +117,13 @@
           </svg>
           WODs
         </router-link>
-        <router-link v-if="isCliente" to="/tienda" @click="sidebarOpen = false"
+        <router-link v-if="isCliente" to="/planes" @click="sidebarOpen = false"
           class="flex items-center gap-3 py-3 px-4 rounded-lg hover:bg-gray-800 transition-colors"
           active-class="bg-red-600 hover:bg-red-700 font-semibold shadow-md">
           <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 11V7a4 4 0 00-8 0v4M5 9h14l1 12H4L5 9z" />
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
           </svg>
-          Tienda
+          Planes
         </router-link>
         <router-link v-if="isCliente" to="/salud" @click="sidebarOpen = false"
           class="flex items-center gap-3 py-3 px-4 rounded-lg hover:bg-gray-800 transition-colors"
