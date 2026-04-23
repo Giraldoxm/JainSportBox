@@ -1,6 +1,7 @@
 import { createRouter, createWebHistory } from 'vue-router'
 import Dashboard from '../components/Dashboard.vue'
 import UsuariosView from '../views/UsuariosView.vue'
+import PlanesView from '../views/PlanesView.vue'
 import TiendaView from '../views/TiendaView.vue'
 import LoginView from '../views/LoginView.vue'
 import WodsView from '../views/WodsView.vue'
@@ -33,10 +34,16 @@ const routes = [
         meta: { roles: ['admin', 'coach'] }
       },
       {
+        path: 'planes',
+        name: 'Planes',
+        component: PlanesView,
+        meta: { roles: ['admin', 'coach', 'cliente'] }
+      },
+      {
         path: 'tienda',
         name: 'Tienda',
         component: TiendaView,
-        meta: { roles: ['admin', 'coach', 'cliente'] }
+        meta: { roles: ['admin', 'coach'] }
       },
       {
         path: 'wods',

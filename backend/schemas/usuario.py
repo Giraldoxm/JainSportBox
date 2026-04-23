@@ -10,6 +10,7 @@ class UsuarioCreate(BaseModel):
     nombre: str = Field(..., min_length=2, max_length=120)
     email: str = Field(..., max_length=120)
     password: str = Field(..., min_length=6)
+    documento_identidad: str = Field(..., min_length=5, max_length=20)
     rol: RolUsuario = RolUsuario.CLIENTE
     huella_id: Optional[str] = None
     telefono: str = Field(..., min_length=7, max_length=20)
@@ -19,12 +20,14 @@ class UsuarioUpdate(BaseModel):
     email: Optional[str] = Field(None, max_length=120)
     password: Optional[str] = Field(None, min_length=6)
     telefono: Optional[str] = Field(None, max_length=20)
+    documento_identidad: Optional[str] = Field(None, min_length=5, max_length=20)
 
 
 class UsuarioResponse(BaseModel):
     id: int
     nombre: str
     email: str
+    documento_identidad: str
     rol: RolUsuario
     huella_id: Optional[str]
     telefono: Optional[str]

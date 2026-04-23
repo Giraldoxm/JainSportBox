@@ -57,6 +57,7 @@ class Usuario(Base):
     email: Mapped[str] = mapped_column(String(120), unique=True, nullable=False)
     password_hash: Mapped[str] = mapped_column(String(256), nullable=False)
     rol: Mapped[RolUsuario] = mapped_column(SAEnum(RolUsuario), default=RolUsuario.CLIENTE, nullable=False)
+    documento_identidad: Mapped[str] = mapped_column(String(20), unique=True, nullable=False)
     huella_id: Mapped[Optional[str]] = mapped_column(String(100), unique=True, nullable=True)
     telefono: Mapped[Optional[str]] = mapped_column(String(20), nullable=True)
     fecha_vencimiento: Mapped[Optional[date]] = mapped_column(Date, nullable=True)
@@ -80,10 +81,11 @@ class Plan(Base):
     __tablename__ = "planes"
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
-    nombre: Mapped[str] = mapped_column(String(80), nullable=False)          # Ej: "Mensual", "Trimestral"
+    nombre: Mapped[str] = mapped_column(String(80), nullable=False)
     precio: Mapped[float] = mapped_column(Float, nullable=False)
-    duracion_dias: Mapped[int] = mapped_column(Integer, nullable=False)       # 30, 90, etc.
+    duracion_dias: Mapped[int] = mapped_column(Integer, nullable=False)
     descripcion: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    beneficios: Mapped[Optional[str]] = mapped_column(Text, nullable=True)  # JSON array de strings
     activo: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
 
     # ── Relaciones ──

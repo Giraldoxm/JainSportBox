@@ -33,10 +33,13 @@ def crear_usuario(
 ):
     if db.query(Usuario).filter(Usuario.email == payload.email).first():
         raise HTTPException(status_code=400, detail="Ya existe un usuario con ese email.")
+    if db.query(Usuario).filter(Usuario.documento_identidad == payload.documento_identidad).first():
+        raise HTTPException(status_code=400, detail="Ya existe un usuario con ese documento de identidad.")
     nuevo = Usuario(
         nombre=payload.nombre,
         email=payload.email,
         password_hash=get_password_hash(payload.password),
+        documento_identidad=payload.documento_identidad,
         rol=payload.rol,
         huella_id=payload.huella_id,
         telefono=payload.telefono,
@@ -73,6 +76,16 @@ def actualizar_usuario(
 
     if payload.telefono is not None:
         usuario.telefono = payload.telefono
+
+    if payload.documento_identidad is not None:
+        duplicado_doc = (
+            db.query(Usuario)
+            .filter(Usuario.documento_identidad == payload.documento_identidad, Usuario.id != usuario_id)
+            .first()
+        )
+        if duplicado_doc:
+            raise HTTPException(status_code=400, detail="Ya existe un usuario con ese documento de identidad.")
+        usuario.documento_identidad = payload.documento_identidad
 
     db.commit()
     db.refresh(usuario)

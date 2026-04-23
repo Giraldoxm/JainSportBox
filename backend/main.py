@@ -9,6 +9,8 @@ _migraciones = [
     "ALTER TABLE productos ADD COLUMN foto_url VARCHAR(300)",
     "ALTER TABLE usuarios ADD COLUMN telefono VARCHAR(20)",
     "ALTER TABLE ventas ADD COLUMN metodo_pago VARCHAR(50)",
+    "ALTER TABLE usuarios ADD COLUMN documento_identidad VARCHAR(20)",
+    "ALTER TABLE planes ADD COLUMN beneficios TEXT",
 ]
 with engine.connect() as _conn:
     for _sql in _migraciones:
@@ -50,9 +52,10 @@ from apscheduler.schedulers.background import BackgroundScheduler
 from apscheduler.triggers.cron import CronTrigger
 
 from routers import alertas, asistencia, auth, finanzas, pagos, planes, productos, salud, usuarios, ventas, wods
-from seed import seed_planes
+from seed import seed_planes, seed_admin
 
 seed_planes()
+seed_admin()
 
 app = FastAPI(
     title="CrossFit Box System",
@@ -62,7 +65,8 @@ app = FastAPI(
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:5173", "http://127.0.0.1:5173"],
+    allow_origins=["http://localhost:5173", "http://127.0.0.1:5173",
+                   "http://localhost:5174", "http://127.0.0.1:5174"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
