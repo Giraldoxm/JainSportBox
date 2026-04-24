@@ -15,6 +15,8 @@ _migraciones = [
     "ALTER TABLE usuarios ADD COLUMN genero VARCHAR(20)",
     "ALTER TABLE usuarios ADD COLUMN plan_solicitado_id INTEGER",
     "ALTER TABLE usuarios ADD COLUMN huella_template TEXT",
+    "ALTER TABLE medidas_salud ADD COLUMN cuello_cm REAL",
+    "ALTER TABLE medidas_salud ADD COLUMN cadera_cm REAL",
 ]
 with engine.connect() as _conn:
     for _sql in _migraciones:
@@ -47,6 +49,34 @@ with engine.connect() as _conn:
         _conn.execute(text("ALTER TABLE wods_new RENAME TO wods"))
         _conn.commit()
 
+# Migración: hacer peso_kg, altura_cm, imc nullable en medidas_salud
+with engine.connect() as _conn:
+    _info = {row[1]: row[3] for row in _conn.execute(text("PRAGMA table_info(medidas_salud)")).fetchall()}
+    if _info.get("peso_kg", 0) == 1:  # notnull=1 → NOT NULL constraint activo
+        _conn.execute(text("""
+            CREATE TABLE medidas_salud_new (
+                id INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT,
+                usuario_id INTEGER NOT NULL REFERENCES usuarios(id),
+                fecha DATE NOT NULL,
+                peso_kg REAL,
+                altura_cm REAL,
+                imc REAL,
+                cintura_cm REAL,
+                cuello_cm REAL,
+                cadera_cm REAL,
+                notas TEXT,
+                created_at DATETIME NOT NULL
+            )
+        """))
+        _conn.execute(text(
+            "INSERT INTO medidas_salud_new "
+            "SELECT id, usuario_id, fecha, peso_kg, altura_cm, imc, cintura_cm, cuello_cm, cadera_cm, notas, created_at "
+            "FROM medidas_salud"
+        ))
+        _conn.execute(text("DROP TABLE medidas_salud"))
+        _conn.execute(text("ALTER TABLE medidas_salud_new RENAME TO medidas_salud"))
+        _conn.commit()
+
 from pathlib import Path
 
 from fastapi import FastAPI
@@ -55,7 +85,7 @@ from fastapi.staticfiles import StaticFiles
 from apscheduler.schedulers.background import BackgroundScheduler
 from apscheduler.triggers.cron import CronTrigger
 
-from routers import alertas, asistencia, auth, finanzas, pagos, planes, productos, salud, usuarios, ventas, wods
+from routers import alertas, asistencia, auth, finanzas, marcas, pagos, planes, productos, salud, usuarios, ventas, wods
 from seed import seed_planes, seed_admin
 
 seed_planes()
@@ -121,4 +151,5 @@ app.include_router(pagos.router)
 app.include_router(asistencia.router)
 app.include_router(finanzas.router)
 app.include_router(salud.router)
+app.include_router(marcas.router)
 app.include_router(alertas.router)
