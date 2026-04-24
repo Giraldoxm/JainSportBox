@@ -7,6 +7,9 @@ import LoginView from '../views/LoginView.vue'
 import WodsView from '../views/WodsView.vue'
 import FinanzasView from '../views/FinanzasView.vue'
 import SaludView from '../views/SaludView.vue'
+import SaludMedidaView from '../views/SaludMedidaView.vue'
+import MarcasView from '../views/MarcasView.vue'
+import MarcasEjercicioView from '../views/MarcasEjercicioView.vue'
 import AlertasView from '../views/AlertasView.vue'
 
 const routes = [
@@ -61,6 +64,21 @@ const routes = [
         path: 'salud',
         name: 'Salud',
         component: SaludView,
+      },
+      {
+        path: 'salud/:tipo',
+        name: 'SaludMedida',
+        component: SaludMedidaView,
+      },
+      {
+        path: 'marcas',
+        name: 'Marcas',
+        component: MarcasView,
+      },
+      {
+        path: 'marcas/:ejercicio',
+        name: 'MarcasEjercicio',
+        component: MarcasEjercicioView,
       },
       {
         path: 'alertas',

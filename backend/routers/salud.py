@@ -1,4 +1,3 @@
-from datetime import date
 from typing import List
 
 from fastapi import APIRouter, Depends, HTTPException, status
@@ -6,19 +5,31 @@ from sqlalchemy.orm import Session
 
 from database import get_db
 from models import MedidaSalud, Usuario
-from schemas.salud import MedidaCreate, MedidaResponse
+from schemas.salud import MedidaPorTipoCreate, MedidaResponse
 from security import get_current_user
 
 router = APIRouter(prefix="/salud", tags=["Salud"])
 
+CAMPOS = {
+    "peso":    "peso_kg",
+    "altura":  "altura_cm",
+    "cintura": "cintura_cm",
+    "cuello":  "cuello_cm",
+    "cadera":  "cadera_cm",
+}
 
-def _calcular_imc(peso_kg: float, altura_cm: float) -> float:
-    altura_m = altura_cm / 100
-    return round(peso_kg / (altura_m ** 2), 2)
 
+def _campo_o_404(tipo: str) -> str:
+    campo = CAMPOS.get(tipo)
+    if not campo:
+        raise HTTPException(status_code=404, detail="Tipo de medida no válido.")
+    return campo
+
+
+# ── Resumen (overview) ─────────────────────────────────────────
 
 @router.get("/", response_model=List[MedidaResponse])
-def listar_medidas(
+def listar_todas(
     db: Session = Depends(get_db),
     current_user: Usuario = Depends(get_current_user),
 ):
@@ -30,20 +41,36 @@ def listar_medidas(
     )
 
 
-@router.post("/", response_model=MedidaResponse, status_code=status.HTTP_201_CREATED)
-def crear_medida(
-    payload: MedidaCreate,
+# ── Por tipo ───────────────────────────────────────────────────
+
+@router.get("/{tipo}", response_model=List[MedidaResponse])
+def listar_por_tipo(
+    tipo: str,
     db: Session = Depends(get_db),
     current_user: Usuario = Depends(get_current_user),
 ):
-    imc = _calcular_imc(payload.peso_kg, payload.altura_cm)
+    campo = _campo_o_404(tipo)
+    col = getattr(MedidaSalud, campo)
+    return (
+        db.query(MedidaSalud)
+        .filter(MedidaSalud.usuario_id == current_user.id, col.isnot(None))
+        .order_by(MedidaSalud.fecha.asc())
+        .all()
+    )
+
+
+@router.post("/{tipo}", response_model=MedidaResponse, status_code=status.HTTP_201_CREATED)
+def crear_por_tipo(
+    tipo: str,
+    payload: MedidaPorTipoCreate,
+    db: Session = Depends(get_db),
+    current_user: Usuario = Depends(get_current_user),
+):
+    campo = _campo_o_404(tipo)
     medida = MedidaSalud(
         usuario_id=current_user.id,
         fecha=payload.fecha,
-        peso_kg=payload.peso_kg,
-        altura_cm=payload.altura_cm,
-        imc=imc,
-        cintura_cm=payload.cintura_cm,
+        **{campo: payload.valor},
         notas=payload.notas,
     )
     db.add(medida)

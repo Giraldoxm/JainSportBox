@@ -74,6 +74,7 @@ class Usuario(Base):
     resultados: Mapped[List["ResultadoWOD"]] = relationship("ResultadoWOD", back_populates="usuario", cascade="all, delete-orphan")
     ventas: Mapped[List["Venta"]] = relationship("Venta", back_populates="usuario", cascade="all, delete-orphan")
     asistencias: Mapped[List["Asistencia"]] = relationship("Asistencia", back_populates="usuario", cascade="all, delete-orphan")
+    marcas_rm: Mapped[List["MarcaRM"]] = relationship("MarcaRM", back_populates="usuario", cascade="all, delete-orphan")
 
     def __repr__(self) -> str:
         return f"<Usuario {self.id} – {self.nombre} ({self.rol.value})>"
@@ -266,10 +267,12 @@ class MedidaSalud(Base):
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
     usuario_id: Mapped[int] = mapped_column(Integer, ForeignKey("usuarios.id"), nullable=False)
     fecha: Mapped[date] = mapped_column(Date, nullable=False)
-    peso_kg: Mapped[float] = mapped_column(Float, nullable=False)
-    altura_cm: Mapped[float] = mapped_column(Float, nullable=False)
-    imc: Mapped[float] = mapped_column(Float, nullable=False)
+    peso_kg: Mapped[Optional[float]] = mapped_column(Float, nullable=True)
+    altura_cm: Mapped[Optional[float]] = mapped_column(Float, nullable=True)
+    imc: Mapped[Optional[float]] = mapped_column(Float, nullable=True)
     cintura_cm: Mapped[Optional[float]] = mapped_column(Float, nullable=True)
+    cuello_cm: Mapped[Optional[float]] = mapped_column(Float, nullable=True)
+    cadera_cm: Mapped[Optional[float]] = mapped_column(Float, nullable=True)
     notas: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
 
@@ -277,6 +280,29 @@ class MedidaSalud(Base):
 
     def __repr__(self) -> str:
         return f"<MedidaSalud {self.id} – Usuario {self.usuario_id} IMC:{self.imc}>"
+
+
+# ──────────────────────── Marcas RM ──────────────────────────
+
+class MarcaRM(Base):
+    """Registro de marca (récord personal) calculado con fórmulas de 1RM."""
+    __tablename__ = "marcas_rm"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    usuario_id: Mapped[int] = mapped_column(Integer, ForeignKey("usuarios.id"), nullable=False)
+    ejercicio: Mapped[str] = mapped_column(String(100), nullable=False)
+    peso: Mapped[float] = mapped_column(Float, nullable=False)
+    unidad: Mapped[str] = mapped_column(String(5), nullable=False, default="kg")  # kg | lbs
+    repeticiones: Mapped[int] = mapped_column(Integer, nullable=False)
+    rm_calculado: Mapped[float] = mapped_column(Float, nullable=False)
+    fecha: Mapped[date] = mapped_column(Date, nullable=False)
+    notas: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+
+    usuario: Mapped["Usuario"] = relationship("Usuario", back_populates="marcas_rm")
+
+    def __repr__(self) -> str:
+        return f"<MarcaRM {self.id} – {self.ejercicio} 1RM:{self.rm_calculado}{self.unidad}>"
 
 
 # ──────────────────── Alertas de Membresía ────────────────────
