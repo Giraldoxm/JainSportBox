@@ -7,7 +7,8 @@ export function useAuth() {
   const isAdmin = computed(() => rol.value === 'admin')
   const isCoach = computed(() => rol.value === 'coach')
   const isCliente = computed(() => rol.value === 'cliente')
+  const isPendiente = computed(() => rol.value === 'pendiente')
   const canManage = computed(() => rol.value === 'admin' || rol.value === 'coach')
 
-  return { rol, nombre, isAdmin, isCoach, isCliente, canManage }
+  return { rol, nombre, isAdmin, isCoach, isCliente, isPendiente, canManage }
 }

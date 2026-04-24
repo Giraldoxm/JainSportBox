@@ -46,17 +46,17 @@
     </div>
 
     <!-- Loading -->
-    <div v-if="loading" class="flex justify-center py-16">
+    <div v-if="loading && filtroActivo !== 'pendientes'" class="flex justify-center py-16">
       <div class="animate-spin rounded-full h-8 w-8 border-b-2 border-red-600"></div>
     </div>
 
     <!-- Empty -->
-    <div v-else-if="usuariosFiltrados.length === 0" class="bg-white rounded-xl border border-gray-100 px-6 py-12 text-center text-gray-400">
+    <div v-else-if="filtroActivo !== 'pendientes' && usuariosFiltrados.length === 0" class="bg-white rounded-xl border border-gray-100 px-6 py-12 text-center text-gray-400">
       <svg xmlns="http://www.w3.org/2000/svg" class="h-12 w-12 mx-auto text-gray-300 mb-3" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z"/></svg>
       {{ tabs.find(t => t.key === filtroActivo)?.emptyMsg || 'No hay usuarios.' }}
     </div>
 
-    <template v-else>
+    <template v-else-if="filtroActivo !== 'pendientes'">
       <!-- ── Cards (móvil) ── -->
       <div class="sm:hidden space-y-3">
         <div v-for="user in usuariosFiltrados" :key="user.id"
@@ -168,6 +168,134 @@
         </div>
       </div>
     </template>
+
+    <!-- ── Tab: Pendientes ── -->
+    <template v-if="filtroActivo === 'pendientes'">
+      <div v-if="loadingPendientes" class="flex justify-center py-16">
+        <div class="animate-spin rounded-full h-8 w-8 border-b-2 border-amber-500"></div>
+      </div>
+      <div v-else-if="pendientes.length === 0" class="bg-white rounded-xl border border-gray-100 px-6 py-12 text-center text-gray-400">
+        <svg xmlns="http://www.w3.org/2000/svg" class="h-12 w-12 mx-auto text-gray-300 mb-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/>
+        </svg>
+        No hay usuarios pendientes de aprobación.
+      </div>
+      <div v-else class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+        <div v-for="p in pendientes" :key="p.id" class="bg-white rounded-xl border border-amber-100 shadow-sm p-5 flex flex-col gap-3">
+          <div class="flex items-center gap-3">
+            <div class="w-10 h-10 rounded-full bg-amber-100 flex items-center justify-center flex-shrink-0">
+              <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 text-amber-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"/>
+              </svg>
+            </div>
+            <div class="min-w-0">
+              <p class="font-bold text-gray-900 truncate">{{ p.nombre }}</p>
+              <p class="text-xs text-gray-500 truncate">{{ p.email }}</p>
+            </div>
+          </div>
+          <div class="grid grid-cols-2 gap-2 text-xs">
+            <div class="bg-gray-50 rounded-lg px-3 py-2">
+              <p class="text-gray-400 font-semibold uppercase tracking-wide mb-0.5">Documento</p>
+              <p class="font-semibold text-gray-700">{{ p.documento_identidad }}</p>
+            </div>
+            <div class="bg-gray-50 rounded-lg px-3 py-2">
+              <p class="text-gray-400 font-semibold uppercase tracking-wide mb-0.5">Género</p>
+              <p class="font-semibold text-gray-700 capitalize">{{ p.genero || '—' }}</p>
+            </div>
+          </div>
+          <div class="bg-amber-50 rounded-lg px-3 py-2 text-xs">
+            <p class="text-amber-600 font-semibold uppercase tracking-wide mb-0.5">Plan solicitado</p>
+            <p v-if="p.plan_solicitado" class="font-bold text-amber-800">
+              {{ p.plan_solicitado.nombre }}
+              <span class="font-normal text-amber-700"> · ${{ p.plan_solicitado.precio.toLocaleString('es-CO') }} · {{ p.plan_solicitado.duracion_dias }} días</span>
+            </p>
+            <p v-else class="text-amber-700 italic">Sin plan seleccionado</p>
+          </div>
+          <p class="text-xs text-gray-400">Registrado {{ formatFechaCorta(p.created_at) }}</p>
+          <button @click="abrirActivar(p)"
+            class="w-full py-2.5 rounded-xl bg-amber-500 hover:bg-amber-600 text-white font-bold text-sm transition-colors flex items-center justify-center gap-2">
+            <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/>
+            </svg>
+            Asignar Plan y Activar
+          </button>
+        </div>
+      </div>
+    </template>
+
+    <!-- ── Modal: Activar usuario pendiente ── -->
+    <div v-if="showActivar" class="fixed inset-0 flex items-end sm:items-center justify-center bg-gray-900/60 backdrop-blur-sm z-50 p-4">
+      <div class="bg-white rounded-2xl w-full max-w-lg shadow-2xl max-h-[90vh] flex flex-col overflow-hidden">
+        <div class="bg-gradient-to-r from-amber-500 to-amber-600 px-6 py-5 flex items-center gap-3 flex-shrink-0">
+          <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/>
+          </svg>
+          <div>
+            <h3 class="text-lg font-bold text-white">Activar Usuario</h3>
+            <p class="text-amber-100 text-sm">{{ activarUsuario?.nombre }}</p>
+          </div>
+          <button @click="showActivar = false" class="ml-auto text-white/70 hover:text-white">
+            <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+            </svg>
+          </button>
+        </div>
+
+        <div class="px-6 py-5 overflow-y-auto flex-1 space-y-5">
+          <!-- Selección de plan -->
+          <div>
+            <p class="text-sm font-semibold text-gray-700 mb-3">Selecciona el plan a asignar</p>
+            <div class="grid grid-cols-2 gap-3">
+              <label v-for="plan in planes" :key="plan.id"
+                class="flex flex-col items-center p-4 rounded-xl border-2 cursor-pointer transition-all"
+                :class="activarPlan === plan.id ? 'border-amber-500 bg-amber-50' : 'border-gray-200 hover:border-gray-300'">
+                <input type="radio" v-model="activarPlan" :value="plan.id" class="sr-only">
+                <span class="text-2xl font-black mb-0.5" :class="activarPlan === plan.id ? 'text-amber-600' : 'text-gray-700'">
+                  {{ plan.duracion_dias }}<span class="text-sm font-bold">d</span>
+                </span>
+                <span class="text-sm font-bold text-center" :class="activarPlan === plan.id ? 'text-amber-700' : 'text-gray-600'">{{ plan.nombre }}</span>
+                <span class="text-xs mt-1" :class="activarPlan === plan.id ? 'text-amber-500' : 'text-gray-400'">${{ plan.precio.toLocaleString() }}</span>
+              </label>
+            </div>
+          </div>
+
+          <!-- Monto -->
+          <div>
+            <label class="block text-sm font-semibold text-gray-700 mb-1.5">
+              Monto cobrado ($)
+              <span v-if="activarPlan" class="text-gray-400 font-normal">— sugerido ${{ (planes.find(p => p.id === activarPlan)?.precio || 0).toLocaleString() }}</span>
+            </label>
+            <input v-model.number="activarMonto" type="number" min="0" step="any"
+              class="w-full px-4 py-2.5 rounded-lg border border-gray-300 focus:ring-2 focus:ring-amber-500 outline-none"
+              :placeholder="activarPlan ? '$' + (planes.find(p => p.id === activarPlan)?.precio || 0).toLocaleString() : 'Ej: 100000'">
+          </div>
+
+          <!-- Método de pago -->
+          <div>
+            <label class="block text-sm font-semibold text-gray-700 mb-1.5">Método de pago</label>
+            <div class="grid grid-cols-2 gap-2">
+              <label v-for="m in metodos" :key="m.value"
+                class="flex items-center justify-center gap-1.5 p-2.5 rounded-lg border-2 cursor-pointer transition-all text-sm font-semibold"
+                :class="activarMetodo === m.value ? 'border-amber-500 bg-amber-50 text-amber-700' : 'border-gray-200 text-gray-600 hover:border-gray-300'">
+                <input type="radio" v-model="activarMetodo" :value="m.value" class="sr-only">
+                {{ m.label }}
+              </label>
+            </div>
+          </div>
+
+          <div v-if="errorActivar" class="text-sm text-red-600 bg-red-50 border border-red-100 rounded-lg p-3">{{ errorActivar }}</div>
+
+          <div class="flex gap-3">
+            <button @click="showActivar = false" class="flex-1 py-2.5 rounded-xl border border-gray-200 text-gray-600 font-semibold hover:bg-gray-50 transition-colors">Cancelar</button>
+            <button @click="confirmarActivar" :disabled="guardandoActivar || !activarPlan"
+              class="flex-1 py-2.5 rounded-xl bg-amber-500 hover:bg-amber-600 text-white font-bold transition-colors disabled:bg-amber-200 flex items-center justify-center gap-2">
+              <span v-if="guardandoActivar" class="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></span>
+              {{ guardandoActivar ? 'Activando...' : 'Activar Usuario' }}
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
 
     <!-- ── Modal: Ver detalle ── -->
     <div v-if="usuarioSeleccionado" class="fixed inset-0 flex items-end sm:items-center justify-center bg-gray-900/60 backdrop-blur-sm z-50 p-4">
@@ -521,8 +649,10 @@ import api from '../api'
 
 // ── Estado ──────────────────────────────────────────────────
 const usuarios = ref([])
+const pendientes = ref([])
 const planes = ref([])
 const loading = ref(true)
+const loadingPendientes = ref(false)
 const usuarioSeleccionado = ref(null)
 const filtroActivo = ref('todos')
 const busqueda = ref('')
@@ -548,9 +678,10 @@ const usuariosFiltrados = computed(() => {
 })
 
 const tabs = computed(() => [
-  { key: 'todos',     label: 'Todos',              count: usuarios.value.length,                          emptyMsg: 'No hay usuarios registrados.' },
-  { key: 'membresia', label: 'Con membresía',       count: usuarios.value.filter(tieneMembresia).length,  emptyMsg: 'Ningún usuario tiene membresía activa.' },
-  { key: 'activos',   label: 'En el box ahora',     count: usuarios.value.filter(u => u.esta_en_gym).length, emptyMsg: 'No hay usuarios en el box en este momento.' },
+  { key: 'todos',      label: 'Todos',              count: usuarios.value.length,                             emptyMsg: 'No hay usuarios registrados.' },
+  { key: 'membresia',  label: 'Con membresía',       count: usuarios.value.filter(tieneMembresia).length,     emptyMsg: 'Ningún usuario tiene membresía activa.' },
+  { key: 'activos',    label: 'En el box ahora',     count: usuarios.value.filter(u => u.esta_en_gym).length, emptyMsg: 'No hay usuarios en el box en este momento.' },
+  { key: 'pendientes', label: 'Pendientes',          count: pendientes.value.length,                          emptyMsg: 'No hay usuarios pendientes.' },
 ])
 
 // ── Crear ────────────────────────────────────────────────────
@@ -571,6 +702,44 @@ const editando = ref(null)
 const editForm = ref({ email: '', password: '', telefono: '' })
 const editFotoArchivo = ref(null)
 const editFotoPreview = ref(null)
+
+// ── Activar pendiente ─────────────────────────────────────────
+const showActivar = ref(false)
+const activarUsuario = ref(null)
+const activarPlan = ref(null)
+const activarMonto = ref('')
+const activarMetodo = ref('efectivo')
+const guardandoActivar = ref(false)
+const errorActivar = ref('')
+
+const abrirActivar = (u) => {
+  activarUsuario.value = u
+  activarPlan.value = u.plan_solicitado_id || null
+  activarMonto.value = u.plan_solicitado?.precio || ''
+  activarMetodo.value = 'efectivo'
+  errorActivar.value = ''
+  showActivar.value = true
+}
+
+const confirmarActivar = async () => {
+  if (!activarPlan.value) return
+  guardandoActivar.value = true
+  errorActivar.value = ''
+  try {
+    await api.post(`/usuarios/${activarUsuario.value.id}/activar`, {
+      plan_id: activarPlan.value,
+      monto: activarMonto.value || 0,
+      metodo_pago: activarMetodo.value,
+    })
+    showActivar.value = false
+    await fetchPendientes()
+    await fetchUsuarios()
+  } catch (e) {
+    errorActivar.value = e.response?.data?.detail || 'Error al activar el usuario.'
+  } finally {
+    guardandoActivar.value = false
+  }
+}
 
 // ── Renovar ──────────────────────────────────────────────────
 const showRenovar = ref(false)
@@ -648,6 +817,13 @@ const fetchUsuarios = async () => {
 const fetchPlanes = async () => {
   try { planes.value = (await api.get('/planes/')).data }
   catch (e) { console.error(e) }
+}
+
+const fetchPendientes = async () => {
+  loadingPendientes.value = true
+  try { pendientes.value = (await api.get('/usuarios/pendientes')).data }
+  catch (e) { console.error(e) }
+  finally { loadingPendientes.value = false }
 }
 
 // ── Ver ──────────────────────────────────────────────────────
@@ -817,7 +993,7 @@ const guardarEdicion = async () => {
   }
 }
 
-onMounted(() => { fetchUsuarios(); fetchPlanes() })
+onMounted(() => { fetchUsuarios(); fetchPlanes(); fetchPendientes() })
 </script>
 
 <style>
