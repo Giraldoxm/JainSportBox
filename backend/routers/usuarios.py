@@ -1,13 +1,15 @@
 import shutil
 import uuid
+from datetime import date, datetime, timedelta
 from pathlib import Path
-from typing import List
+from typing import List, Optional
 
 from fastapi import APIRouter, Depends, File, HTTPException, UploadFile, status
+from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
 
 from database import get_db
-from models import RolUsuario, Usuario
+from models import MovimientoFinanciero, Pago, Plan, RolUsuario, TipoMovimiento, Usuario
 from schemas.usuario import UsuarioCreate, UsuarioResponse, UsuarioUpdate
 from security import get_current_user, get_password_hash
 
@@ -146,7 +148,89 @@ def listar_usuarios(
     db: Session = Depends(get_db),
     current_user: Usuario = Depends(_require_admin_or_coach),
 ):
-    return db.query(Usuario).all()
+    return db.query(Usuario).filter(Usuario.rol != RolUsuario.PENDIENTE).all()
+
+
+@router.get("/pendientes")
+def listar_pendientes(
+    db: Session = Depends(get_db),
+    current_user: Usuario = Depends(_require_admin_or_coach),
+):
+    pendientes = db.query(Usuario).filter(Usuario.rol == RolUsuario.PENDIENTE).all()
+    result = []
+    for u in pendientes:
+        plan_solicitado = None
+        if u.plan_solicitado_id:
+            p = db.query(Plan).filter(Plan.id == u.plan_solicitado_id).first()
+            if p:
+                plan_solicitado = {"id": p.id, "nombre": p.nombre, "precio": p.precio, "duracion_dias": p.duracion_dias}
+        result.append({
+            "id": u.id,
+            "nombre": u.nombre,
+            "email": u.email,
+            "documento_identidad": u.documento_identidad,
+            "genero": u.genero,
+            "created_at": u.created_at,
+            "plan_solicitado_id": u.plan_solicitado_id,
+            "plan_solicitado": plan_solicitado,
+        })
+    return result
+
+
+class ActivarUsuarioPayload(BaseModel):
+    plan_id: int
+    monto: float = Field(..., ge=0)
+    metodo_pago: str = Field(..., pattern=r'^(efectivo|transferencia)$')
+
+
+@router.post("/{usuario_id}/activar")
+def activar_usuario(
+    usuario_id: int,
+    payload: ActivarUsuarioPayload,
+    db: Session = Depends(get_db),
+    current_user: Usuario = Depends(_require_admin_or_coach),
+):
+    usuario = db.query(Usuario).filter(Usuario.id == usuario_id, Usuario.rol == RolUsuario.PENDIENTE).first()
+    if not usuario:
+        raise HTTPException(status_code=404, detail="Usuario pendiente no encontrado.")
+
+    plan = db.query(Plan).filter(Plan.id == payload.plan_id, Plan.activo == True).first()
+    if not plan:
+        raise HTTPException(status_code=404, detail="Plan no encontrado.")
+
+    usuario.rol = RolUsuario.CLIENTE
+    usuario.plan_solicitado_id = None
+    nueva_fecha = date.today() + timedelta(days=plan.duracion_dias)
+    usuario.fecha_vencimiento = nueva_fecha
+
+    pago = Pago(
+        usuario_id=usuario.id,
+        plan_id=plan.id,
+        monto=payload.monto,
+        metodo_pago=payload.metodo_pago,
+    )
+    db.add(pago)
+
+    if payload.monto > 0:
+        mov = MovimientoFinanciero(
+            tipo=TipoMovimiento.INGRESO,
+            concepto=f"Activación de cuenta – {usuario.nombre} ({plan.nombre})",
+            categoria="mensualidad",
+            monto=payload.monto,
+            fecha=datetime.utcnow(),
+            metodo_pago=payload.metodo_pago,
+            usuario_id=usuario.id,
+            fuente="pago_membresia",
+            created_by=current_user.id,
+        )
+        db.add(mov)
+
+    db.commit()
+    return {
+        "message": f"Usuario {usuario.nombre} activado correctamente.",
+        "usuario_id": usuario.id,
+        "nueva_fecha_vencimiento": nueva_fecha,
+    }
 
 
 @router.get("/huella/{huella_id}", response_model=UsuarioResponse)

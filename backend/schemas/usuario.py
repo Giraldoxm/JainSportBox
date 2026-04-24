@@ -34,6 +34,8 @@ class UsuarioResponse(BaseModel):
     fecha_vencimiento: Optional[date]
     esta_en_gym: bool
     foto_url: Optional[str]
+    genero: Optional[str]
+    plan_solicitado_id: Optional[int]
     created_at: datetime
 
     model_config = {"from_attributes": True}

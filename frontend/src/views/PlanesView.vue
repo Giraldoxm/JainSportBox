@@ -60,31 +60,34 @@
             </svg>
           </div>
 
-          <!-- Name -->
           <h3 class="text-xl font-extrabold text-white leading-tight">{{ plan.nombre }}</h3>
 
-          <!-- Duration badge -->
-          <span class="inline-flex items-center gap-1 mt-2 px-3 py-0.5 rounded-full text-xs font-bold bg-white/10 text-gray-300 border border-white/10">
-            <svg xmlns="http://www.w3.org/2000/svg" class="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-            </svg>
-            {{ plan.duracion_dias }} días de acceso
-          </span>
+          <div class="flex flex-wrap gap-2 mt-2">
+            <span class="inline-flex items-center gap-1 px-3 py-0.5 rounded-full text-xs font-bold bg-white/10 text-gray-300 border border-white/10">
+              <svg xmlns="http://www.w3.org/2000/svg" class="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+              </svg>
+              {{ plan.duracion_dias }} días de acceso
+            </span>
+            <span v-if="plan.incluye_wods_personalizados"
+              class="inline-flex items-center gap-1 px-3 py-0.5 rounded-full text-xs font-bold bg-red-600/80 text-white border border-red-500/50">
+              <svg xmlns="http://www.w3.org/2000/svg" class="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
+              </svg>
+              WODs Personalizados
+            </span>
+          </div>
         </div>
 
         <!-- Card body -->
         <div class="px-6 py-5 flex flex-col flex-1 gap-4">
-
-          <!-- Price -->
           <div class="flex items-end gap-1">
             <span class="text-3xl font-black text-gray-900">${{ formatPrecio(plan.precio) }}</span>
             <span class="text-sm text-gray-400 mb-1">COP / período</span>
           </div>
 
-          <!-- Divider -->
           <div class="border-t border-gray-100"></div>
 
-          <!-- Benefits -->
           <ul v-if="plan.beneficios.length" class="space-y-2 flex-1">
             <li v-for="b in plan.beneficios" :key="b" class="flex items-start gap-2.5">
               <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 text-red-500 flex-shrink-0 mt-0.5" viewBox="0 0 20 20" fill="currentColor">
@@ -95,32 +98,58 @@
           </ul>
           <p v-else class="text-sm text-gray-400 italic flex-1">Sin beneficios definidos.</p>
 
-          <!-- Button -->
-          <button @click="abrirAdquirir(plan)"
-            class="w-full bg-red-600 hover:bg-red-700 text-white font-bold py-3 rounded-xl transition-all shadow-sm hover:shadow-md active:scale-95 mt-2">
-            Adquirir Plan
-          </button>
+          <!-- Botón: igual para coach, cliente y pendiente -->
+          <template v-if="!isAdmin">
+            <button v-if="isPendiente && planSolicitadoId === plan.id"
+              @click="abrirAdquirir(plan)"
+              class="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-3 rounded-xl mt-2 flex items-center justify-center gap-2 transition-colors">
+              <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/>
+              </svg>
+              Solicitud registrada · Ver pasos
+            </button>
+            <button v-else @click="abrirAdquirir(plan)"
+              class="w-full bg-red-600 hover:bg-red-700 text-white font-bold py-3 rounded-xl transition-all shadow-sm hover:shadow-md active:scale-95 mt-2">
+              Adquirir Plan
+            </button>
+          </template>
         </div>
       </div>
     </div>
 
-    <!-- ── Modal: Adquirir Plan ── -->
+    <!-- ════════════════════════════════════════
+         MODAL: Adquirir Plan (coach, cliente, pendiente)
+    ════════════════════════════════════════ -->
     <div v-if="planAdquiriendo" class="fixed inset-0 flex items-end sm:items-center justify-center bg-gray-900/60 backdrop-blur-sm z-50 p-4">
-      <div class="bg-white rounded-2xl w-full max-w-md shadow-2xl overflow-hidden">
-        <div class="bg-gradient-to-br from-gray-900 to-gray-800 px-6 py-6">
-          <div class="w-10 h-10 bg-red-600 rounded-xl flex items-center justify-center mb-3 shadow">
-            <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z" />
-            </svg>
-          </div>
-          <h3 class="text-xl font-extrabold text-white">{{ planAdquiriendo.nombre }}</h3>
-          <div class="flex items-center gap-3 mt-2">
-            <span class="text-2xl font-black text-white">${{ formatPrecio(planAdquiriendo.precio) }}</span>
-            <span class="text-sm text-gray-400">· {{ planAdquiriendo.duracion_dias }} días</span>
+      <div class="bg-white rounded-2xl w-full max-w-md shadow-2xl overflow-hidden max-h-[92vh] flex flex-col">
+
+        <!-- Header del plan -->
+        <div class="bg-gradient-to-br from-gray-900 to-gray-800 px-6 py-6 flex-shrink-0">
+          <div class="flex items-start justify-between gap-3">
+            <div>
+              <div class="w-10 h-10 bg-red-600 rounded-xl flex items-center justify-center mb-3 shadow">
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z" />
+                </svg>
+              </div>
+              <h3 class="text-xl font-extrabold text-white">{{ planAdquiriendo.nombre }}</h3>
+              <div class="flex items-center gap-3 mt-1">
+                <span class="text-2xl font-black text-white">${{ formatPrecio(planAdquiriendo.precio) }}</span>
+                <span class="text-sm text-gray-400">· {{ planAdquiriendo.duracion_dias }} días</span>
+              </div>
+            </div>
+            <button @click="planAdquiriendo = null" class="text-gray-400 hover:text-white mt-1 flex-shrink-0">
+              <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+              </svg>
+            </button>
           </div>
         </div>
-        <div class="px-6 py-5">
-          <ul v-if="planAdquiriendo.beneficios.length" class="space-y-2 mb-5">
+
+        <div class="overflow-y-auto flex-1 px-6 py-5 space-y-5">
+
+          <!-- Beneficios del plan -->
+          <ul v-if="planAdquiriendo.beneficios.length" class="space-y-2">
             <li v-for="b in planAdquiriendo.beneficios" :key="b" class="flex items-start gap-2">
               <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 text-red-500 flex-shrink-0 mt-0.5" viewBox="0 0 20 20" fill="currentColor">
                 <path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd" />
@@ -128,16 +157,57 @@
               <span class="text-sm text-gray-600">{{ b }}</span>
             </li>
           </ul>
-          <div class="bg-red-50 border border-red-100 rounded-xl p-4 mb-5">
-            <p class="text-sm text-red-700 font-semibold">¿Cómo adquirir este plan?</p>
-            <p class="text-sm text-red-600 mt-1">
-              {{ isAdmin || isCoach
-                ? 'Dirígete a la sección Usuarios y asigna este plan desde la opción Renovar membresía.'
-                : 'Acércate al box o contacta a tu entrenador para activar este plan.' }}
+
+          <div class="border-t border-gray-100"></div>
+
+          <!-- ── Métodos de pago ── -->
+          <div>
+            <p class="text-sm font-bold text-gray-800 mb-3 flex items-center gap-2">
+              <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 text-red-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z"/>
+              </svg>
+              Métodos de Pago
             </p>
+            <!-- ── ZONA DE MÉTODOS DE PAGO — completar luego ── -->
+            <div class="rounded-xl border-2 border-dashed border-gray-200 bg-gray-50 px-4 py-5 text-center text-gray-400 text-sm">
+              <svg xmlns="http://www.w3.org/2000/svg" class="h-8 w-8 mx-auto mb-2 text-gray-300" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M17 9V7a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2m2 4h10a2 2 0 002-2v-6a2 2 0 00-2-2H9a2 2 0 00-2 2v6a2 2 0 002 2zm7-5a2 2 0 11-4 0 2 2 0 014 0z"/>
+              </svg>
+              <p class="font-semibold text-gray-500">Métodos de pago disponibles</p>
+              <p class="text-xs mt-1 text-gray-400">Esta sección se completará próximamente.</p>
+            </div>
+            <!-- ── FIN ZONA MÉTODOS DE PAGO ── -->
           </div>
+
+          <!-- Instrucciones -->
+          <div class="bg-gray-50 rounded-xl p-4 space-y-2.5">
+            <p class="text-sm font-bold text-gray-800">¿Cómo adquirir este plan?</p>
+            <div class="flex items-start gap-3">
+              <span class="w-5 h-5 rounded-full bg-red-600 text-white text-xs font-black flex items-center justify-center flex-shrink-0 mt-0.5">1</span>
+              <p class="text-sm text-gray-600">Realiza el pago usando uno de los métodos disponibles arriba por el valor de <span class="font-bold text-gray-800">${{ formatPrecio(planAdquiriendo.precio) }} COP</span>.</p>
+            </div>
+            <div class="flex items-start gap-3">
+              <span class="w-5 h-5 rounded-full bg-red-600 text-white text-xs font-black flex items-center justify-center flex-shrink-0 mt-0.5">2</span>
+              <p class="text-sm text-gray-600">Envía el comprobante de pago al administrador por WhatsApp usando el botón de abajo.</p>
+            </div>
+            <div class="flex items-start gap-3">
+              <span class="w-5 h-5 rounded-full bg-red-600 text-white text-xs font-black flex items-center justify-center flex-shrink-0 mt-0.5">3</span>
+              <p class="text-sm text-gray-600">El administrador verificará el pago y activará tu plan.</p>
+            </div>
+          </div>
+        </div>
+
+        <!-- Botones fijos abajo -->
+        <div class="px-6 pb-6 pt-3 border-t border-gray-100 flex-shrink-0 space-y-2">
+          <a :href="whatsappUrl(planAdquiriendo)" target="_blank" rel="noopener"
+            class="w-full py-3 rounded-xl bg-emerald-500 hover:bg-emerald-600 text-white font-bold transition-colors flex items-center justify-center gap-2.5">
+            <svg class="h-5 w-5" viewBox="0 0 24 24" fill="currentColor">
+              <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51a12.8 12.8 0 00-.57-.01c-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z"/>
+            </svg>
+            Enviar comprobante por WhatsApp
+          </a>
           <button @click="planAdquiriendo = null"
-            class="w-full py-2.5 rounded-xl bg-gray-900 hover:bg-gray-800 text-white font-semibold transition-colors">
+            class="w-full py-2.5 rounded-xl border border-gray-200 text-gray-600 font-semibold hover:bg-gray-50 transition-colors text-sm">
             Cerrar
           </button>
         </div>
@@ -178,6 +248,16 @@
                 placeholder="Ej. 30">
             </div>
           </div>
+
+          <!-- WODs Personalizados -->
+          <label class="flex items-start gap-3 p-4 rounded-xl border-2 cursor-pointer transition-all"
+            :class="form.incluye_wods_personalizados ? 'border-red-500 bg-red-50' : 'border-gray-200 hover:border-gray-300'">
+            <input type="checkbox" v-model="form.incluye_wods_personalizados" class="mt-0.5 accent-red-600 w-4 h-4 flex-shrink-0">
+            <div>
+              <p class="text-sm font-semibold text-gray-800">Incluye WODs Personalizados</p>
+              <p class="text-xs text-gray-500 mt-0.5">Los miembros con este plan tendrán acceso a programación de entrenamiento personalizada.</p>
+            </div>
+          </label>
 
           <div>
             <div class="flex justify-between items-center mb-1.5">
@@ -260,22 +340,47 @@ import { ref, onMounted } from 'vue'
 import api from '../api'
 import { useAuth } from '../composables/useAuth'
 
-const { isAdmin, isCoach } = useAuth()
+const { isAdmin, isPendiente } = useAuth()
 
-const planes = ref([])
-const loading = ref(true)
+const planes        = ref([])
+const loading       = ref(true)
+const adminTelefono = ref('')
 
-const planAdquiriendo = ref(null)
+// Plan seleccionado para adquirir
+const planAdquiriendo  = ref(null)
+const planSolicitadoId = ref(null)
+
+// Admin CRUD
 const planAEliminar = ref(null)
-const eliminando = ref(false)
-
-const showForm = ref(false)
-const editando = ref(null)
-const guardando = ref(false)
-const errorForm = ref('')
-const form = ref({ nombre: '', precio: '', duracion_dias: '', beneficios: [] })
+const eliminando    = ref(false)
+const showForm      = ref(false)
+const editando      = ref(null)
+const guardando     = ref(false)
+const errorForm     = ref('')
+const form = ref({ nombre: '', precio: '', duracion_dias: '', beneficios: [], incluye_wods_personalizados: false })
 
 const formatPrecio = (v) => Number(v).toLocaleString('es-CO')
+
+// Abre el modal y registra solicitud si el usuario es pendiente
+const abrirAdquirir = async (plan) => {
+  planAdquiriendo.value = plan
+  if (isPendiente.value && planSolicitadoId.value !== plan.id) {
+    try {
+      await api.post(`/planes/${plan.id}/solicitar`)
+      planSolicitadoId.value = plan.id
+    } catch { /* silencioso: puede que ya esté registrado */ }
+  }
+}
+
+// Genera el link de WhatsApp con mensaje prearmado
+const whatsappUrl = (plan) => {
+  const numero = adminTelefono.value
+    ? adminTelefono.value.replace(/\D/g, '')
+    : ''
+  const nombre  = localStorage.getItem('userName') || ''
+  const mensaje = `Hola! Quiero adquirir el plan *${plan.nombre}* - $${formatPrecio(plan.precio)} COP (${plan.duracion_dias} días).${nombre ? ` Mi nombre es ${nombre}.` : ''} Adjunto el comprobante de pago.`
+  return `https://wa.me/${numero}?text=${encodeURIComponent(mensaje)}`
+}
 
 const fetchPlanes = async () => {
   loading.value = true
@@ -284,11 +389,10 @@ const fetchPlanes = async () => {
   finally { loading.value = false }
 }
 
-const abrirAdquirir = (plan) => { planAdquiriendo.value = plan }
-
+// ── Admin CRUD ────────────────────────────────────────────────
 const abrirCrear = () => {
   editando.value = null
-  form.value = { nombre: '', precio: '', duracion_dias: '', beneficios: [] }
+  form.value = { nombre: '', precio: '', duracion_dias: '', beneficios: [], incluye_wods_personalizados: false }
   errorForm.value = ''
   showForm.value = true
 }
@@ -300,6 +404,7 @@ const abrirEditar = (plan) => {
     precio: plan.precio,
     duracion_dias: plan.duracion_dias,
     beneficios: [...plan.beneficios],
+    incluye_wods_personalizados: plan.incluye_wods_personalizados ?? false,
   }
   errorForm.value = ''
   showForm.value = true
@@ -307,7 +412,7 @@ const abrirEditar = (plan) => {
 
 const cerrarForm = () => { showForm.value = false; editando.value = null }
 
-const agregarBeneficio = () => { form.value.beneficios.push('') }
+const agregarBeneficio  = () => { form.value.beneficios.push('') }
 const eliminarBeneficio = (i) => { form.value.beneficios.splice(i, 1) }
 
 const guardarPlan = async () => {
@@ -318,6 +423,7 @@ const guardarPlan = async () => {
     precio: form.value.precio,
     duracion_dias: form.value.duracion_dias,
     beneficios: form.value.beneficios.filter(b => b.trim()),
+    incluye_wods_personalizados: form.value.incluye_wods_personalizados,
   }
   try {
     if (editando.value) {
@@ -349,7 +455,19 @@ const ejecutarEliminar = async () => {
   }
 }
 
-onMounted(fetchPlanes)
+onMounted(async () => {
+  await fetchPlanes()
+  try {
+    const { data } = await api.get('/contacto')
+    adminTelefono.value = data.telefono || ''
+  } catch { /* silencioso */ }
+  if (isPendiente.value) {
+    try {
+      const { data } = await api.get('/me')
+      planSolicitadoId.value = data.plan_solicitado_id || null
+    } catch { /* silencioso */ }
+  }
+})
 </script>
 
 <style scoped>

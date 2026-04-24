@@ -35,9 +35,16 @@
             'bg-red-500 text-white': isAdmin,
             'bg-emerald-500 text-white': isCoach,
             'bg-gray-600 text-gray-200': isCliente,
+            'bg-amber-500 text-white': isPendiente,
           }">
           {{ rolLabel }}
         </span>
+
+        <!-- Aviso cuenta pendiente -->
+        <div v-if="isPendiente" class="mt-3 bg-amber-900/40 rounded-xl p-3 text-center">
+          <p class="text-xs font-bold text-amber-300 uppercase tracking-wide mb-1">En espera</p>
+          <p class="text-xs text-amber-400">Selecciona un plan para que el admin apruebe tu cuenta.</p>
+        </div>
 
         <!-- Membresía (solo clientes) -->
         <div v-if="isCliente" class="mt-3 rounded-xl p-3 text-center"
@@ -57,7 +64,20 @@
 
       <!-- Nav links -->
       <nav class="flex-1 mt-4 px-4 space-y-2 overflow-y-auto">
-        <template v-if="canManage">
+
+        <!-- Usuario pendiente: solo ve Planes -->
+        <template v-if="isPendiente">
+          <router-link to="/planes" @click="sidebarOpen = false"
+            class="flex items-center gap-3 py-3 px-4 rounded-lg hover:bg-gray-800 transition-colors"
+            active-class="bg-red-600 hover:bg-red-700 font-semibold shadow-md">
+            <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+            </svg>
+            Planes
+          </router-link>
+        </template>
+
+        <template v-if="!isPendiente && canManage">
           <router-link to="/usuarios" @click="sidebarOpen = false"
             class="flex items-center gap-3 py-3 px-4 rounded-lg hover:bg-gray-800 transition-colors"
             active-class="bg-red-600 hover:bg-red-700 font-semibold shadow-md">
@@ -92,7 +112,7 @@
           </router-link>
         </template>
 
-        <template v-if="isAdmin">
+        <template v-if="!isPendiente && isAdmin">
           <div class="pt-2 pb-1 px-2">
             <p class="text-xs font-bold text-gray-500 uppercase tracking-widest">Administración</p>
           </div>
@@ -106,10 +126,10 @@
           </router-link>
         </template>
 
-        <div class="pt-2 pb-1 px-2" v-if="canManage">
+        <div class="pt-2 pb-1 px-2" v-if="!isPendiente && canManage">
           <p class="text-xs font-bold text-gray-500 uppercase tracking-widest">Operaciones</p>
         </div>
-        <router-link to="/wods" @click="sidebarOpen = false"
+        <router-link v-if="!isPendiente" to="/wods" @click="sidebarOpen = false"
           class="flex items-center gap-3 py-3 px-4 rounded-lg hover:bg-gray-800 transition-colors"
           active-class="bg-red-600 hover:bg-red-700 font-semibold shadow-md">
           <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -117,7 +137,7 @@
           </svg>
           WODs
         </router-link>
-        <router-link v-if="isCliente" to="/planes" @click="sidebarOpen = false"
+        <router-link v-if="!isPendiente && isCliente" to="/planes" @click="sidebarOpen = false"
           class="flex items-center gap-3 py-3 px-4 rounded-lg hover:bg-gray-800 transition-colors"
           active-class="bg-red-600 hover:bg-red-700 font-semibold shadow-md">
           <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -125,7 +145,7 @@
           </svg>
           Planes
         </router-link>
-        <router-link v-if="isCliente" to="/salud" @click="sidebarOpen = false"
+        <router-link v-if="!isPendiente && isCliente" to="/salud" @click="sidebarOpen = false"
           class="flex items-center gap-3 py-3 px-4 rounded-lg hover:bg-gray-800 transition-colors"
           active-class="bg-red-600 hover:bg-red-700 font-semibold shadow-md">
           <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -181,14 +201,14 @@ import { useAuth } from '../composables/useAuth'
 import api from '../api'
 
 const router = useRouter()
-const { nombre, rol, isAdmin, isCoach, isCliente, canManage } = useAuth()
+const { nombre, rol, isAdmin, isCoach, isCliente, isPendiente, canManage } = useAuth()
 
 const sidebarOpen = ref(false)
 const fechaVencimiento = ref(localStorage.getItem('fechaVencimiento') || '')
 
 // Refresca la fecha de vencimiento desde el servidor
 onMounted(async () => {
-  if (!isCliente.value) return
+  if (!isCliente.value && !isPendiente.value) return
   try {
     const { data } = await api.get('/me')
     fechaVencimiento.value = data.fecha_vencimiento || ''
@@ -249,7 +269,7 @@ const estadoMembresia = computed(() => {
 })
 
 const rolLabel = computed(() => {
-  const labels = { admin: 'Administrador', coach: 'Coach', cliente: 'Cliente' }
+  const labels = { admin: 'Administrador', coach: 'Coach', cliente: 'Cliente', pendiente: 'Cuenta Pendiente' }
   return labels[rol.value] || rol.value
 })
 

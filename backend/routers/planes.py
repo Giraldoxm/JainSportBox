@@ -24,6 +24,7 @@ class PlanCreate(BaseModel):
     duracion_dias: int = Field(..., gt=0)
     beneficios: List[str] = Field(default=[])
     descripcion: Optional[str] = None
+    incluye_wods_personalizados: bool = False
 
 
 class PlanUpdate(BaseModel):
@@ -32,6 +33,7 @@ class PlanUpdate(BaseModel):
     duracion_dias: Optional[int] = Field(None, gt=0)
     beneficios: Optional[List[str]] = None
     descripcion: Optional[str] = None
+    incluye_wods_personalizados: Optional[bool] = None
 
 
 def _serializar(p: Plan) -> dict:
@@ -43,6 +45,7 @@ def _serializar(p: Plan) -> dict:
         "descripcion": p.descripcion,
         "beneficios": json.loads(p.beneficios) if p.beneficios else [],
         "activo": p.activo,
+        "incluye_wods_personalizados": p.incluye_wods_personalizados,
     }
 
 
@@ -63,6 +66,7 @@ def crear_plan(
         duracion_dias=payload.duracion_dias,
         descripcion=payload.descripcion,
         beneficios=json.dumps(payload.beneficios, ensure_ascii=False),
+        incluye_wods_personalizados=payload.incluye_wods_personalizados,
     )
     db.add(plan)
     db.commit()
@@ -90,9 +94,27 @@ def actualizar_plan(
         plan.descripcion = payload.descripcion
     if payload.beneficios is not None:
         plan.beneficios = json.dumps(payload.beneficios, ensure_ascii=False)
+    if payload.incluye_wods_personalizados is not None:
+        plan.incluye_wods_personalizados = payload.incluye_wods_personalizados
     db.commit()
     db.refresh(plan)
     return _serializar(plan)
+
+
+@router.post("/{plan_id}/solicitar")
+def solicitar_plan(
+    plan_id: int,
+    db: Session = Depends(get_db),
+    current_user: Usuario = Depends(get_current_user),
+):
+    if current_user.rol != RolUsuario.PENDIENTE:
+        raise HTTPException(status_code=403, detail="Solo usuarios pendientes pueden solicitar un plan.")
+    plan = db.query(Plan).filter(Plan.id == plan_id, Plan.activo == True).first()
+    if not plan:
+        raise HTTPException(status_code=404, detail="Plan no encontrado.")
+    current_user.plan_solicitado_id = plan_id
+    db.commit()
+    return {"message": f"Solicitud para '{plan.nombre}' registrada. El administrador la revisará pronto.", "plan_id": plan_id}
 
 
 @router.delete("/{plan_id}", status_code=status.HTTP_204_NO_CONTENT)

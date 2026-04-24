@@ -34,6 +34,7 @@ class RolUsuario(str, enum.Enum):
     ADMIN = "admin"
     COACH = "coach"
     CLIENTE = "cliente"
+    PENDIENTE = "pendiente"
 
 
 class TipoMovimiento(str, enum.Enum):
@@ -63,6 +64,8 @@ class Usuario(Base):
     fecha_vencimiento: Mapped[Optional[date]] = mapped_column(Date, nullable=True)
     esta_en_gym: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
     foto_url: Mapped[Optional[str]] = mapped_column(String(300), nullable=True)
+    genero: Mapped[Optional[str]] = mapped_column(String(20), nullable=True)
+    plan_solicitado_id: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
 
     # ── Relaciones ──
@@ -87,6 +90,7 @@ class Plan(Base):
     descripcion: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
     beneficios: Mapped[Optional[str]] = mapped_column(Text, nullable=True)  # JSON array de strings
     activo: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
+    incluye_wods_personalizados: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
 
     # ── Relaciones ──
     pagos: Mapped[List["Pago"]] = relationship("Pago", back_populates="plan")

@@ -24,6 +24,7 @@ const routes = [
         path: '',
         redirect: () => {
           const rol = localStorage.getItem('userRol') || 'cliente'
+          if (rol === 'pendiente') return '/planes'
           return rol === 'cliente' ? '/wods' : '/usuarios'
         }
       },
@@ -37,7 +38,7 @@ const routes = [
         path: 'planes',
         name: 'Planes',
         component: PlanesView,
-        meta: { roles: ['admin', 'coach', 'cliente'] }
+        meta: { roles: ['admin', 'coach', 'cliente', 'pendiente'] }
       },
       {
         path: 'tienda',
@@ -86,6 +87,11 @@ router.beforeEach((to, from, next) => {
 
   if (to.path === '/login' && token) {
     return next('/')
+  }
+
+  // Usuarios pendientes solo pueden ver /planes
+  if (rol === 'pendiente' && to.path !== '/planes' && to.path !== '/') {
+    return next('/planes')
   }
 
   if (to.meta.roles && !to.meta.roles.includes(rol)) {

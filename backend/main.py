@@ -11,6 +11,9 @@ _migraciones = [
     "ALTER TABLE ventas ADD COLUMN metodo_pago VARCHAR(50)",
     "ALTER TABLE usuarios ADD COLUMN documento_identidad VARCHAR(20)",
     "ALTER TABLE planes ADD COLUMN beneficios TEXT",
+    "ALTER TABLE planes ADD COLUMN incluye_wods_personalizados INTEGER NOT NULL DEFAULT 0",
+    "ALTER TABLE usuarios ADD COLUMN genero VARCHAR(20)",
+    "ALTER TABLE usuarios ADD COLUMN plan_solicitado_id INTEGER",
 ]
 with engine.connect() as _conn:
     for _sql in _migraciones:

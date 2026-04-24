@@ -51,10 +51,6 @@
           <input v-model="busqueda" type="text" placeholder="Buscar producto..."
             class="w-full pl-9 pr-4 py-2.5 border border-gray-200 rounded-lg focus:ring-2 focus:ring-red-500 outline-none text-sm">
         </div>
-        <label class="flex items-center gap-2 text-sm text-gray-600 bg-white border border-gray-200 rounded-lg px-4 cursor-pointer hover:border-gray-300 transition-colors">
-          <input type="checkbox" v-model="mostrarInactivos" class="rounded">
-          Mostrar inactivos
-        </label>
       </div>
 
       <!-- Grid productos inventario -->
@@ -74,8 +70,7 @@
 
       <div v-else class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-5">
         <div v-for="p in productosFiltrados" :key="p.id"
-          class="bg-white rounded-2xl border overflow-hidden group transition-shadow hover:shadow-md"
-          :class="p.activo ? 'border-gray-100' : 'border-red-100 opacity-60'">
+          class="bg-white rounded-2xl border border-gray-100 overflow-hidden group transition-shadow hover:shadow-md">
 
           <!-- Foto -->
           <div class="relative h-44 bg-gray-50 flex items-center justify-center overflow-hidden">
@@ -89,7 +84,6 @@
             </div>
             <!-- Badges -->
             <div class="absolute top-2 left-2 flex gap-1.5">
-              <span v-if="!p.activo" class="bg-red-500 text-white text-xs font-bold px-2 py-0.5 rounded-full">Inactivo</span>
               <span v-if="p.stock === 0" class="bg-gray-800 text-white text-xs font-bold px-2 py-0.5 rounded-full">Agotado</span>
               <span v-else-if="p.stock <= 5" class="bg-amber-400 text-white text-xs font-bold px-2 py-0.5 rounded-full">Poco stock</span>
             </div>
@@ -101,7 +95,7 @@
                   <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z"/>
                 </svg>
               </button>
-              <button @click="confirmarEliminar(p)" title="Desactivar"
+              <button @click="confirmarEliminar(p)" title="Eliminar"
                 class="w-9 h-9 bg-white rounded-full flex items-center justify-center shadow-lg hover:bg-red-50 transition-colors">
                 <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 text-red-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                   <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/>
@@ -382,20 +376,6 @@
             </datalist>
           </div>
 
-          <!-- Activo (solo editar) -->
-          <div v-if="editandoProducto" class="flex items-center justify-between bg-gray-50 rounded-xl p-4">
-            <div>
-              <p class="text-sm font-semibold text-gray-700">Producto activo</p>
-              <p class="text-xs text-gray-400">Los productos inactivos no aparecen en la tienda</p>
-            </div>
-            <button type="button" @click="form.activo = !form.activo"
-              class="relative w-11 h-6 rounded-full transition-colors"
-              :class="form.activo ? 'bg-red-600' : 'bg-gray-300'">
-              <span class="absolute top-0.5 left-0.5 w-5 h-5 bg-white rounded-full shadow transition-transform"
-                :class="form.activo ? 'translate-x-5' : 'translate-x-0'"></span>
-            </button>
-          </div>
-
           <div v-if="errorForm" class="text-sm text-red-600 bg-red-50 border border-red-100 rounded-lg p-3">{{ errorForm }}</div>
 
           <div class="flex gap-3 pt-2">
@@ -438,7 +418,6 @@ const productos = ref([])
 const cargando = ref(true)
 const tabActivo = ref('inventario')
 const busqueda = ref('')
-const mostrarInactivos = ref(false)
 const categoriaFiltro = ref(null)
 const toast = ref('')
 
@@ -450,7 +429,7 @@ const errorForm = ref('')
 const fotoArchivo = ref(null)
 const fotoPreview = ref(null)
 
-const formVacio = () => ({ nombre: '', descripcion: '', precio: '', stock: 0, categoria: '', activo: true })
+const formVacio = () => ({ nombre: '', descripcion: '', precio: '', stock: 0, categoria: '' })
 const form = ref(formVacio())
 
 // ── Carrito POS ───────────────────────────────────────────────
@@ -467,7 +446,7 @@ const metodosPago = [
 // ── Computed ──────────────────────────────────────────────────
 const productosFiltrados = computed(() => {
   return productos.value.filter(p => {
-    if (!mostrarInactivos.value && !p.activo) return false
+    if (!p.activo) return false
     if (busqueda.value && !p.nombre.toLowerCase().includes(busqueda.value.toLowerCase())) return false
     return true
   })
@@ -523,7 +502,6 @@ function abrirEditar(p) {
     precio: p.precio,
     stock: p.stock,
     categoria: p.categoria || '',
-    activo: p.activo,
   }
   fotoArchivo.value = null
   fotoPreview.value = null
@@ -554,7 +532,6 @@ async function guardarProducto() {
     }
 
     if (editandoProducto.value) {
-      payload.activo = form.value.activo
       const { data } = await api.put(`/productos/${editandoProducto.value.id}`, payload)
       productoGuardado = data
     } else {
@@ -583,19 +560,13 @@ async function guardarProducto() {
 }
 
 async function confirmarEliminar(p) {
-  const accion = p.activo ? 'desactivar' : 'activar'
-  if (!confirm(`¿${accion.charAt(0).toUpperCase() + accion.slice(1)} "${p.nombre}"?`)) return
+  if (!confirm(`¿Eliminar "${p.nombre}"? Esta acción no se puede deshacer.`)) return
   try {
-    if (p.activo) {
-      await api.delete(`/productos/${p.id}`)
-      mostrarToast('Producto desactivado')
-    } else {
-      await api.put(`/productos/${p.id}`, { activo: true })
-      mostrarToast('Producto reactivado')
-    }
+    await api.delete(`/productos/${p.id}`)
+    mostrarToast('Producto eliminado')
     await cargarProductos()
   } catch (e) {
-    alert(e.response?.data?.detail || 'Error al actualizar.')
+    alert(e.response?.data?.detail || 'Error al eliminar.')
   }
 }
 
