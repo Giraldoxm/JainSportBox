@@ -243,3 +243,41 @@ def buscar_por_huella(
     if not usuario:
         raise HTTPException(status_code=404, detail="Usuario no encontrado con esa huella.")
     return usuario
+
+
+class HuellaTemplatePayload(BaseModel):
+    template: str  # base64-encoded FMD
+
+
+@router.post("/{usuario_id}/huella-template", status_code=status.HTTP_200_OK)
+def guardar_huella_template(
+    usuario_id: int,
+    payload: HuellaTemplatePayload,
+    db: Session = Depends(get_db),
+    current_user: Usuario = Depends(_require_admin_or_coach),
+):
+    """Guarda el template de huella (base64 FMD) para un usuario. Llamado por el bridge."""
+    usuario = db.query(Usuario).filter(Usuario.id == usuario_id).first()
+    if not usuario:
+        raise HTTPException(status_code=404, detail="Usuario no encontrado.")
+    usuario.huella_template = payload.template
+    usuario.huella_id = f"dp_{usuario_id}"
+    db.commit()
+    return {"mensaje": f"Huella registrada para {usuario.nombre}."}
+
+
+@router.get("/con-template/lista")
+def listar_usuarios_con_template(
+    db: Session = Depends(get_db),
+    current_user: Usuario = Depends(_require_admin_or_coach),
+):
+    """Devuelve id, nombre y template de todos los usuarios con huella registrada. Usado por el bridge."""
+    usuarios = (
+        db.query(Usuario.id, Usuario.nombre, Usuario.huella_template)
+        .filter(Usuario.huella_template.isnot(None))
+        .all()
+    )
+    return [
+        {"id": u.id, "nombre": u.nombre, "template": u.huella_template}
+        for u in usuarios
+    ]

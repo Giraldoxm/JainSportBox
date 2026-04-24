@@ -60,6 +60,7 @@ class Usuario(Base):
     rol: Mapped[RolUsuario] = mapped_column(SAEnum(RolUsuario), default=RolUsuario.CLIENTE, nullable=False)
     documento_identidad: Mapped[str] = mapped_column(String(20), unique=True, nullable=False)
     huella_id: Mapped[Optional[str]] = mapped_column(String(100), unique=True, nullable=True)
+    huella_template: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
     telefono: Mapped[Optional[str]] = mapped_column(String(20), nullable=True)
     fecha_vencimiento: Mapped[Optional[date]] = mapped_column(Date, nullable=True)
     esta_en_gym: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)

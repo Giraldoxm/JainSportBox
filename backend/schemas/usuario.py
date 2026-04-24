@@ -27,7 +27,7 @@ class UsuarioResponse(BaseModel):
     id: int
     nombre: str
     email: str
-    documento_identidad: str
+    documento_identidad: Optional[str] = None
     rol: RolUsuario
     huella_id: Optional[str]
     telefono: Optional[str]

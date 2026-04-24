@@ -321,8 +321,22 @@
               <p class="text-sm font-semibold text-gray-800">{{ usuarioSeleccionado.documento_identidad }}</p>
             </div>
             <div class="bg-gray-50 rounded-xl p-4">
-              <p class="text-xs text-gray-400 font-semibold uppercase tracking-wide mb-1">ID Huella</p>
-              <p class="text-sm font-semibold text-gray-800">{{ usuarioSeleccionado.huella_id || 'No registrada' }}</p>
+              <p class="text-xs text-gray-400 font-semibold uppercase tracking-wide mb-1">Huella Digital</p>
+              <div class="flex items-center justify-between gap-2">
+                <p class="text-sm font-semibold" :class="usuarioSeleccionado.huella_id ? 'text-emerald-700' : 'text-gray-400'">
+                  {{ usuarioSeleccionado.huella_id ? 'Registrada' : 'No registrada' }}
+                </p>
+                <button
+                  @click="abrirEnrolamiento(usuarioSeleccionado)"
+                  class="text-xs px-2.5 py-1 rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white font-semibold transition-colors flex items-center gap-1"
+                >
+                  <svg xmlns="http://www.w3.org/2000/svg" class="h-3.5 w-3.5" viewBox="0 0 20 20" fill="currentColor">
+                    <path fill-rule="evenodd" d="M6.625 2.655A9 9 0 0119 11a1 1 0 11-2 0 7 7 0 00-9.625-6.492 1 1 0 11-.75-1.853zM4.662 4.959A1 1 0 014.75 6.37 6.97 6.97 0 003 11a1 1 0 11-2 0 8.97 8.97 0 012.25-5.953 1 1 0 011.412-.088z" clip-rule="evenodd"/>
+                    <path fill-rule="evenodd" d="M5 11a5 5 0 1110 0 1 1 0 11-2 0 3 3 0 10-6 0c0 1.677-.345 3.276-.968 4.729a1 1 0 11-1.838-.789A9.964 9.964 0 005 11z" clip-rule="evenodd"/>
+                  </svg>
+                  {{ usuarioSeleccionado.huella_id ? 'Re-registrar' : 'Registrar' }}
+                </button>
+              </div>
             </div>
             <div class="bg-gray-50 rounded-xl p-4 col-span-2">
               <p class="text-xs text-gray-400 font-semibold uppercase tracking-wide mb-2">Membresía</p>
@@ -641,11 +655,111 @@
       </div>
     </div>
   </div>
+
+  <!-- ── Modal: Enrolamiento de Huella ── -->
+  <div v-if="showEnrolModal" class="fixed inset-0 flex items-center justify-center bg-gray-900/70 backdrop-blur-sm z-50 p-4">
+    <div class="bg-white rounded-2xl w-full max-w-sm shadow-2xl overflow-hidden">
+      <div class="bg-gradient-to-r from-indigo-600 to-indigo-700 px-6 py-5 flex items-center gap-3">
+        <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 text-white flex-shrink-0" viewBox="0 0 20 20" fill="currentColor">
+          <path fill-rule="evenodd" d="M6.625 2.655A9 9 0 0119 11a1 1 0 11-2 0 7 7 0 00-9.625-6.492 1 1 0 11-.75-1.853zM4.662 4.959A1 1 0 014.75 6.37 6.97 6.97 0 003 11a1 1 0 11-2 0 8.97 8.97 0 012.25-5.953 1 1 0 011.412-.088z" clip-rule="evenodd"/>
+          <path fill-rule="evenodd" d="M5 11a5 5 0 1110 0 1 1 0 11-2 0 3 3 0 10-6 0c0 1.677-.345 3.276-.968 4.729a1 1 0 11-1.838-.789A9.964 9.964 0 005 11z" clip-rule="evenodd"/>
+        </svg>
+        <div>
+          <h3 class="text-lg font-bold text-white">Registrar Huella</h3>
+          <p class="text-indigo-200 text-sm">{{ enrolTarget?.nombre }}</p>
+        </div>
+        <button v-if="!enrolStatus?.activo" @click="cerrarEnrolModal" class="ml-auto text-white/70 hover:text-white">
+          <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+        </button>
+      </div>
+
+      <div class="px-6 py-6 text-center">
+        <!-- Completado -->
+        <div v-if="enrolStatus?.completado" class="flex flex-col items-center gap-3">
+          <div class="w-16 h-16 bg-emerald-100 rounded-full flex items-center justify-center">
+            <svg xmlns="http://www.w3.org/2000/svg" class="h-8 w-8 text-emerald-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/>
+            </svg>
+          </div>
+          <p class="text-emerald-700 font-bold text-lg">Huella registrada</p>
+          <p class="text-gray-500 text-sm">{{ enrolStatus.mensaje }}</p>
+          <button @click="cerrarEnrolModal" class="mt-2 w-full py-2.5 rounded-xl bg-emerald-500 hover:bg-emerald-600 text-white font-bold transition-colors">Cerrar</button>
+        </div>
+
+        <!-- Error -->
+        <div v-else-if="enrolStatus?.error" class="flex flex-col items-center gap-3">
+          <div class="w-16 h-16 bg-red-100 rounded-full flex items-center justify-center">
+            <svg xmlns="http://www.w3.org/2000/svg" class="h-8 w-8 text-red-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+            </svg>
+          </div>
+          <p class="text-red-600 font-bold">Error en el enrolamiento</p>
+          <p class="text-gray-500 text-sm">{{ enrolStatus.error }}</p>
+          <div class="flex gap-3 w-full mt-2">
+            <button @click="cerrarEnrolModal" class="flex-1 py-2.5 rounded-xl border border-gray-200 text-gray-600 font-semibold hover:bg-gray-50 transition-colors">Cancelar</button>
+            <button @click="iniciarEnrolamiento" class="flex-1 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-bold transition-colors">Reintentar</button>
+          </div>
+        </div>
+
+        <!-- En progreso -->
+        <div v-else-if="enrolStatus?.activo" class="flex flex-col items-center gap-4">
+          <!-- Icono huella animado -->
+          <div class="relative w-20 h-20">
+            <div class="absolute inset-0 rounded-full bg-indigo-100 animate-ping opacity-40"></div>
+            <div class="relative w-20 h-20 bg-indigo-50 rounded-full flex items-center justify-center border-2 border-indigo-300">
+              <svg xmlns="http://www.w3.org/2000/svg" class="h-10 w-10 text-indigo-600" viewBox="0 0 20 20" fill="currentColor">
+                <path fill-rule="evenodd" d="M6.625 2.655A9 9 0 0119 11a1 1 0 11-2 0 7 7 0 00-9.625-6.492 1 1 0 11-.75-1.853zM4.662 4.959A1 1 0 014.75 6.37 6.97 6.97 0 003 11a1 1 0 11-2 0 8.97 8.97 0 012.25-5.953 1 1 0 011.412-.088z" clip-rule="evenodd"/>
+                <path fill-rule="evenodd" d="M5 11a5 5 0 1110 0 1 1 0 11-2 0 3 3 0 10-6 0c0 1.677-.345 3.276-.968 4.729a1 1 0 11-1.838-.789A9.964 9.964 0 005 11z" clip-rule="evenodd"/>
+              </svg>
+            </div>
+          </div>
+
+          <!-- Progreso pasos -->
+          <div class="flex gap-2">
+            <div v-for="i in enrolStatus.total" :key="i"
+              class="w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold transition-all"
+              :class="i < enrolStatus.paso ? 'bg-emerald-500 text-white' :
+                      i === enrolStatus.paso ? 'bg-indigo-600 text-white ring-4 ring-indigo-200' :
+                      'bg-gray-100 text-gray-400'">
+              {{ i < enrolStatus.paso ? '✓' : i }}
+            </div>
+          </div>
+
+          <p class="text-gray-700 font-semibold">{{ enrolStatus.mensaje }}</p>
+          <p class="text-gray-400 text-sm">Captura {{ enrolStatus.paso }} de {{ enrolStatus.total }}</p>
+
+          <button @click="cancelarEnrolamiento" class="mt-1 text-sm text-red-500 hover:text-red-700 font-medium">Cancelar</button>
+        </div>
+
+        <!-- Inicio / bridge desconectado -->
+        <div v-else class="flex flex-col items-center gap-4">
+          <div v-if="enrolBridgeError" class="w-full p-3 bg-amber-50 border border-amber-200 rounded-xl text-amber-700 text-sm">
+            <p class="font-semibold">Bridge no disponible</p>
+            <p class="mt-1">Asegúrate de que el bridge esté corriendo:<br>
+              <code class="text-xs bg-amber-100 px-1 rounded">python bridge/huellero_dp.py</code>
+            </p>
+          </div>
+          <div v-else>
+            <p class="text-gray-500 text-sm mb-4">Se capturarán <strong>{{ ENROL_STEPS }} muestras</strong> del dedo del usuario.<br>Asegúrate de que el lector esté conectado.</p>
+            <button @click="iniciarEnrolamiento" class="w-full py-3 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-lg transition-colors flex items-center justify-center gap-2">
+              <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+                <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-8.707l-3-3a1 1 0 00-1.414 1.414L10.586 9H7a1 1 0 100 2h3.586l-1.293 1.293a1 1 0 101.414 1.414l3-3a1 1 0 000-1.414z" clip-rule="evenodd"/>
+              </svg>
+              Iniciar captura
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
 </template>
 
 <script setup>
-import { ref, computed, onMounted } from 'vue'
+import { ref, computed, onMounted, onUnmounted } from 'vue'
 import api from '../api'
+
+const BRIDGE_URL = 'http://localhost:8001'
+const ENROL_STEPS = 4
 
 // ── Estado ──────────────────────────────────────────────────
 const usuarios = ref([])
@@ -656,6 +770,68 @@ const loadingPendientes = ref(false)
 const usuarioSeleccionado = ref(null)
 const filtroActivo = ref('todos')
 const busqueda = ref('')
+
+// ── Enrolamiento de huella ────────────────────────────────────
+const showEnrolModal = ref(false)
+const enrolTarget = ref(null)
+const enrolStatus = ref(null)
+const enrolBridgeError = ref(false)
+let enrolPollInterval = null
+
+const abrirEnrolamiento = (usuario) => {
+  enrolTarget.value = usuario
+  enrolStatus.value = null
+  enrolBridgeError.value = false
+  showEnrolModal.value = true
+  usuarioSeleccionado.value = null
+}
+
+const cerrarEnrolModal = () => {
+  clearInterval(enrolPollInterval)
+  enrolPollInterval = null
+  showEnrolModal.value = false
+  enrolTarget.value = null
+  enrolStatus.value = null
+  fetchUsuarios()
+}
+
+const iniciarEnrolamiento = async () => {
+  if (!enrolTarget.value) return
+  enrolBridgeError.value = false
+  try {
+    const nombre = encodeURIComponent(enrolTarget.value.nombre)
+    await fetch(`${BRIDGE_URL}/enroll/${enrolTarget.value.id}?nombre=${nombre}`, { method: 'POST' })
+    _iniciarPollEnrol()
+  } catch {
+    enrolBridgeError.value = true
+  }
+}
+
+const cancelarEnrolamiento = async () => {
+  try { await fetch(`${BRIDGE_URL}/enroll`, { method: 'DELETE' }) } catch {}
+  clearInterval(enrolPollInterval)
+  enrolPollInterval = null
+  enrolStatus.value = null
+}
+
+const _iniciarPollEnrol = () => {
+  clearInterval(enrolPollInterval)
+  enrolPollInterval = setInterval(async () => {
+    try {
+      const r = await fetch(`${BRIDGE_URL}/status`)
+      const data = await r.json()
+      const e = data.enrolamiento
+      enrolStatus.value = e
+      if (e.completado || (e.error && !e.activo)) {
+        clearInterval(enrolPollInterval)
+        enrolPollInterval = null
+      }
+    } catch {
+      enrolBridgeError.value = true
+      clearInterval(enrolPollInterval)
+    }
+  }, 600)
+}
 
 // ── Filtros ──────────────────────────────────────────────────
 const hoy = () => { const d = new Date(); d.setHours(0,0,0,0); return d }
@@ -994,6 +1170,7 @@ const guardarEdicion = async () => {
 }
 
 onMounted(() => { fetchUsuarios(); fetchPlanes(); fetchPendientes() })
+onUnmounted(() => { clearInterval(enrolPollInterval) })
 </script>
 
 <style>

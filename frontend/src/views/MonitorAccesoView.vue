@@ -1,8 +1,63 @@
 <template>
   <div class="animate-fade-in-up">
-    <div class="mb-8">
+    <div class="mb-6">
       <h2 class="text-3xl font-extrabold text-gray-900 tracking-tight">Monitor de Acceso</h2>
-      <p class="text-gray-500 mt-1">Busca un socio y valida su estatus para registrar entrada</p>
+      <p class="text-gray-500 mt-1">Busca un socio manualmente o usa el lector de huella para acceso automático</p>
+    </div>
+
+    <!-- Panel lector DigitalPersona -->
+    <div class="mb-6 rounded-2xl border p-5 flex flex-col sm:flex-row items-start sm:items-center gap-5 transition-all"
+      :class="bridgeConectado
+        ? 'bg-indigo-50 border-indigo-200'
+        : 'bg-gray-50 border-gray-200'">
+
+      <!-- Icono huella -->
+      <div class="relative flex-shrink-0">
+        <div v-if="bridgeConectado && !ultimoEvento" class="absolute inset-0 rounded-full bg-indigo-400 animate-ping opacity-30"></div>
+        <div class="relative w-16 h-16 rounded-full flex items-center justify-center"
+          :class="bridgeConectado ? 'bg-indigo-100 border-2 border-indigo-300' : 'bg-gray-100 border-2 border-gray-200'">
+          <svg xmlns="http://www.w3.org/2000/svg" class="h-8 w-8" :class="bridgeConectado ? 'text-indigo-600' : 'text-gray-400'" viewBox="0 0 20 20" fill="currentColor">
+            <path fill-rule="evenodd" d="M6.625 2.655A9 9 0 0119 11a1 1 0 11-2 0 7 7 0 00-9.625-6.492 1 1 0 11-.75-1.853zM4.662 4.959A1 1 0 014.75 6.37 6.97 6.97 0 003 11a1 1 0 11-2 0 8.97 8.97 0 012.25-5.953 1 1 0 011.412-.088z" clip-rule="evenodd"/>
+            <path fill-rule="evenodd" d="M5 11a5 5 0 1110 0 1 1 0 11-2 0 3 3 0 10-6 0c0 1.677-.345 3.276-.968 4.729a1 1 0 11-1.838-.789A9.964 9.964 0 005 11z" clip-rule="evenodd"/>
+          </svg>
+        </div>
+      </div>
+
+      <div class="flex-1 min-w-0">
+        <div class="flex items-center gap-2 mb-1">
+          <span class="w-2 h-2 rounded-full flex-shrink-0"
+            :class="bridgeConectado ? 'bg-indigo-500' : 'bg-gray-300'"></span>
+          <p class="font-bold" :class="bridgeConectado ? 'text-indigo-800' : 'text-gray-500'">
+            Lector DigitalPersona 4500 –
+            <span class="font-semibold">
+              {{ bridgeStatus?.dispositivo === 'conectado' ? 'Conectado'
+                : bridgeStatus?.dispositivo === 'simulacion' ? 'Modo simulación'
+                : 'Sin conexión' }}
+            </span>
+          </p>
+        </div>
+        <p v-if="!bridgeConectado" class="text-sm text-gray-400">
+          Para activar el acceso automático, corre: <code class="bg-gray-100 px-1.5 py-0.5 rounded text-xs">python bridge/huellero_dp.py</code>
+        </p>
+        <p v-else-if="bridgeStatus?.modo === 'enrolando'" class="text-sm text-indigo-600 font-medium">
+          Enrolamiento en curso...
+        </p>
+        <p v-else class="text-sm text-indigo-600">
+          Esperando huella... ({{ bridgeStatus?.templates_en_cache || 0 }} usuarios registrados)
+        </p>
+      </div>
+
+      <!-- Último evento -->
+      <div v-if="ultimoEvento" class="flex-shrink-0 min-w-[200px] rounded-xl px-4 py-3 text-center transition-all"
+        :class="ultimoEvento.acceso ? 'bg-emerald-50 border border-emerald-200' : 'bg-red-50 border border-red-200'">
+        <p class="text-xs font-bold uppercase tracking-wide mb-1"
+          :class="ultimoEvento.acceso ? 'text-emerald-600' : 'text-red-500'">
+          {{ ultimoEvento.acceso ? (ultimoEvento.tipo === 'salida' ? 'Salida registrada' : 'Acceso concedido') : 'Acceso denegado' }}
+        </p>
+        <p class="font-black text-gray-900 truncate max-w-[180px]">{{ ultimoEvento.nombre }}</p>
+        <p class="text-xs text-gray-400 mt-0.5">{{ ultimoEvento.hora }}</p>
+        <p v-if="!ultimoEvento.acceso && ultimoEvento.detalle" class="text-xs text-red-500 mt-1 truncate">{{ ultimoEvento.detalle }}</p>
+      </div>
     </div>
 
     <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
@@ -119,8 +174,11 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted } from 'vue'
+import { ref, computed, onMounted, onUnmounted } from 'vue'
 import axios from 'axios'
+
+const BRIDGE_URL = 'http://localhost:8001'
+const API_URL    = 'http://127.0.0.1:8000'
 
 const users = ref([])
 const loading = ref(true)
@@ -128,10 +186,35 @@ const searchQuery = ref('')
 const selectedUser = ref(null)
 const recording = ref(false)
 
+// Bridge / huella en tiempo real
+const bridgeStatus   = ref(null)
+const bridgeConectado = ref(false)
+const ultimoEvento   = ref(null)
+let bridgePoll = null
+let ultimoEventoTS = null  // timestamp para detectar eventos nuevos
+
+const fetchBridgeStatus = async () => {
+  try {
+    const r = await fetch(`${BRIDGE_URL}/status`, { signal: AbortSignal.timeout(1500) })
+    const data = await r.json()
+    bridgeStatus.value   = data
+    bridgeConectado.value = true
+    // Mostrar último evento solo si es nuevo
+    const ev = data.ultimo_evento
+    if (ev && ev.hora !== ultimoEventoTS) {
+      ultimoEvento.value  = ev
+      ultimoEventoTS      = ev.hora
+    }
+  } catch {
+    bridgeConectado.value = false
+    bridgeStatus.value    = null
+  }
+}
+
 const fetchUsers = async () => {
   loading.value = true
   try {
-    const response = await axios.get('http://127.0.0.1:8080/usuarios/')
+    const response = await axios.get(`${API_URL}/usuarios/`)
     users.value = response.data
   } catch (error) {
     console.error("Error fetching users for monitor:", error)
@@ -183,19 +266,19 @@ const registrarEntrada = async () => {
   if (!selectedUser.value) return
   recording.value = true
   try {
-    const response = await axios.post('http://127.0.0.1:8080/asistencias/', {
-      usuario_id: selectedUser.value.id
-    })
-    alert('Entrada exitosa: ' + response.data.message)
-    // Clear selection or update UI
+    const response = await axios.post(
+      `${API_URL}/asistencia/por-usuario/${selectedUser.value.id}`
+    )
+    const tipo = response.data.tipo
     selectedUser.value = null
-    searchQuery.value = ''
+    searchQuery.value  = ''
+    await fetchUsers()
   } catch (error) {
     console.error('Error logging access:', error)
-    if(error.response?.status === 403) {
-      alert('SERVIDOR BLOQUEADO: Membresía Vencida o Inactiva')
+    if (error.response?.status === 403) {
+      alert('Membresía vencida o sin plan activo.')
     } else {
-      alert('Error de Servidor verificando asistencia')
+      alert('Error al registrar asistencia.')
     }
   } finally {
     recording.value = false
@@ -204,6 +287,12 @@ const registrarEntrada = async () => {
 
 onMounted(() => {
   fetchUsers()
+  fetchBridgeStatus()
+  bridgePoll = setInterval(fetchBridgeStatus, 2000)
+})
+
+onUnmounted(() => {
+  clearInterval(bridgePoll)
 })
 </script>
 

@@ -14,6 +14,7 @@ _migraciones = [
     "ALTER TABLE planes ADD COLUMN incluye_wods_personalizados INTEGER NOT NULL DEFAULT 0",
     "ALTER TABLE usuarios ADD COLUMN genero VARCHAR(20)",
     "ALTER TABLE usuarios ADD COLUMN plan_solicitado_id INTEGER",
+    "ALTER TABLE usuarios ADD COLUMN huella_template TEXT",
 ]
 with engine.connect() as _conn:
     for _sql in _migraciones:
