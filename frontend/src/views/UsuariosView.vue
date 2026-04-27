@@ -321,6 +321,17 @@
               <p class="text-sm font-semibold text-gray-800">{{ usuarioSeleccionado.documento_identidad }}</p>
             </div>
             <div class="bg-gray-50 rounded-xl p-4">
+              <p class="text-xs text-gray-400 font-semibold uppercase tracking-wide mb-1">Género</p>
+              <span
+                v-if="usuarioSeleccionado.genero"
+                class="inline-block text-xs font-bold px-2.5 py-1 rounded-full"
+                :class="usuarioSeleccionado.genero === 'masculino' ? 'bg-blue-100 text-blue-700' : 'bg-purple-100 text-purple-700'"
+              >
+                {{ usuarioSeleccionado.genero === 'masculino' ? 'Masculino' : 'Femenino' }}
+              </span>
+              <p v-else class="text-sm text-gray-400 italic">—</p>
+            </div>
+            <div class="bg-gray-50 rounded-xl p-4">
               <p class="text-xs text-gray-400 font-semibold uppercase tracking-wide mb-1">Huella Digital</p>
               <div class="flex items-center justify-between gap-2">
                 <p class="text-sm font-semibold" :class="usuarioSeleccionado.huella_id ? 'text-emerald-700' : 'text-gray-400'">
@@ -515,6 +526,31 @@
             <label class="block text-gray-700 text-sm font-semibold mb-2">Teléfono / WhatsApp</label>
             <input v-model="editForm.telefono" type="tel" class="w-full px-4 py-3 rounded-lg border border-gray-300 focus:ring-2 focus:ring-red-500 outline-none transition-all" placeholder="Ej. 3001234567">
           </div>
+          <div class="mb-5">
+            <label class="block text-gray-700 text-sm font-semibold mb-2">Género</label>
+            <div class="grid grid-cols-2 gap-3">
+              <button
+                type="button"
+                @click="editForm.genero = 'masculino'"
+                class="py-2.5 rounded-xl border-2 font-bold text-sm transition-all"
+                :class="editForm.genero === 'masculino'
+                  ? 'border-blue-600 bg-blue-600 text-white'
+                  : 'border-gray-200 text-gray-500 hover:border-blue-300 hover:text-blue-600'"
+              >
+                Masculino
+              </button>
+              <button
+                type="button"
+                @click="editForm.genero = 'femenino'"
+                class="py-2.5 rounded-xl border-2 font-bold text-sm transition-all"
+                :class="editForm.genero === 'femenino'
+                  ? 'border-purple-600 bg-purple-600 text-white'
+                  : 'border-gray-200 text-gray-500 hover:border-purple-300 hover:text-purple-600'"
+              >
+                Femenino
+              </button>
+            </div>
+          </div>
           <div class="mb-6">
             <label class="block text-gray-700 text-sm font-semibold mb-2">Nueva Contraseña <span class="text-gray-400 font-normal">(dejar vacío para no cambiar)</span></label>
             <input v-model="editForm.password" type="password" minlength="6" class="w-full px-4 py-3 rounded-lg border border-gray-300 focus:ring-2 focus:ring-red-500 outline-none transition-all" placeholder="Min. 6 caracteres">
@@ -574,6 +610,31 @@
           <div class="mb-5">
             <label class="block text-gray-700 text-sm font-semibold mb-2">Teléfono / WhatsApp <span class="text-red-500">*</span></label>
             <input v-model="nuevoUsuario.telefono" type="tel" required minlength="7" class="w-full px-4 py-3 rounded-lg border border-gray-300 focus:ring-2 focus:ring-red-500 outline-none transition-all" placeholder="Ej. 3001234567">
+          </div>
+          <div class="mb-5">
+            <label class="block text-gray-700 text-sm font-semibold mb-2">Género <span class="text-red-500">*</span></label>
+            <div class="grid grid-cols-2 gap-3">
+              <button
+                type="button"
+                @click="nuevoUsuario.genero = 'masculino'"
+                class="py-3 rounded-xl border-2 font-bold text-sm transition-all"
+                :class="nuevoUsuario.genero === 'masculino'
+                  ? 'border-blue-600 bg-blue-600 text-white'
+                  : 'border-gray-200 text-gray-500 hover:border-blue-300 hover:text-blue-600'"
+              >
+                Masculino
+              </button>
+              <button
+                type="button"
+                @click="nuevoUsuario.genero = 'femenino'"
+                class="py-3 rounded-xl border-2 font-bold text-sm transition-all"
+                :class="nuevoUsuario.genero === 'femenino'
+                  ? 'border-purple-600 bg-purple-600 text-white'
+                  : 'border-gray-200 text-gray-500 hover:border-purple-300 hover:text-purple-600'"
+              >
+                Femenino
+              </button>
+            </div>
           </div>
           <div class="mb-6">
             <label class="block text-gray-700 text-sm font-semibold mb-2">Rol</label>
@@ -646,7 +707,7 @@
 
           <div class="flex justify-end gap-3 pt-4 border-t border-gray-100">
             <button @click="cerrarFormulario" type="button" class="px-5 py-2.5 rounded-lg text-gray-600 font-semibold hover:bg-gray-100 transition-colors">Cancelar</button>
-            <button type="submit" :disabled="saving" class="px-5 py-2.5 rounded-lg bg-red-600 hover:bg-red-700 text-white font-semibold shadow-md inline-flex items-center gap-2 transition-all active:scale-95">
+            <button type="submit" :disabled="saving || !nuevoUsuario.genero" class="px-5 py-2.5 rounded-lg bg-red-600 hover:bg-red-700 text-white font-semibold shadow-md inline-flex items-center gap-2 transition-all active:scale-95 disabled:bg-red-300">
               <span v-if="saving" class="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></span>
               {{ saving ? 'Guardando...' : 'Crear Usuario' }}
             </button>
@@ -756,8 +817,10 @@
 
 <script setup>
 import { ref, computed, onMounted, onUnmounted } from 'vue'
+import { useRouter } from 'vue-router'
 import api from '../api'
 
+const router = useRouter()
 const BRIDGE_URL = 'http://localhost:8001'
 const ENROL_STEPS = 4
 
@@ -863,7 +926,7 @@ const tabs = computed(() => [
 // ── Crear ────────────────────────────────────────────────────
 const showForm = ref(false)
 const saving = ref(false)
-const nuevoUsuario = ref({ nombre: '', documento_identidad: '', email: '', password: '', rol: 'cliente', telefono: '' })
+const nuevoUsuario = ref({ nombre: '', documento_identidad: '', email: '', password: '', rol: 'cliente', telefono: '', genero: '' })
 const planSeleccionado = ref('ninguno')
 const montoPlanDefault = ref('')
 const planPersonalizado = ref({ dias: '', monto: '' })
@@ -875,7 +938,7 @@ const fotoPreview = ref(null)
 const showEditar = ref(false)
 const guardandoEdicion = ref(false)
 const editando = ref(null)
-const editForm = ref({ email: '', password: '', telefono: '' })
+const editForm = ref({ email: '', password: '', telefono: '', genero: '' })
 const editFotoArchivo = ref(null)
 const editFotoPreview = ref(null)
 
@@ -1003,7 +1066,7 @@ const fetchPendientes = async () => {
 }
 
 // ── Ver ──────────────────────────────────────────────────────
-const verUsuario = (u) => { usuarioSeleccionado.value = u }
+const verUsuario = (u) => { router.push(`/usuarios/${u.id}`) }
 
 // ── Renovar ──────────────────────────────────────────────────
 const abrirRenovar = (user) => {
@@ -1054,7 +1117,7 @@ const confirmarRenovacion = async () => {
 // ── Crear ────────────────────────────────────────────────────
 const cerrarFormulario = () => {
   showForm.value = false
-  nuevoUsuario.value = { nombre: '', documento_identidad: '', email: '', password: '', rol: 'cliente', telefono: '' }
+  nuevoUsuario.value = { nombre: '', documento_identidad: '', email: '', password: '', rol: 'cliente', telefono: '', genero: '' }
   planSeleccionado.value = 'ninguno'
   montoPlanDefault.value = ''
   planPersonalizado.value = { dias: '', monto: '' }
@@ -1125,7 +1188,7 @@ const confirmarEliminar = async (user) => {
 
 const abrirEditar = (user) => {
   editando.value = user
-  editForm.value = { email: user.email, password: '', telefono: user.telefono || '' }
+  editForm.value = { email: user.email, password: '', telefono: user.telefono || '', genero: user.genero || '' }
   editFotoArchivo.value = null
   editFotoPreview.value = null
   showEditar.value = true
@@ -1151,6 +1214,7 @@ const guardarEdicion = async () => {
     const id = editando.value.id
     const payload = { email: editForm.value.email, telefono: editForm.value.telefono || null }
     if (editForm.value.password) payload.password = editForm.value.password
+    if (editForm.value.genero) payload.genero = editForm.value.genero
     await api.patch(`/usuarios/${id}`, payload)
 
     if (editFotoArchivo.value) {

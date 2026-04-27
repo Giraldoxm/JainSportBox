@@ -46,20 +46,6 @@
           <p class="text-xs text-amber-400">Selecciona un plan para que el admin apruebe tu cuenta.</p>
         </div>
 
-        <!-- Membresía (solo clientes) -->
-        <div v-if="isCliente" class="mt-3 rounded-xl p-3 text-center"
-          :class="estadoMembresia.bg">
-          <p class="text-xs font-bold uppercase tracking-wide mb-1" :class="estadoMembresia.labelColor">
-            {{ estadoMembresia.label }}
-          </p>
-          <p v-if="fechaVencimiento" class="text-sm font-black" :class="estadoMembresia.dateColor">
-            {{ formatFechaVenc(fechaVencimiento) }}
-          </p>
-          <p v-if="fechaVencimiento" class="text-xs mt-0.5" :class="estadoMembresia.subColor">
-            {{ estadoMembresia.dias }}
-          </p>
-          <p v-if="!fechaVencimiento" class="text-xs" :class="estadoMembresia.subColor">Sin plan activo</p>
-        </div>
       </div>
 
       <!-- Nav links -->
@@ -129,6 +115,14 @@
         <div class="pt-2 pb-1 px-2" v-if="!isPendiente && canManage">
           <p class="text-xs font-bold text-gray-500 uppercase tracking-widest">Operaciones</p>
         </div>
+        <router-link v-if="!isPendiente && (isCliente || isCoach)" to="/home" @click="sidebarOpen = false"
+          class="flex items-center gap-3 py-3 px-4 rounded-lg hover:bg-gray-800 transition-colors"
+          active-class="bg-red-600 hover:bg-red-700 font-semibold shadow-md">
+          <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6" />
+          </svg>
+          Inicio
+        </router-link>
         <router-link v-if="!isPendiente" to="/wods" @click="sidebarOpen = false"
           class="flex items-center gap-3 py-3 px-4 rounded-lg hover:bg-gray-800 transition-colors"
           active-class="bg-red-600 hover:bg-red-700 font-semibold shadow-md">
@@ -136,6 +130,14 @@
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z" />
           </svg>
           WODs
+        </router-link>
+        <router-link v-if="!isPendiente && (isAdmin || tieneWodsPersonalizados)" to="/wods/personalizados" @click="sidebarOpen = false"
+          class="flex items-center gap-3 py-3 px-4 rounded-lg hover:bg-gray-800 transition-colors"
+          active-class="bg-red-600 hover:bg-red-700 font-semibold shadow-md">
+          <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11.049 2.927c.3-.921 1.603-.921 1.902 0l1.519 4.674a1 1 0 00.95.69h4.915c.969 0 1.371 1.24.588 1.81l-3.976 2.888a1 1 0 00-.363 1.118l1.518 4.674c.3.922-.755 1.688-1.538 1.118l-3.976-2.888a1 1 0 00-1.176 0l-3.976 2.888c-.783.57-1.838-.197-1.538-1.118l1.518-4.674a1 1 0 00-.363-1.118l-3.976-2.888c-.784-.57-.38-1.81.588-1.81h4.914a1 1 0 00.951-.69l1.519-4.674z" />
+          </svg>
+          WODs Personalizados
         </router-link>
         <router-link v-if="!isPendiente && isCliente" to="/planes" @click="sidebarOpen = false"
           class="flex items-center gap-3 py-3 px-4 rounded-lg hover:bg-gray-800 transition-colors"
@@ -212,68 +214,16 @@ const router = useRouter()
 const { nombre, rol, isAdmin, isCoach, isCliente, isPendiente, canManage } = useAuth()
 
 const sidebarOpen = ref(false)
-const fechaVencimiento = ref(localStorage.getItem('fechaVencimiento') || '')
+const tieneWodsPersonalizados = ref(localStorage.getItem('tieneWodsPersonalizados') === 'true')
 
-// Refresca la fecha de vencimiento desde el servidor
 onMounted(async () => {
-  if (!isCliente.value && !isPendiente.value) return
+  if (!isCliente.value) return
   try {
     const { data } = await api.get('/me')
-    fechaVencimiento.value = data.fecha_vencimiento || ''
-    localStorage.setItem('fechaVencimiento', fechaVencimiento.value)
+    tieneWodsPersonalizados.value = !!data.incluye_wods_personalizados
+    localStorage.setItem('tieneWodsPersonalizados', String(tieneWodsPersonalizados.value))
+    if (data.genero) localStorage.setItem('userGenero', data.genero)
   } catch { /* silencioso */ }
-})
-
-function formatFechaVenc(fecha) {
-  if (!fecha) return ''
-  const [y, m, d] = fecha.split('-')
-  const meses = ['ene','feb','mar','abr','may','jun','jul','ago','sep','oct','nov','dic']
-  return `${parseInt(d)} ${meses[parseInt(m) - 1]} ${y}`
-}
-
-const estadoMembresia = computed(() => {
-  if (!fechaVencimiento.value) {
-    return {
-      label: 'Sin membresía',
-      dias: '',
-      bg: 'bg-gray-800/60',
-      labelColor: 'text-gray-400',
-      dateColor: 'text-gray-300',
-      subColor: 'text-gray-500',
-    }
-  }
-  const hoy = new Date(); hoy.setHours(0, 0, 0, 0)
-  const vence = new Date(fechaVencimiento.value + 'T00:00:00')
-  const diff = Math.round((vence - hoy) / 86400000)
-
-  if (diff < 0) {
-    return {
-      label: 'Membresía vencida',
-      dias: `Venció hace ${Math.abs(diff)} día${Math.abs(diff) !== 1 ? 's' : ''}`,
-      bg: 'bg-red-900/60',
-      labelColor: 'text-red-300',
-      dateColor: 'text-white',
-      subColor: 'text-red-400',
-    }
-  }
-  if (diff <= 5) {
-    return {
-      label: 'Vence pronto',
-      dias: `${diff} día${diff !== 1 ? 's' : ''} restante${diff !== 1 ? 's' : ''}`,
-      bg: 'bg-amber-900/50',
-      labelColor: 'text-amber-300',
-      dateColor: 'text-white',
-      subColor: 'text-amber-400',
-    }
-  }
-  return {
-    label: 'Membresía activa',
-    dias: `${diff} días restantes`,
-    bg: 'bg-emerald-900/40',
-    labelColor: 'text-emerald-400',
-    dateColor: 'text-white',
-    subColor: 'text-emerald-500',
-  }
 })
 
 const rolLabel = computed(() => {
@@ -286,6 +236,8 @@ const logout = () => {
   localStorage.removeItem('userRol')
   localStorage.removeItem('userName')
   localStorage.removeItem('fechaVencimiento')
+  localStorage.removeItem('tieneWodsPersonalizados')
+  localStorage.removeItem('userGenero')
   router.push('/login')
 }
 </script>
