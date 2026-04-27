@@ -2,10 +2,11 @@ from datetime import date
 from typing import List
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
+from sqlalchemy import desc
 from sqlalchemy.orm import Session
 
 from database import get_db
-from models import RolUsuario, Usuario, WOD
+from models import Pago, Plan, RolUsuario, Usuario, WOD
 from schemas.wod import WODCreate, WODUpdate, WODResponse
 from security import get_current_user
 
@@ -18,12 +19,64 @@ def _require_admin_or_coach(current_user: Usuario = Depends(get_current_user)):
     return current_user
 
 
+def _require_admin(current_user: Usuario = Depends(get_current_user)):
+    if current_user.rol != RolUsuario.ADMIN:
+        raise HTTPException(status_code=403, detail="Solo el administrador puede realizar esta acción.")
+    return current_user
+
+
+def _tiene_plan_personalizado(usuario_id: int, db: Session) -> bool:
+    ultimo_pago = (
+        db.query(Pago)
+        .filter(Pago.usuario_id == usuario_id)
+        .order_by(desc(Pago.fecha_pago))
+        .first()
+    )
+    if not ultimo_pago:
+        return False
+    plan = db.query(Plan).filter(Plan.id == ultimo_pago.plan_id).first()
+    return bool(plan and plan.incluye_wods_personalizados)
+
+
+@router.get("/personalizados", response_model=List[WODResponse])
+def listar_wods_personalizados(
+    db: Session = Depends(get_db),
+    current_user: Usuario = Depends(get_current_user),
+):
+    if current_user.rol == RolUsuario.ADMIN:
+        return (
+            db.query(WOD)
+            .filter(WOD.es_personalizado == True)
+            .order_by(WOD.fecha.desc(), WOD.id.desc())
+            .all()
+        )
+    if not _tiene_plan_personalizado(current_user.id, db):
+        raise HTTPException(status_code=403, detail="Tu plan no incluye WODs personalizados.")
+    if not current_user.genero:
+        raise HTTPException(status_code=422, detail="Tu perfil no tiene género registrado. Contacta al administrador.")
+    return (
+        db.query(WOD)
+        .filter(
+            WOD.es_personalizado == True,
+            WOD.genero_destino == current_user.genero,
+            WOD.activo == True,
+        )
+        .order_by(WOD.fecha.desc(), WOD.id.desc())
+        .all()
+    )
+
+
 @router.post("/", response_model=WODResponse, status_code=status.HTTP_201_CREATED)
 def crear_wod(
     payload: WODCreate,
     db: Session = Depends(get_db),
     current_user: Usuario = Depends(_require_admin_or_coach),
 ):
+    if payload.es_personalizado:
+        if current_user.rol != RolUsuario.ADMIN:
+            raise HTTPException(status_code=403, detail="Solo el administrador puede crear WODs personalizados.")
+        if not payload.genero_destino:
+            raise HTTPException(status_code=422, detail="Debes seleccionar el género para un WOD personalizado.")
     data = payload.model_dump()
     data["coach_id"] = current_user.id
     wod = WOD(**data)
@@ -84,7 +137,7 @@ def wods_de_hoy(
     current_user: Usuario = Depends(get_current_user),
 ):
     es_staff = current_user.rol in (RolUsuario.ADMIN, RolUsuario.COACH)
-    q = db.query(WOD).filter(WOD.fecha == date.today())
+    q = db.query(WOD).filter(WOD.fecha == date.today(), WOD.es_personalizado == False)
     if not es_staff:
         q = q.filter(WOD.activo == True)
     return q.order_by(WOD.id).all()
@@ -97,7 +150,7 @@ def listar_wods(
     current_user: Usuario = Depends(get_current_user),
 ):
     es_staff = current_user.rol in (RolUsuario.ADMIN, RolUsuario.COACH)
-    q = db.query(WOD)
+    q = db.query(WOD).filter(WOD.es_personalizado == False)
     if not es_staff:
         q = q.filter(WOD.activo == True)
     return q.order_by(WOD.fecha.desc(), WOD.id.desc()).limit(limit).all()

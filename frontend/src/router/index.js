@@ -11,6 +11,9 @@ import SaludMedidaView from '../views/SaludMedidaView.vue'
 import MarcasView from '../views/MarcasView.vue'
 import MarcasEjercicioView from '../views/MarcasEjercicioView.vue'
 import AlertasView from '../views/AlertasView.vue'
+import WodsPersonalizadosView from '../views/WodsPersonalizadosView.vue'
+import HomeView from '../views/HomeView.vue'
+import UsuarioPerfilView from '../views/UsuarioPerfilView.vue'
 
 const routes = [
   {
@@ -28,13 +31,20 @@ const routes = [
         redirect: () => {
           const rol = localStorage.getItem('userRol') || 'cliente'
           if (rol === 'pendiente') return '/planes'
-          return rol === 'cliente' ? '/wods' : '/usuarios'
+          if (rol === 'admin') return '/usuarios'
+          return '/home'
         }
       },
       {
         path: 'usuarios',
         name: 'Usuarios',
         component: UsuariosView,
+        meta: { roles: ['admin', 'coach'] }
+      },
+      {
+        path: 'usuarios/:id',
+        name: 'UsuarioPerfil',
+        component: UsuarioPerfilView,
         meta: { roles: ['admin', 'coach'] }
       },
       {
@@ -85,6 +95,18 @@ const routes = [
         name: 'Alertas',
         component: AlertasView,
         meta: { roles: ['admin', 'coach'] },
+      },
+      {
+        path: 'wods/personalizados',
+        name: 'WodsPersonalizados',
+        component: WodsPersonalizadosView,
+        meta: { roles: ['admin', 'cliente'] },
+      },
+      {
+        path: 'home',
+        name: 'Home',
+        component: HomeView,
+        meta: { roles: ['cliente', 'coach'] },
       }
     ]
   }
@@ -113,7 +135,7 @@ router.beforeEach((to, from, next) => {
   }
 
   if (to.meta.roles && !to.meta.roles.includes(rol)) {
-    return next('/wods')
+    return next(rol === 'admin' ? '/usuarios' : '/home')
   }
 
   next()

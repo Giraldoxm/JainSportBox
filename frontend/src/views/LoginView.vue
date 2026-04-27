@@ -74,6 +74,32 @@
         </div>
 
         <template v-else>
+
+          <!-- Foto de perfil (opcional) -->
+          <div class="flex flex-col items-center gap-2">
+            <div
+              class="relative w-20 h-20 rounded-full bg-gray-100 border-2 border-dashed border-gray-300 overflow-hidden cursor-pointer hover:border-red-400 transition-colors group"
+              @click="$refs.inputFoto.click()"
+            >
+              <img v-if="fotoPreview" :src="fotoPreview" class="w-full h-full object-cover" alt="preview"/>
+              <div v-else class="w-full h-full flex flex-col items-center justify-center text-gray-400 group-hover:text-red-400 transition-colors">
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-7 w-7" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z"/>
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M15 13a3 3 0 11-6 0 3 3 0 016 0z"/>
+                </svg>
+              </div>
+              <div v-if="fotoPreview"
+                class="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z"/>
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 13a3 3 0 11-6 0 3 3 0 016 0z"/>
+                </svg>
+              </div>
+            </div>
+            <p class="text-xs text-gray-400">Foto de perfil <span class="text-gray-300">(opcional)</span></p>
+            <input ref="inputFoto" type="file" accept="image/jpeg,image/png,image/webp" class="hidden" @change="onFotoChange"/>
+          </div>
+
           <div>
             <label class="block text-sm font-semibold text-gray-700 mb-1.5">Nombre Completo <span class="text-red-500">*</span></label>
             <input v-model="regForm.nombre" type="text" required minlength="2" maxlength="120"
@@ -181,14 +207,34 @@ const regForm = ref({ nombre: '', email: '', documento_identidad: '', telefono: 
 const registroError = ref('')
 const registroLoading = ref(false)
 const registroExitoso = ref(false)
+const fotoArchivo = ref(null)
+const fotoPreview = ref('')
+
+function onFotoChange(e) {
+  const file = e.target.files[0]
+  if (!file) return
+  fotoArchivo.value = file
+  fotoPreview.value = URL.createObjectURL(file)
+}
 
 const handleRegistro = async () => {
   registroError.value = ''
   registroLoading.value = true
   try {
-    await api.post('/registro', regForm.value)
+    const fd = new FormData()
+    fd.append('nombre', regForm.value.nombre)
+    fd.append('email', regForm.value.email)
+    fd.append('password', regForm.value.password)
+    fd.append('documento_identidad', regForm.value.documento_identidad)
+    fd.append('genero', regForm.value.genero)
+    fd.append('telefono', regForm.value.telefono)
+    if (fotoArchivo.value) fd.append('foto', fotoArchivo.value)
+
+    await api.post('/registro', fd, { headers: { 'Content-Type': 'multipart/form-data' } })
     registroExitoso.value = true
     regForm.value = { nombre: '', email: '', documento_identidad: '', telefono: '', genero: '', password: '' }
+    fotoArchivo.value = null
+    fotoPreview.value = ''
   } catch (e) {
     const d = e.response?.data?.detail
     registroError.value = Array.isArray(d) ? d[0].msg : (d || 'Error al registrar la cuenta.')

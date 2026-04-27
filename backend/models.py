@@ -133,6 +133,8 @@ class WOD(Base):
     fecha: Mapped[date] = mapped_column(Date, nullable=False)
     activo: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
     coach_id: Mapped[Optional[int]] = mapped_column(Integer, ForeignKey("usuarios.id"), nullable=True)
+    es_personalizado: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
+    genero_destino: Mapped[Optional[str]] = mapped_column(String(20), nullable=True)  # masculino | femenino
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
 
     # ── Relaciones ──

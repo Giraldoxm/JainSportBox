@@ -42,6 +42,7 @@ def crear_usuario(
         email=payload.email,
         password_hash=get_password_hash(payload.password),
         documento_identidad=payload.documento_identidad,
+        genero=payload.genero,
         rol=payload.rol,
         huella_id=payload.huella_id,
         telefono=payload.telefono,
@@ -62,6 +63,9 @@ def actualizar_usuario(
     usuario = db.query(Usuario).filter(Usuario.id == usuario_id).first()
     if not usuario:
         raise HTTPException(status_code=404, detail="Usuario no encontrado.")
+
+    if payload.nombre is not None:
+        usuario.nombre = payload.nombre
 
     if payload.email is not None:
         duplicado = (
@@ -88,6 +92,9 @@ def actualizar_usuario(
         if duplicado_doc:
             raise HTTPException(status_code=400, detail="Ya existe un usuario con ese documento de identidad.")
         usuario.documento_identidad = payload.documento_identidad
+
+    if payload.genero is not None:
+        usuario.genero = payload.genero
 
     db.commit()
     db.refresh(usuario)
@@ -141,6 +148,18 @@ def eliminar_usuario(
             archivo.unlink()
     db.delete(usuario)
     db.commit()
+
+
+@router.get("/{usuario_id}", response_model=UsuarioResponse)
+def obtener_usuario(
+    usuario_id: int,
+    db: Session = Depends(get_db),
+    current_user: Usuario = Depends(_require_admin_or_coach),
+):
+    usuario = db.query(Usuario).filter(Usuario.id == usuario_id).first()
+    if not usuario:
+        raise HTTPException(status_code=404, detail="Usuario no encontrado.")
+    return usuario
 
 
 @router.get("/", response_model=List[UsuarioResponse])

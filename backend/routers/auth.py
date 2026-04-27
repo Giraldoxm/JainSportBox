@@ -1,24 +1,23 @@
+import shutil
+import uuid
 from datetime import timedelta
+from pathlib import Path
+from typing import Optional
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile, status
 from fastapi.security import OAuth2PasswordRequestForm
-from pydantic import BaseModel, Field
+from sqlalchemy import desc
 from sqlalchemy.orm import Session
 
 from database import get_db
-from models import RolUsuario, Usuario
+from models import Pago, Plan, RolUsuario, Usuario
 from security import ACCESS_TOKEN_EXPIRE_MINUTES, create_access_token, get_password_hash, verify_password, get_current_user
 
 router = APIRouter(tags=["Auth"])
 
-
-class RegistroPublico(BaseModel):
-    nombre: str = Field(..., min_length=2, max_length=120)
-    email: str = Field(..., max_length=120)
-    password: str = Field(..., min_length=6)
-    documento_identidad: str = Field(..., min_length=5, max_length=20)
-    genero: str = Field(..., pattern=r'^(masculino|femenino)$')
-    telefono: str = Field(..., min_length=7, max_length=20)
+UPLOADS_DIR = Path(__file__).parent.parent / "uploads"
+UPLOADS_DIR.mkdir(exist_ok=True)
+ALLOWED_TYPES = {"image/jpeg", "image/png", "image/webp"}
 
 
 @router.post("/login")
@@ -45,33 +44,80 @@ def contacto_admin(db: Session = Depends(get_db)):
 
 
 @router.post("/registro", status_code=status.HTTP_201_CREATED)
-def registro_publico(payload: RegistroPublico, db: Session = Depends(get_db)):
-    if db.query(Usuario).filter(Usuario.email == payload.email).first():
+def registro_publico(
+    nombre: str = Form(..., min_length=2, max_length=120),
+    email: str = Form(..., max_length=120),
+    password: str = Form(..., min_length=6),
+    documento_identidad: str = Form(..., min_length=5, max_length=20),
+    genero: str = Form(...),
+    telefono: str = Form(..., min_length=7, max_length=20),
+    foto: Optional[UploadFile] = File(None),
+    db: Session = Depends(get_db),
+):
+    if genero not in ("masculino", "femenino"):
+        raise HTTPException(status_code=422, detail="Género inválido.")
+    if db.query(Usuario).filter(Usuario.email == email).first():
         raise HTTPException(status_code=400, detail="Ya existe una cuenta con ese email.")
-    if db.query(Usuario).filter(Usuario.documento_identidad == payload.documento_identidad).first():
+    if db.query(Usuario).filter(Usuario.documento_identidad == documento_identidad).first():
         raise HTTPException(status_code=400, detail="Ya existe una cuenta con ese documento de identidad.")
+
     nuevo = Usuario(
-        nombre=payload.nombre,
-        email=payload.email,
-        password_hash=get_password_hash(payload.password),
-        documento_identidad=payload.documento_identidad,
-        genero=payload.genero,
-        telefono=payload.telefono,
+        nombre=nombre,
+        email=email,
+        password_hash=get_password_hash(password),
+        documento_identidad=documento_identidad,
+        genero=genero,
+        telefono=telefono,
         rol=RolUsuario.PENDIENTE,
     )
+
+    if foto and foto.filename:
+        if foto.content_type not in ALLOWED_TYPES:
+            raise HTTPException(status_code=400, detail="Formato de foto no permitido. Usa JPG, PNG o WEBP.")
+        extension = foto.filename.rsplit(".", 1)[-1].lower()
+        nombre_archivo = f"{uuid.uuid4().hex}.{extension}"
+        destino = UPLOADS_DIR / nombre_archivo
+        with destino.open("wb") as f:
+            shutil.copyfileobj(foto.file, f)
+        nuevo.foto_url = f"/uploads/{nombre_archivo}"
+
     db.add(nuevo)
     db.commit()
     return {"message": "Registro exitoso. Tu cuenta está pendiente de aprobación por el administrador."}
 
 
 @router.get("/me")
-def me(current_user: Usuario = Depends(get_current_user)):
+def me(current_user: Usuario = Depends(get_current_user), db: Session = Depends(get_db)):
+    incluye_wods_personalizados = False
+    plan_actual = None
+    if current_user.rol == RolUsuario.CLIENTE:
+        ultimo_pago = (
+            db.query(Pago)
+            .filter(Pago.usuario_id == current_user.id)
+            .order_by(desc(Pago.fecha_pago))
+            .first()
+        )
+        if ultimo_pago:
+            plan = db.query(Plan).filter(Plan.id == ultimo_pago.plan_id).first()
+            if plan:
+                incluye_wods_personalizados = plan.incluye_wods_personalizados
+                plan_actual = {
+                    "id": plan.id,
+                    "nombre": plan.nombre,
+                    "duracion_dias": plan.duracion_dias,
+                    "precio": plan.precio,
+                    "beneficios": plan.beneficios,
+                    "incluye_wods_personalizados": plan.incluye_wods_personalizados,
+                }
     return {
         "id": current_user.id,
         "nombre": current_user.nombre,
         "email": current_user.email,
         "rol": current_user.rol.value,
+        "genero": current_user.genero,
         "fecha_vencimiento": current_user.fecha_vencimiento,
         "esta_en_gym": current_user.esta_en_gym,
         "plan_solicitado_id": current_user.plan_solicitado_id,
+        "incluye_wods_personalizados": incluye_wods_personalizados,
+        "plan_actual": plan_actual,
     }

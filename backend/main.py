@@ -17,6 +17,8 @@ _migraciones = [
     "ALTER TABLE usuarios ADD COLUMN huella_template TEXT",
     "ALTER TABLE medidas_salud ADD COLUMN cuello_cm REAL",
     "ALTER TABLE medidas_salud ADD COLUMN cadera_cm REAL",
+    "ALTER TABLE wods ADD COLUMN es_personalizado INTEGER NOT NULL DEFAULT 0",
+    "ALTER TABLE wods ADD COLUMN genero_destino VARCHAR(20)",
 ]
 with engine.connect() as _conn:
     for _sql in _migraciones:
