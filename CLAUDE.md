@@ -8,6 +8,16 @@ JainSportBox is a CrossFit Box Management System with a Python/FastAPI backend a
 
 ## Development Commands
 
+### Launcher (recomendado)
+
+Desde la raíz del repo:
+```powershell
+.\start-dev.ps1                # backend + frontend + bridge en ventanas separadas
+.\start-dev.ps1 -NoBridge      # si el bridge ya corre via Task Scheduler
+.\start-dev.ps1 -NoFrontend    # solo backend + bridge
+```
+O doble-clic a `start-dev.cmd`. El launcher activa el `venv/`, detecta si el bridge ya está corriendo (no relanza) y dispara UAC solo cuando hace falta. Ver logs del bridge en vivo: `servicio_biometrico\ver-logs.cmd`.
+
 ### Backend
 ```bash
 # From project root
@@ -20,8 +30,8 @@ cp .env.example .env
 # Start backend (auto-creates DB tables and seeds admin on startup)
 uvicorn main:app --reload --port 8000
 
-# Or from project root:
-uvicorn backend.main:app --reload --port 8000
+# Or fromuvicorn backend.main:app --reload --port 8000 project root:
+
 ```
 
 ### Frontend
@@ -168,16 +178,18 @@ The average is stored as `rm_calculado` in the DB. The backend helper `_calcular
 
 ### Arrancar el bridge
 
-```bash
-# Compilar
-cd servicio_biometrico
-dotnet build
+Lo más simple: usar el launcher de la raíz (`start-dev.ps1`) — lanza el bridge con UAC junto con backend y frontend.
 
-# Ejecutar — DEBE correrse como Administrador (requiere acceso al driver USB)
-# Doble clic en bin\Debug\net48\HuelleroBridge.exe con "Ejecutar como administrador"
-# O desde PowerShell elevado:
+Manual:
+```powershell
+# Compilar
+dotnet build servicio_biometrico\HuelleroBridge.csproj
+
+# Ejecutar — DEBE correrse como Administrador (acceso al driver USB)
 Start-Process -FilePath "servicio_biometrico\bin\Debug\net48\HuelleroBridge.exe" -Verb RunAs
 ```
+
+**Logs en vivo:** `servicio_biometrico\ver-logs.cmd` (tail coloreado de `bridge.log`).
 
 ### Por qué .NET y no Python
 
@@ -185,17 +197,29 @@ El SDK de DigitalPersona U.are.U 4500 ("One Touch for Windows .NET Edition") sol
 
 ### Requisitos críticos de arquitectura
 
+- **`new Capture(Priority.High)`**: el SDK por defecto usa `Priority.Normal`, que solo entrega eventos cuando la ventana vinculada al hilo tiene foco. Como `BridgeForm` está oculta y nunca toma foco, con Normal **no llega ningún evento**. La propiedad `Priority` es read-only y debe pasarse por constructor (`new Capture(Priority.High)` en `FingerprintCapture.cs`). Ésta es la pieza que habilita la captura en background; sin esto ningún truco de message pump alcanza.
 - **`[STAThread]` + `Application.Run(form)`**: el SDK usa COM para despachar eventos (`OnComplete`, `OnFingerTouch`, etc.) a través del message pump de Windows. Sin un hilo STA con message pump activo, los eventos nunca se entregan aunque el lector esté conectado. La solución es `[STAThread]` en `Main` y `Application.Run(new BridgeForm(...))`.
-- **`BridgeForm`**: ventana oculta (`Opacity=0`, `ShowInTaskbar=false`) que provee el HWND necesario para el message pump COM. El `FingerprintCapture` se inicializa en `OnLoad` (después de que el HWND existe).
+- **`BridgeForm`**: ventana invisible (off-screen a -32000,-32000, `Opacity=0`, `ShowInTaskbar=false`) que provee el HWND necesario para el message pump COM. El `FingerprintCapture` se inicializa en `OnLoad` (después de que el HWND existe). La invisibilidad es solo estética — la captura background depende de `Priority.High`, no de la posición de la ventana.
 - **x86**: el proyecto está fijado a `PlatformTarget=x86` porque las DLLs del SDK son de 32 bits.
+
+### Cosas que NO resuelven el problema de background (no agregar)
+
+Históricamente se agregaron varios trucos buscando captura en background antes de descubrir `Priority.High`. Ya fueron eliminados de `Program.cs`. **No los re-introduzcas** salvo que tengas evidencia concreta de un problema distinto:
+
+- `SetProcessInformation` con `PROCESS_POWER_THROTTLING_EXECUTION_SPEED` (opt-out de EcoQoS de Win11) — el throttling no era la causa.
+- `Process.PriorityClass = AboveNormal` — el problema no era prioridad de proceso.
+- `DeshabilitarQuickEdit` (manipular `ENABLE_QUICK_EDIT` del stdin) — irrelevante porque `FreeConsole()` libera la consola al arrancar.
+
+Lo único conservado en `Program.cs` además del shell WinForms es `SetThreadExecutionState(ES_SYSTEM_REQUIRED)` para evitar que la PC del gym se duerma sola.
 
 ### Archivos del bridge
 
 | Archivo | Rol |
 |---|---|
-| `Program.cs` | Entry point `[STAThread]`; levanta WebSocket, HttpApi y BridgeForm |
-| `BridgeForm.cs` | Ventana WinForms oculta; crea `FingerprintCapture` en `OnLoad` |
-| `FingerprintCapture.cs` | Implementa `DPFP.Capture.EventHandler`; maneja enrolamiento y verificación |
+| `Program.cs` | Entry point `[STAThread]`; redirige logs a `bridge.log`, suelta consola con `FreeConsole`, levanta WebSocket/HttpApi/BridgeForm |
+| `BridgeForm.cs` | Ventana WinForms invisible (HWND para message pump COM); crea `FingerprintCapture` en `OnLoad` |
+| `FingerprintCapture.cs` | Implementa `DPFP.Capture.EventHandler`; instancia `new Capture(Priority.High)` para captura en background; maneja enrolamiento y verificación |
+| `ver-logs.ps1` / `.cmd` | Tail coloreado de `bridge.log` en vivo |
 | `EnrollmentState.cs` | Estado compartido (thread-safe con `lock`) entre captura y HTTP API |
 | `HttpApi.cs` | `HttpListener` en puerto 8001; endpoints REST consumidos por el frontend |
 | `WebSocketHub.cs` | Servidor WebSocket en puerto 8765 (Fleck); broadcast de eventos en tiempo real |

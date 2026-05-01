@@ -1,0 +1,148 @@
+
+===== Bridge iniciado 2026-05-01 13:56:38 =====
+1/05/2026 1:56:38 p. m. [Info] Server started at ws://0.0.0.0:8765 (actual port 8765) 
+[WS] Escuchando en ws://localhost:8765
+[HTTP] API REST escuchando en http://localhost:8001
+[HUELLERO] Capturando. Coloca el dedo en el lector...
+Presiona Ctrl+C para salir.
+[HUELLERO] Lector conectado: 00000000-0000-0000-0000-000000000000
+[HUELLERO] Templates cargados: 3
+[HTTP] Verificación iniciada con 3 templates.
+[HTTP] Verificación cancelada
+
+===== Bridge iniciado 2026-05-01 15:38:32 =====
+1/05/2026 3:38:32 p. m. [Info] Server started at ws://0.0.0.0:8765 (actual port 8765) 
+[WS] Escuchando en ws://localhost:8765
+[HTTP] API REST escuchando en http://localhost:8001
+[HUELLERO] Capturando. Coloca el dedo en el lector...
+Presiona Ctrl+C para salir.
+[HUELLERO] Lector conectado: 00000000-0000-0000-0000-000000000000
+[HUELLERO] Templates cargados: 3
+[HTTP] Verificación iniciada con 3 templates.
+[HTTP] Verificación cancelada
+[HUELLERO] Templates cargados: 3
+[HTTP] Verificación iniciada con 3 templates.
+[HTTP] Verificación cancelada
+[HUELLERO] Templates cargados: 3
+[HTTP] Verificación iniciada con 3 templates.
+
+===== Bridge iniciado 2026-05-01 15:44:26 =====
+1/05/2026 3:44:26 p. m. [Info] Server started at ws://0.0.0.0:8765 (actual port 8765) 
+[WS] Escuchando en ws://localhost:8765
+[HTTP] API REST escuchando en http://localhost:8001
+[HUELLERO] Capturando. Coloca el dedo en el lector...
+Presiona Ctrl+C para salir.
+[HUELLERO] Lector conectado: 00000000-0000-0000-0000-000000000000
+[HUELLERO] Dedo colocado
+[HUELLERO] Huella capturada
+[HUELLERO] Dedo retirado
+[HUELLERO] Dedo colocado
+[HUELLERO] Huella capturada
+[HUELLERO] Dedo retirado
+[HUELLERO] Dedo colocado
+[HUELLERO] Huella capturada
+[HUELLERO] Templates cargados: 3
+[HTTP] Verificación iniciada con 3 templates.
+[HUELLERO] Dedo retirado
+[HUELLERO] Dedo colocado
+[HUELLERO] Huella capturada
+[HUELLERO] Comparando contra 3 templates...
+[HUELLERO] Coincidencia: usuario 2 (Jhon Anderson España Alvarez)
+[HUELLERO] Dedo retirado
+[HTTP] Verificación cancelada
+[HUELLERO] Templates cargados: 3
+[HTTP] Verificación iniciada con 3 templates.
+[HUELLERO] Dedo colocado
+[HUELLERO] Huella capturada
+[HUELLERO] Comparando contra 3 templates...
+[HUELLERO] Coincidencia: usuario 2 (Jhon Anderson España Alvarez)
+[HUELLERO] Dedo retirado
+[HTTP] Verificación cancelada
+[HUELLERO] Templates cargados: 3
+[HTTP] Verificación iniciada con 3 templates.
+[HUELLERO] Dedo colocado
+[HUELLERO] Huella capturada
+[HUELLERO] Comparando contra 3 templates...
+[HUELLERO] Coincidencia: usuario 2 (Jhon Anderson España Alvarez)
+[HUELLERO] Dedo retirado
+[HUELLERO] Dedo colocado
+[HUELLERO] Dedo retirado
+[HTTP] Verificación cancelada
+[HUELLERO] Dedo colocado
+[HUELLERO] Huella capturada
+[HUELLERO] Dedo retirado
+[HUELLERO] Dedo colocado
+[HUELLERO] Huella capturada
+[HUELLERO] Templates cargados: 3
+[HTTP] Verificación iniciada con 3 templates.
+[HUELLERO] Dedo retirado
+[HUELLERO] Dedo colocado
+[HUELLERO] Huella capturada
+[HUELLERO] Comparando contra 3 templates...
+[HUELLERO] Coincidencia: usuario 5 (Juan Perez)
+[HUELLERO] Dedo retirado
+[HTTP] Verificación cancelada
+[HTTP] Enrolamiento iniciado: usuario 1 (Jain Admin)
+[HUELLERO] Dedo colocado
+[HUELLERO] Huella capturada
+[HUELLERO] Dedo retirado
+[HUELLERO] Dedo colocado
+[HUELLERO] Huella capturada
+[HUELLERO] Dedo retirado
+[HUELLERO] Dedo colocado
+[HUELLERO] Huella capturada
+[HUELLERO] Dedo retirado
+[HUELLERO] Dedo colocado
+[HUELLERO] Huella capturada
+[HUELLERO] Template listo para usuario 1 (Jain Admin). Guardando...
+[HUELLERO] Template guardado para usuario 1.
+[HUELLERO] Dedo retirado
+[HUELLERO] Templates cargados: 4
+[HTTP] Verificación iniciada con 4 templates.
+[HUELLERO] Dedo colocado
+[HUELLERO] Huella capturada
+[HUELLERO] Comparando contra 4 templates...
+[HUELLERO] Coincidencia: usuario 1 (Jain Admin)
+[HUELLERO] Dedo retirado
+[HTTP] Verificación cancelada
+Bye.
+
+===== Bridge iniciado 2026-05-01 15:56:46 =====
+1/05/2026 3:56:46 p. m. [Info] Server started at ws://0.0.0.0:8765 (actual port 8765) 
+[WS] Escuchando en ws://localhost:8765
+[HTTP] API REST escuchando en http://localhost:8001
+[HUELLERO] Capturando. Coloca el dedo en el lector...
+Presiona Ctrl+C para salir.
+[HUELLERO] Lector conectado: 00000000-0000-0000-0000-000000000000
+[HUELLERO] Dedo colocado
+[HUELLERO] Huella capturada
+[HUELLERO] Templates cargados: 4
+[HTTP] Verificación iniciada con 4 templates.
+[HUELLERO] Dedo retirado
+[HUELLERO] Dedo colocado
+[HUELLERO] Huella capturada
+[HUELLERO] Comparando contra 4 templates...
+[HUELLERO] Coincidencia: usuario 2 (Jhon Anderson España Alvarez)
+[HUELLERO] Dedo retirado
+[HTTP] Verificación cancelada
+Bye.
+
+===== Bridge iniciado 2026-05-01 16:05:59 =====
+1/05/2026 4:05:59 p. m. [Info] Server started at ws://0.0.0.0:8765 (actual port 8765) 
+[WS] Escuchando en ws://localhost:8765
+[HTTP] API REST escuchando en http://localhost:8001
+[HUELLERO] Capturando. Coloca el dedo en el lector...
+Presiona Ctrl+C para salir.
+[HUELLERO] Lector conectado: 00000000-0000-0000-0000-000000000000
+[HUELLERO] Dedo colocado
+[HUELLERO] Huella capturada
+[HUELLERO] Templates cargados: 4
+[HTTP] Verificación iniciada con 4 templates.
+[HUELLERO] Dedo retirado
+[HUELLERO] Dedo colocado
+[HUELLERO] Huella capturada
+[HUELLERO] Comparando contra 4 templates...
+[HUELLERO] Coincidencia: usuario 2 (Jhon Anderson España Alvarez)
+[HUELLERO] Dedo retirado
+[HTTP] Verificación cancelada
+Bye.

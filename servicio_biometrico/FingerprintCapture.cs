@@ -35,7 +35,12 @@ namespace HuelleroBridge
         {
             _state       = state;
             _broadcast   = broadcast;
-            _capturer    = new Capture();
+            // Priority.Normal (default) solo captura cuando la ventana vinculada al hilo
+            // tiene foco. Como nuestra BridgeForm está oculta y nunca toma foco, los
+            // eventos OnComplete/OnFingerTouch nunca se entregan. High permite captura en
+            // segundo plano sin importar el foreground. Es read-only, hay que pasarla por
+            // constructor.
+            _capturer    = new Capture(Priority.High);
             _capturer.EventHandler = this;
             _enrollment  = new Enrollment();
             _verificator = new Verification();
