@@ -37,10 +37,10 @@ There are no test commands — no test suite exists in this project.
 
 ## Architecture
 
-**Two-process stack:**
+**Three-process stack:**
 - Backend: FastAPI on port 8000, SQLite database (`backend/crossfit.db`)
 - Frontend: Vue 3 SPA on port 5173, talks to backend via Axios
-- Bridge: `bridge/processor.py` — separate script for Arduino fingerprint sensor serial communication
+- Bridge: `servicio_biometrico/` — .NET 4.8 Windows app for DigitalPersona U.are.U 4500 fingerprint reader
 
 **Backend layout:**
 - `backend/main.py` — FastAPI app creation, CORS config, router registration. Runs SQLite migrations on startup (ALTER TABLE in try/except; table reconstruction for nullability changes via PRAGMA table_info). Mounts `backend/uploads/` as `/uploads` for static files (user profile photos). Starts APScheduler: alerts job runs at 9 AM Bogotá time AND immediately on startup.
@@ -54,10 +54,10 @@ There are no test commands — no test suite exists in this project.
 **Frontend layout:**
 - `frontend/src/main.js` — Vue app init; Axios interceptor adds `Authorization: Bearer {token}` from `localStorage`
 - `frontend/src/api.js` — Axios instance with `baseURL: http://127.0.0.1:8000`
-- `frontend/src/router/index.js` — Route guards using `meta.requiresAuth` and `meta.roles`; clients default to `/wods`, admin/coach to `/usuarios`
+- `frontend/src/router/index.js` — Route guards using `meta.requiresAuth` and `meta.roles`; clients default to `/home`, admin/coach to `/usuarios`
 - `frontend/src/composables/useAuth.js` — Reactive role helpers: `isAdmin`, `isCoach`, `isCliente`, `canManage`
-- `frontend/src/views/` — One large SFC per page: `LoginView`, `UsuariosView`, `TiendaView`, `WodsView`, `FinanzasView`, `PlanesView`, `AlertasView`, `SaludView`, `SaludMedidaView`, `MarcasView`, `MarcasEjercicioView`. (`MonitorAccesoView.vue` exists but is not registered in the router.)
-- `frontend/src/components/Dashboard.vue` — Main layout shell (sidebar + navigation)
+- `frontend/src/views/` — One large SFC per page: `LoginView`, `UsuariosView`, `UsuarioPerfilView`, `HomeView`, `TiendaView`, `WodsView`, `FinanzasView`, `PlanesView`, `AlertasView`, `SaludView`, `SaludMedidaView`, `MarcasView`, `MarcasEjercicioView`. (`MonitorAccesoView.vue` exists but is not registered in the router.)
+- `frontend/src/components/Dashboard.vue` — Main layout shell (sidebar + navigation). Does NOT show membership status in the sidebar — that info lives in `HomeView`.
 - `frontend/src/data/` — Shared config files: `saludTipos.js` (5 measurement configs), `ejerciciosMarcas.js` (12 fixed exercises)
 
 ## Key Patterns
@@ -72,13 +72,48 @@ There are no test commands — no test suite exists in this project.
 
 **Financial movements:** Payments and sales auto-generate `movimientos_financieros` rows with `fuente = "pago_membresia"` or `"venta_tienda"`. Manual entries use `"manual"`.
 
-**Fingerprint integration:** `asistencias` table stores entrada/salida events by `huella_id`. The bridge reads the fingerprint sensor via serial and calls `POST /asistencia/huella/{huella_id}`.
+**Fingerprint integration:** see the dedicated section below.
 
 **SQLite migrations:** `backend/main.py` runs migrations on startup. New columns use `ALTER TABLE … ADD COLUMN` inside try/except. Changing nullability requires full table reconstruction (rename → CREATE → INSERT → DROP), guarded by a `PRAGMA table_info` check to avoid re-running.
 
 **Chart lifecycle (Vue + Chart.js):** Always call `destruirChart()` before creating a new instance. Use `watch(registros, async () => { await nextTick(); await nextTick(); renderChart() })` to ensure the canvas is in the DOM after a `v-if` renders.
 
 **Unit normalization (1RM):** All weight comparisons (PR detection, chart, esPR preview) are done in kg using `1 kg = 2.20462 lbs`. Values are converted back to the display unit (`ultimaUnidad`) only for rendering. Never compare `rm_calculado` values from different records without normalizing first.
+
+**Public registration:** `POST /registro` accepts `multipart/form-data` (not JSON) because it supports an optional profile photo. Use `Form(...)` for all text fields and `File(None)` for the photo. The frontend sends a `FormData` object with `Content-Type: multipart/form-data`.
+
+## HomeView — client/coach home screen
+
+Route `/home` (roles: `cliente`, `coach`). Shows:
+- Membership status card + current plan card (clients only)
+- Coach staff card (coaches only)
+- Attendance calendar with month navigation (prev/next arrows, fetches 12 months once on mount)
+
+**Attendance calendar pattern:**
+- Fetch: `GET /asistencia/mi-historial?meses=12` on mount
+- State: `mesOffset` ref (0 = current month, -1 = previous, min = -11)
+- `calendarioActual` computed builds the single visible month from `attendedSet`
+- Cell classes: `bg-emerald-500` attended, `bg-gray-800` today, `bg-gray-50` future, `bg-transparent` past not attended
+
+## UsuarioPerfilView — admin user profile page
+
+Route `/usuarios/:id` (roles: `admin`, `coach`). Three sections:
+
+**Profile card:** Centered column layout — photo on top, name below (prevents mobile truncation). Shows email, document, phone, gender, fingerprint status, membership status. "Editar perfil" button in the header opens an edit modal.
+
+**Edit modal:** Fields: nombre, email, teléfono, documento_identidad, género, optional password change (checkbox toggle + visibility toggle). Only sends changed fields to the backend (`PATCH /usuarios/:id`). Updates `usuario.value` reactively on success without page reload.
+
+**Attendance calendar:** Same month-navigation pattern as `HomeView` but fetches `GET /asistencia/historial/:id?meses=12` (admin endpoint).
+
+**Subscription history:** Table from `GET /pagos/usuario/:id` — date, plan name, amount, payment method.
+
+**Navigation:** The "ver" button in `UsuariosView` calls `router.push('/usuarios/${u.id}')` instead of opening a modal.
+
+## Asistencia routers
+
+`backend/routers/asistencia.py` exposes two GET endpoints:
+- `GET /asistencia/mi-historial?meses=N` — current user's attendance (any authenticated role)
+- `GET /asistencia/historial/{usuario_id}?meses=N` — any user's attendance (admin/coach only)
 
 ## Mi Salud — health metrics
 
@@ -129,6 +164,123 @@ The average is stored as `rm_calculado` in the DB. The backend helper `_calcular
   - History table with PR badge
   - Add modal: peso + unidad + reps + fecha + notas; live 1RM preview + "¡Nuevo PR!" indicator
 
+## Servicio Biométrico (Bridge .NET)
+
+### Arrancar el bridge
+
+```bash
+# Compilar
+cd servicio_biometrico
+dotnet build
+
+# Ejecutar — DEBE correrse como Administrador (requiere acceso al driver USB)
+# Doble clic en bin\Debug\net48\HuelleroBridge.exe con "Ejecutar como administrador"
+# O desde PowerShell elevado:
+Start-Process -FilePath "servicio_biometrico\bin\Debug\net48\HuelleroBridge.exe" -Verb RunAs
+```
+
+### Por qué .NET y no Python
+
+El SDK de DigitalPersona U.are.U 4500 ("One Touch for Windows .NET Edition") solo expone DLLs COM para .NET Framework x86. No hay bindings para Python.
+
+### Requisitos críticos de arquitectura
+
+- **`[STAThread]` + `Application.Run(form)`**: el SDK usa COM para despachar eventos (`OnComplete`, `OnFingerTouch`, etc.) a través del message pump de Windows. Sin un hilo STA con message pump activo, los eventos nunca se entregan aunque el lector esté conectado. La solución es `[STAThread]` en `Main` y `Application.Run(new BridgeForm(...))`.
+- **`BridgeForm`**: ventana oculta (`Opacity=0`, `ShowInTaskbar=false`) que provee el HWND necesario para el message pump COM. El `FingerprintCapture` se inicializa en `OnLoad` (después de que el HWND existe).
+- **x86**: el proyecto está fijado a `PlatformTarget=x86` porque las DLLs del SDK son de 32 bits.
+
+### Archivos del bridge
+
+| Archivo | Rol |
+|---|---|
+| `Program.cs` | Entry point `[STAThread]`; levanta WebSocket, HttpApi y BridgeForm |
+| `BridgeForm.cs` | Ventana WinForms oculta; crea `FingerprintCapture` en `OnLoad` |
+| `FingerprintCapture.cs` | Implementa `DPFP.Capture.EventHandler`; maneja enrolamiento y verificación |
+| `EnrollmentState.cs` | Estado compartido (thread-safe con `lock`) entre captura y HTTP API |
+| `HttpApi.cs` | `HttpListener` en puerto 8001; endpoints REST consumidos por el frontend |
+| `WebSocketHub.cs` | Servidor WebSocket en puerto 8765 (Fleck); broadcast de eventos en tiempo real |
+| `HuelleroBridge.csproj` | net48 x86; referencia DLLs SDK desde `C:\Program Files\DigitalPersona\One Touch SDK\.NET\Bin\` |
+
+### DLLs del SDK referenciadas
+
+`DPFPDevNET.dll`, `DPFPEngNET.dll`, `DPFPShrNET.dll`, `DPFPVerNET.dll`
+Ruta: `C:\Program Files\DigitalPersona\One Touch SDK\.NET\Bin\`
+
+### HTTP API del bridge (`http://localhost:8001`)
+
+| Método | Ruta | Descripción |
+|---|---|---|
+| `GET` | `/status` | Estado completo: lector, enrolamiento y verificación |
+| `POST` | `/enroll/{id}?nombre=X` | Inicia enrolamiento para el usuario `id` |
+| `DELETE` | `/enroll` | Cancela enrolamiento en curso |
+| `POST` | `/verify/start` | Carga templates del backend e inicia modo verificación |
+| `DELETE` | `/verify` | Cancela verificación en curso |
+
+### Flujo de enrolamiento
+
+1. Frontend llama `POST /enroll/{usuario_id}`
+2. Bridge pone `EnrollmentState.Activo = true`
+3. Usuario coloca el dedo 4 veces; `OnComplete` acumula muestras en `Enrollment`
+4. Al completar 4 muestras, `Enrollment.Template` está listo
+5. Bridge llama `POST /usuarios/{id}/huella-template` con header `X-Bridge-Secret`
+6. Backend guarda el template Base64 en `usuarios.huella_template` y `huella_id = "dp_{id}"`
+7. Frontend detecta `completado=true` via polling de `/status` y cierra el modal
+
+### Flujo de verificación
+
+1. Frontend llama `POST /verify/start`
+2. Bridge carga templates con `GET /usuarios/con-template/lista` (header `X-Bridge-Secret`)
+3. Usuario coloca el dedo; `OnComplete` extrae `FeatureSet` con `DataPurpose.Verification`
+4. Bridge itera todos los templates y llama `Verification.Verify(features, template, ref result)`
+5. Si `result.Verified = true` → `EnrollmentState.MarcarVerifyEncontrado(usuario)`
+6. Frontend detecta resultado via polling y muestra nombre + botón "Ver perfil"
+
+### Autenticación bridge ↔ backend (`X-Bridge-Secret`)
+
+El bridge no tiene JWT. Los endpoints `POST /usuarios/{id}/huella-template` y `GET /usuarios/con-template/lista` aceptan el header `X-Bridge-Secret: <valor>` como alternativa al JWT de admin/coach.
+
+El secreto se define en `backend/.env` como `BRIDGE_SECRET=jain_bridge_secret_2024`. Si el header no coincide, el backend exige JWT normal.
+
+### Modelo de datos relevante (tabla `usuarios`)
+
+| Campo | Tipo | Uso |
+|---|---|---|
+| `huella_id` | `String(100)`, único, nullable | Identificador de forma `dp_{usuario_id}`; se pone al registrar template |
+| `huella_template` | `Text`, nullable | Template FMD en Base64 generado por el SDK |
+| `esta_en_gym` | `Boolean` | Toggle entrada/salida para control de acceso |
+| `fecha_vencimiento` | `Date` | Validada en `POST /asistencia/por-usuario/{id}` antes de registrar entrada |
+
+### Endpoints de asistencia relevantes
+
+- `POST /asistencia/por-usuario/{usuario_id}` — registra entrada/salida; valida membresía vigente en entradas. Llamado por el bridge o admin.
+- `GET /asistencia/mi-historial?meses=N` — historial propio
+- `GET /asistencia/historial/{usuario_id}?meses=N` — historial de cualquier usuario (admin/coach)
+
+### Frontend: componentes de huella
+
+**`UsuariosView.vue`** (admin):
+- Botón "Buscar por Huella" junto a "Nuevo Usuario" → modal de verificación
+- Modal de enrolamiento accesible desde la tabla de usuarios
+
+**`UsuarioPerfilView.vue`** (admin/coach):
+- Card "Huella digital" muestra estado (`Registrada` / `No registrada`)
+- Botón "Registrar" / "Reemplazar" al lado del estado → mismo modal de enrolamiento
+- Al completar, refresca el usuario vía `GET /usuarios/{id}` sin recargar página
+
+**Polling pattern (frontend):**
+```js
+const _pollStatus = async () => {
+  const r    = await fetch('http://localhost:8001/status')
+  const data = await r.json()
+  // usar data.enrolamiento o data.verificacion según el modo
+}
+const _iniciarPoll = () => {
+  _pollStatus()                          // primer fetch inmediato (sin esperar el delay)
+  intervalo = setInterval(_pollStatus, 600)
+}
+```
+Ejecutar `_pollStatus()` inmediatamente antes del `setInterval` es importante: sin esto la UI tarda 600 ms en reflejar el estado activo.
+
 ## Environment Variables
 
 Copy `backend/.env.example` to `backend/.env`. Required keys:
@@ -139,6 +291,7 @@ ADMIN_EMAIL=
 ADMIN_PASSWORD=
 ADMIN_TELEFONO=
 ADMIN_DOCUMENTO=
+BRIDGE_SECRET=          # Clave compartida con el bridge .NET para autenticarse sin JWT
 ```
 
 ## CORS

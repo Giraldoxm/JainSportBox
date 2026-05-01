@@ -1,0 +1,224 @@
+using System;
+using System.Collections.Generic;
+using System.Net.Http;
+using System.Text;
+using System.Threading.Tasks;
+using DPFP;
+using DPFP.Capture;
+using DPFP.Processing;
+using DPFP.Verification;
+
+namespace HuelleroBridge
+{
+    public class TemplateEntry
+    {
+        public int    UsuarioId { get; set; }
+        public string Nombre    { get; set; }
+        public string Base64    { get; set; }
+    }
+
+    public class FingerprintCapture : DPFP.Capture.EventHandler
+    {
+        private readonly Capture         _capturer;
+        private readonly Enrollment      _enrollment;
+        private readonly Verification    _verificator;
+        private readonly EnrollmentState _state;
+        private readonly Action<string>  _broadcast;
+        private static readonly HttpClient _http = new HttpClient();
+
+        private List<TemplateEntry> _templates = new List<TemplateEntry>();
+
+        private const string ApiBase      = "http://localhost:8000";
+        private const string BridgeSecret = "jain_bridge_secret_2024";
+
+        public FingerprintCapture(EnrollmentState state, Action<string> broadcast)
+        {
+            _state       = state;
+            _broadcast   = broadcast;
+            _capturer    = new Capture();
+            _capturer.EventHandler = this;
+            _enrollment  = new Enrollment();
+            _verificator = new Verification();
+        }
+
+        public void Start()
+        {
+            try
+            {
+                _capturer.StartCapture();
+                Console.WriteLine("[HUELLERO] Capturando. Coloca el dedo en el lector...");
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"[HUELLERO] No se pudo iniciar la captura: {ex.Message}");
+            }
+        }
+
+        public void Stop()
+        {
+            try { _capturer.StopCapture(); } catch { }
+        }
+
+        public void CargarTemplates(List<TemplateEntry> templates)
+        {
+            _templates = templates ?? new List<TemplateEntry>();
+            Console.WriteLine($"[HUELLERO] Templates cargados: {_templates.Count}");
+        }
+
+        // ============ Eventos del SDK ============
+
+        public void OnComplete(object Capture, string ReaderSerialNumber, Sample Sample)
+        {
+            Console.WriteLine("[HUELLERO] Huella capturada");
+
+            if (_state.VerifyActivo)
+            {
+                ProcesarVerificacion(Sample);
+            }
+            else if (_state.Activo)
+            {
+                ProcesarEnrolamiento(Sample);
+            }
+            else
+            {
+                var extractor = new FeatureExtraction();
+                var feedback  = CaptureFeedback.None;
+                var features  = new FeatureSet();
+                extractor.CreateFeatureSet(Sample, DataPurpose.Verification, ref feedback, ref features);
+                if (feedback == CaptureFeedback.Good)
+                {
+                    var b64  = Convert.ToBase64String(features.Bytes);
+                    _broadcast($"{{\"tipo\":\"featureset\",\"data\":\"{b64}\",\"reader\":\"{ReaderSerialNumber}\"}}");
+                }
+            }
+        }
+
+        private void ProcesarEnrolamiento(Sample Sample)
+        {
+            var extractor = new FeatureExtraction();
+            var feedback  = CaptureFeedback.None;
+            var features  = new FeatureSet();
+            extractor.CreateFeatureSet(Sample, DataPurpose.Enrollment, ref feedback, ref features);
+
+            if (feedback != CaptureFeedback.Good || features == null)
+            {
+                Console.WriteLine($"[HUELLERO] Captura no usable: {feedback}");
+                _state.MarcarError($"Calidad insuficiente: {feedback}");
+                return;
+            }
+
+            try { _enrollment.AddFeatures(features); }
+            catch (Exception ex) { Console.WriteLine($"[HUELLERO] AddFeatures: {ex.Message}"); return; }
+
+            _state.AvanzarPaso(_state.Total - (int)_enrollment.FeaturesNeeded);
+
+            if (_enrollment.TemplateStatus == Enrollment.Status.Ready && _enrollment.Template != null)
+            {
+                var templateB64 = Convert.ToBase64String(_enrollment.Template.Bytes);
+                _enrollment.Clear();
+                var (uid, nombre) = _state.GetTarget();
+                Console.WriteLine($"[HUELLERO] Template listo para usuario {uid} ({nombre}). Guardando...");
+                Task.Run(() => GuardarTemplate(uid, templateB64));
+            }
+        }
+
+        private void ProcesarVerificacion(Sample Sample)
+        {
+            var extractor = new FeatureExtraction();
+            var feedback  = CaptureFeedback.None;
+            var features  = new FeatureSet();
+            extractor.CreateFeatureSet(Sample, DataPurpose.Verification, ref feedback, ref features);
+
+            if (feedback != CaptureFeedback.Good || features == null)
+            {
+                Console.WriteLine($"[HUELLERO] Verificación — calidad insuficiente: {feedback}");
+                _state.MarcarVerifyError($"Calidad insuficiente: {feedback}");
+                return;
+            }
+
+            Console.WriteLine($"[HUELLERO] Comparando contra {_templates.Count} templates...");
+            foreach (var entry in _templates)
+            {
+                try
+                {
+                    var tmpl = new Template();
+                    tmpl.DeSerialize(Convert.FromBase64String(entry.Base64));
+
+                    var result = new Verification.Result();
+                    _verificator.Verify(features, tmpl, ref result);
+
+                    if (result.Verified)
+                    {
+                        Console.WriteLine($"[HUELLERO] Coincidencia: usuario {entry.UsuarioId} ({entry.Nombre})");
+                        _state.MarcarVerifyEncontrado(new VerifyResult { UsuarioId = entry.UsuarioId, Nombre = entry.Nombre });
+                        _broadcast($"{{\"tipo\":\"verify_match\",\"usuario_id\":{entry.UsuarioId},\"nombre\":\"{entry.Nombre}\"}}");
+                        return;
+                    }
+                }
+                catch (Exception ex)
+                {
+                    Console.WriteLine($"[HUELLERO] Error comparando template {entry.UsuarioId}: {ex.Message}");
+                }
+            }
+
+            Console.WriteLine("[HUELLERO] No se encontró coincidencia.");
+            _state.MarcarVerifyNoMatch();
+            _broadcast("{\"tipo\":\"verify_no_match\"}");
+        }
+
+        private async Task GuardarTemplate(int usuarioId, string templateB64)
+        {
+            try
+            {
+                var body    = $"{{\"template\":\"{templateB64}\"}}";
+                var content = new StringContent(body, Encoding.UTF8, "application/json");
+                var req     = new HttpRequestMessage(HttpMethod.Post, $"{ApiBase}/usuarios/{usuarioId}/huella-template");
+                req.Content = content;
+                req.Headers.Add("X-Bridge-Secret", BridgeSecret);
+                var resp    = await _http.SendAsync(req);
+
+                if (resp.IsSuccessStatusCode)
+                {
+                    Console.WriteLine($"[HUELLERO] Template guardado para usuario {usuarioId}.");
+                    _state.MarcarCompletado();
+                    _broadcast($"{{\"tipo\":\"enrol_ok\",\"usuario_id\":{usuarioId}}}");
+                }
+                else
+                {
+                    var err = await resp.Content.ReadAsStringAsync();
+                    Console.WriteLine($"[HUELLERO] Error al guardar template: {resp.StatusCode} - {err}");
+                    _state.MarcarError($"Error al guardar: {resp.StatusCode}");
+                }
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"[HUELLERO] Excepción al guardar template: {ex.Message}");
+                _state.MarcarError(ex.Message);
+            }
+        }
+
+        public void OnFingerTouch(object Capture, string ReaderSerialNumber)
+            => Console.WriteLine("[HUELLERO] Dedo colocado");
+
+        public void OnFingerGone(object Capture, string ReaderSerialNumber)
+            => Console.WriteLine("[HUELLERO] Dedo retirado");
+
+        public void OnReaderConnect(object Capture, string ReaderSerialNumber)
+        {
+            _state.LectorConectado = true;
+            Console.WriteLine($"[HUELLERO] Lector conectado: {ReaderSerialNumber}");
+        }
+
+        public void OnReaderDisconnect(object Capture, string ReaderSerialNumber)
+        {
+            _state.LectorConectado = false;
+            Console.WriteLine($"[HUELLERO] Lector desconectado: {ReaderSerialNumber}");
+        }
+
+        public void OnSampleQuality(object Capture, string ReaderSerialNumber, CaptureFeedback CaptureFeedback)
+        {
+            if (CaptureFeedback != CaptureFeedback.Good)
+                Console.WriteLine($"[HUELLERO] Calidad: {CaptureFeedback}");
+        }
+    }
+}

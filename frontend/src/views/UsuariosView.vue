@@ -6,12 +6,21 @@
         <h2 class="text-3xl font-extrabold text-gray-900 tracking-tight">Usuarios</h2>
         <p class="text-gray-500 mt-1">Gestiona los usuarios y sus membresías</p>
       </div>
-      <button @click="showForm = true" class="bg-red-600 hover:bg-red-700 text-white px-5 py-2.5 rounded-lg shadow-md hover:shadow-lg transition-all font-semibold flex items-center gap-2 transform active:scale-95">
-        <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
-          <path fill-rule="evenodd" d="M10 3a1 1 0 011 1v5h5a1 1 0 110 2h-5v5a1 1 0 11-2 0v-5H4a1 1 0 110-2h5V4a1 1 0 011-1z" clip-rule="evenodd" />
-        </svg>
-        Nuevo Usuario
-      </button>
+      <div class="flex gap-2">
+        <button @click="abrirBuscarHuella" class="bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2.5 rounded-lg shadow-md hover:shadow-lg transition-all font-semibold flex items-center gap-2 transform active:scale-95">
+          <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+            <path fill-rule="evenodd" d="M6.625 2.655A9 9 0 0119 11a1 1 0 11-2 0 7 7 0 00-9.625-6.492 1 1 0 11-.75-1.853zM4.662 4.959A1 1 0 014.75 6.37 6.97 6.97 0 003 11a1 1 0 11-2 0 8.97 8.97 0 012.25-5.953 1 1 0 011.412-.088z" clip-rule="evenodd"/>
+            <path fill-rule="evenodd" d="M5 11a5 5 0 1110 0 1 1 0 11-2 0 3 3 0 10-6 0c0 1.677-.345 3.276-.968 4.729a1 1 0 11-1.838-.789A9.964 9.964 0 005 11z" clip-rule="evenodd"/>
+          </svg>
+          Buscar por Huella
+        </button>
+        <button @click="showForm = true" class="bg-red-600 hover:bg-red-700 text-white px-5 py-2.5 rounded-lg shadow-md hover:shadow-lg transition-all font-semibold flex items-center gap-2 transform active:scale-95">
+          <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+            <path fill-rule="evenodd" d="M10 3a1 1 0 011 1v5h5a1 1 0 110 2h-5v5a1 1 0 11-2 0v-5H4a1 1 0 110-2h5V4a1 1 0 011-1z" clip-rule="evenodd" />
+          </svg>
+          Nuevo Usuario
+        </button>
+      </div>
     </div>
 
     <!-- Buscador -->
@@ -717,6 +726,96 @@
     </div>
   </div>
 
+  <!-- ── Modal: Buscar por Huella ── -->
+  <div v-if="showVerifyModal" class="fixed inset-0 flex items-center justify-center bg-gray-900/70 backdrop-blur-sm z-50 p-4">
+    <div class="bg-white rounded-2xl w-full max-w-sm shadow-2xl overflow-hidden">
+      <div class="bg-gradient-to-r from-indigo-600 to-indigo-700 px-6 py-5 flex items-center gap-3">
+        <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 text-white flex-shrink-0" viewBox="0 0 20 20" fill="currentColor">
+          <path fill-rule="evenodd" d="M6.625 2.655A9 9 0 0119 11a1 1 0 11-2 0 7 7 0 00-9.625-6.492 1 1 0 11-.75-1.853zM4.662 4.959A1 1 0 014.75 6.37 6.97 6.97 0 003 11a1 1 0 11-2 0 8.97 8.97 0 012.25-5.953 1 1 0 011.412-.088z" clip-rule="evenodd"/>
+          <path fill-rule="evenodd" d="M5 11a5 5 0 1110 0 1 1 0 11-2 0 3 3 0 10-6 0c0 1.677-.345 3.276-.968 4.729a1 1 0 11-1.838-.789A9.964 9.964 0 005 11z" clip-rule="evenodd"/>
+        </svg>
+        <h3 class="text-lg font-bold text-white">Buscar por Huella</h3>
+        <button v-if="!verifyStatus?.espera" @click="cerrarVerify" class="ml-auto text-white/70 hover:text-white">
+          <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+        </button>
+      </div>
+
+      <div class="px-6 py-6 text-center">
+        <!-- Encontrado -->
+        <div v-if="verifyStatus?.encontrado && verifyStatus?.usuario" class="flex flex-col items-center gap-3">
+          <div class="w-16 h-16 bg-emerald-100 rounded-full flex items-center justify-center">
+            <svg xmlns="http://www.w3.org/2000/svg" class="h-8 w-8 text-emerald-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/>
+            </svg>
+          </div>
+          <p class="text-emerald-700 font-bold text-lg">Usuario identificado</p>
+          <div class="w-full bg-emerald-50 border border-emerald-200 rounded-xl p-4 text-left">
+            <p class="text-xs text-gray-400 uppercase font-semibold mb-1">Nombre</p>
+            <p class="font-bold text-gray-800 text-lg">{{ verifyStatus.usuario.nombre }}</p>
+          </div>
+          <div class="flex gap-3 w-full mt-1">
+            <button @click="cerrarVerify" class="flex-1 py-2.5 rounded-xl border border-gray-200 text-gray-600 font-semibold hover:bg-gray-50 transition-colors">Cerrar</button>
+            <button @click="irAlPerfil(verifyStatus.usuario.id)" class="flex-1 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-bold transition-colors">Ver perfil</button>
+          </div>
+        </div>
+
+        <!-- No encontrado -->
+        <div v-else-if="verifyStatus?.no_match" class="flex flex-col items-center gap-3">
+          <div class="w-16 h-16 bg-amber-100 rounded-full flex items-center justify-center">
+            <svg xmlns="http://www.w3.org/2000/svg" class="h-8 w-8 text-amber-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8.228 9c.549-1.165 2.03-2 3.772-2 2.21 0 4 1.343 4 3 0 1.4-1.278 2.575-3.006 2.907-.542.104-.994.54-.994 1.093m0 3h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
+            </svg>
+          </div>
+          <p class="text-amber-700 font-bold text-lg">Huella no reconocida</p>
+          <p class="text-gray-400 text-sm">No hay ningún usuario registrado con esta huella.</p>
+          <div class="flex gap-3 w-full mt-1">
+            <button @click="cerrarVerify" class="flex-1 py-2.5 rounded-xl border border-gray-200 text-gray-600 font-semibold hover:bg-gray-50">Cerrar</button>
+            <button @click="reiniciarVerify" class="flex-1 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-bold transition-colors">Reintentar</button>
+          </div>
+        </div>
+
+        <!-- Error -->
+        <div v-else-if="verifyStatus?.error" class="flex flex-col items-center gap-3">
+          <div class="w-16 h-16 bg-red-100 rounded-full flex items-center justify-center">
+            <svg xmlns="http://www.w3.org/2000/svg" class="h-8 w-8 text-red-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
+            </svg>
+          </div>
+          <p class="text-red-600 font-bold">Error</p>
+          <p class="text-gray-500 text-sm">{{ verifyStatus.mensaje }}</p>
+          <div class="flex gap-3 w-full mt-1">
+            <button @click="cerrarVerify" class="flex-1 py-2.5 rounded-xl border border-gray-200 text-gray-600 font-semibold hover:bg-gray-50">Cerrar</button>
+            <button @click="reiniciarVerify" class="flex-1 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-bold transition-colors">Reintentar</button>
+          </div>
+        </div>
+
+        <!-- Esperando dedo -->
+        <div v-else class="flex flex-col items-center gap-4">
+          <div v-if="verifyBridgeError" class="w-full p-3 bg-amber-50 border border-amber-200 rounded-xl text-amber-700 text-sm">
+            <p class="font-semibold">Bridge no disponible</p>
+            <p class="mt-1">Asegúrate de que el bridge esté corriendo:<br>
+              <code class="text-xs bg-amber-100 px-1 rounded">dotnet run --project servicio_biometrico/HuelleroBridge.csproj</code>
+            </p>
+          </div>
+          <template v-else>
+            <div class="relative w-20 h-20">
+              <div class="absolute inset-0 rounded-full bg-indigo-100 animate-ping opacity-40"></div>
+              <div class="relative w-20 h-20 bg-indigo-50 rounded-full flex items-center justify-center border-2 border-indigo-300">
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-10 w-10 text-indigo-600" viewBox="0 0 20 20" fill="currentColor">
+                  <path fill-rule="evenodd" d="M6.625 2.655A9 9 0 0119 11a1 1 0 11-2 0 7 7 0 00-9.625-6.492 1 1 0 11-.75-1.853zM4.662 4.959A1 1 0 014.75 6.37 6.97 6.97 0 003 11a1 1 0 11-2 0 8.97 8.97 0 012.25-5.953 1 1 0 011.412-.088z" clip-rule="evenodd"/>
+                  <path fill-rule="evenodd" d="M5 11a5 5 0 1110 0 1 1 0 11-2 0 3 3 0 10-6 0c0 1.677-.345 3.276-.968 4.729a1 1 0 11-1.838-.789A9.964 9.964 0 005 11z" clip-rule="evenodd"/>
+                </svg>
+              </div>
+            </div>
+            <p class="text-gray-700 font-semibold">Coloca el dedo en el lector</p>
+            <p class="text-gray-400 text-sm">{{ verifyStatus?.mensaje || 'Cargando templates...' }}</p>
+            <button @click="cerrarVerify" class="text-sm text-red-500 hover:text-red-700 font-medium">Cancelar</button>
+          </template>
+        </div>
+      </div>
+    </div>
+  </div>
+
   <!-- ── Modal: Enrolamiento de Huella ── -->
   <div v-if="showEnrolModal" class="fixed inset-0 flex items-center justify-center bg-gray-900/70 backdrop-blur-sm z-50 p-4">
     <div class="bg-white rounded-2xl w-full max-w-sm shadow-2xl overflow-hidden">
@@ -797,7 +896,7 @@
           <div v-if="enrolBridgeError" class="w-full p-3 bg-amber-50 border border-amber-200 rounded-xl text-amber-700 text-sm">
             <p class="font-semibold">Bridge no disponible</p>
             <p class="mt-1">Asegúrate de que el bridge esté corriendo:<br>
-              <code class="text-xs bg-amber-100 px-1 rounded">python bridge/huellero_dp.py</code>
+              <code class="text-xs bg-amber-100 px-1 rounded">dotnet run --project servicio_biometrico/HuelleroBridge.csproj</code>
             </p>
           </div>
           <div v-else>
@@ -833,6 +932,71 @@ const loadingPendientes = ref(false)
 const usuarioSeleccionado = ref(null)
 const filtroActivo = ref('todos')
 const busqueda = ref('')
+
+// ── Verificación por huella ──────────────────────────────────
+const showVerifyModal  = ref(false)
+const verifyStatus     = ref(null)
+const verifyBridgeError = ref(false)
+let   verifyPollInterval = null
+
+const abrirBuscarHuella = async () => {
+  verifyStatus.value     = null
+  verifyBridgeError.value = false
+  showVerifyModal.value  = true
+  try {
+    await fetch(`${BRIDGE_URL}/verify/start`, { method: 'POST' })
+    _iniciarPollVerify()
+  } catch {
+    verifyBridgeError.value = true
+  }
+}
+
+const cerrarVerify = async () => {
+  clearInterval(verifyPollInterval)
+  verifyPollInterval = null
+  try { await fetch(`${BRIDGE_URL}/verify`, { method: 'DELETE' }) } catch {}
+  showVerifyModal.value = false
+  verifyStatus.value    = null
+}
+
+const reiniciarVerify = async () => {
+  clearInterval(verifyPollInterval)
+  verifyStatus.value = null
+  try {
+    await fetch(`${BRIDGE_URL}/verify/start`, { method: 'POST' })
+    _iniciarPollVerify()
+  } catch {
+    verifyBridgeError.value = true
+  }
+}
+
+const irAlPerfil = (id) => {
+  cerrarVerify()
+  router.push(`/usuarios/${id}`)
+}
+
+const _pollVerify = async () => {
+  try {
+    const r    = await fetch(`${BRIDGE_URL}/status`)
+    const data = await r.json()
+    const v    = data.verificacion
+    verifyStatus.value = v
+    if (v.encontrado || v.no_match || v.error) {
+      clearInterval(verifyPollInterval)
+      verifyPollInterval = null
+    }
+  } catch {
+    verifyBridgeError.value = true
+    clearInterval(verifyPollInterval)
+    verifyPollInterval = null
+  }
+}
+
+const _iniciarPollVerify = () => {
+  clearInterval(verifyPollInterval)
+  _pollVerify()
+  verifyPollInterval = setInterval(_pollVerify, 600)
+}
 
 // ── Enrolamiento de huella ────────────────────────────────────
 const showEnrolModal = ref(false)
@@ -877,23 +1041,27 @@ const cancelarEnrolamiento = async () => {
   enrolStatus.value = null
 }
 
+const _pollStatus = async () => {
+  try {
+    const r = await fetch(`${BRIDGE_URL}/status`)
+    const data = await r.json()
+    const e = data.enrolamiento
+    enrolStatus.value = e
+    if (e.completado || (e.error && !e.activo)) {
+      clearInterval(enrolPollInterval)
+      enrolPollInterval = null
+    }
+  } catch {
+    enrolBridgeError.value = true
+    clearInterval(enrolPollInterval)
+    enrolPollInterval = null
+  }
+}
+
 const _iniciarPollEnrol = () => {
   clearInterval(enrolPollInterval)
-  enrolPollInterval = setInterval(async () => {
-    try {
-      const r = await fetch(`${BRIDGE_URL}/status`)
-      const data = await r.json()
-      const e = data.enrolamiento
-      enrolStatus.value = e
-      if (e.completado || (e.error && !e.activo)) {
-        clearInterval(enrolPollInterval)
-        enrolPollInterval = null
-      }
-    } catch {
-      enrolBridgeError.value = true
-      clearInterval(enrolPollInterval)
-    }
-  }, 600)
+  _pollStatus()
+  enrolPollInterval = setInterval(_pollStatus, 600)
 }
 
 // ── Filtros ──────────────────────────────────────────────────
