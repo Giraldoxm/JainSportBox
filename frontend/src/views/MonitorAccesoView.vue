@@ -37,7 +37,7 @@
           </p>
         </div>
         <p v-if="!bridgeConectado" class="text-sm text-gray-400">
-          Para activar el acceso automático, corre: <code class="bg-gray-100 px-1.5 py-0.5 rounded text-xs">python bridge/huellero_dp.py</code>
+          Para activar el acceso automático, corre: <code class="bg-gray-100 px-1.5 py-0.5 rounded text-xs">dotnet run --project servicio_biometrico/HuelleroBridge.csproj</code>
         </p>
         <p v-else-if="bridgeStatus?.modo === 'enrolando'" class="text-sm text-indigo-600 font-medium">
           Enrolamiento en curso...

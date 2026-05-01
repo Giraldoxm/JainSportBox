@@ -1,10 +1,11 @@
+import os
 import shutil
 import uuid
 from datetime import date, datetime, timedelta
 from pathlib import Path
 from typing import List, Optional
 
-from fastapi import APIRouter, Depends, File, HTTPException, UploadFile, status
+from fastapi import APIRouter, Depends, File, HTTPException, Request, UploadFile, status
 from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
 
@@ -272,10 +273,32 @@ class HuellaTemplatePayload(BaseModel):
 def guardar_huella_template(
     usuario_id: int,
     payload: HuellaTemplatePayload,
+    request: Request,
     db: Session = Depends(get_db),
-    current_user: Usuario = Depends(_require_admin_or_coach),
 ):
-    """Guarda el template de huella (base64 FMD) para un usuario. Llamado por el bridge."""
+    """Guarda el template de huella. Acepta JWT de admin/coach O el header X-Bridge-Secret del bridge .NET."""
+    bridge_secret = os.environ.get("BRIDGE_SECRET", "")
+    x_secret = request.headers.get("X-Bridge-Secret", "")
+    if x_secret != bridge_secret or not bridge_secret:
+        # Si no viene del bridge, exigir JWT admin/coach
+        try:
+            from fastapi.security import OAuth2PasswordBearer
+            from security import get_current_user
+            token = request.headers.get("Authorization", "").removeprefix("Bearer ").strip()
+            if not token:
+                raise HTTPException(status_code=401, detail="Not authenticated")
+            from security import SECRET_KEY, ALGORITHM
+            from jose import jwt as jose_jwt, JWTError
+            payload_jwt = jose_jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
+            email = payload_jwt.get("sub")
+            caller = db.query(Usuario).filter(Usuario.email == email).first()
+            if not caller or caller.rol.value not in ("admin", "coach"):
+                raise HTTPException(status_code=403, detail="Sin permisos.")
+        except HTTPException:
+            raise
+        except Exception:
+            raise HTTPException(status_code=401, detail="Not authenticated")
+
     usuario = db.query(Usuario).filter(Usuario.id == usuario_id).first()
     if not usuario:
         raise HTTPException(status_code=404, detail="Usuario no encontrado.")
@@ -287,10 +310,28 @@ def guardar_huella_template(
 
 @router.get("/con-template/lista")
 def listar_usuarios_con_template(
+    request: Request,
     db: Session = Depends(get_db),
-    current_user: Usuario = Depends(_require_admin_or_coach),
 ):
-    """Devuelve id, nombre y template de todos los usuarios con huella registrada. Usado por el bridge."""
+    """Devuelve id, nombre y template de todos los usuarios con huella. Acepta JWT admin/coach o X-Bridge-Secret."""
+    bridge_secret = os.environ.get("BRIDGE_SECRET", "")
+    x_secret = request.headers.get("X-Bridge-Secret", "")
+    if not bridge_secret or x_secret != bridge_secret:
+        try:
+            from jose import jwt as jose_jwt, JWTError
+            from security import SECRET_KEY, ALGORITHM
+            token = request.headers.get("Authorization", "").removeprefix("Bearer ").strip()
+            if not token:
+                raise HTTPException(status_code=401, detail="Not authenticated")
+            payload_jwt = jose_jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
+            email = payload_jwt.get("sub")
+            caller = db.query(Usuario).filter(Usuario.email == email).first()
+            if not caller or caller.rol.value not in ("admin", "coach"):
+                raise HTTPException(status_code=403, detail="Sin permisos.")
+        except HTTPException:
+            raise
+        except Exception:
+            raise HTTPException(status_code=401, detail="Not authenticated")
     usuarios = (
         db.query(Usuario.id, Usuario.nombre, Usuario.huella_template)
         .filter(Usuario.huella_template.isnot(None))
