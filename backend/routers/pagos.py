@@ -90,28 +90,83 @@ def registrar_pago_directo(
     nueva_fecha = base + timedelta(days=payload.duracion_dias)
     usuario.fecha_vencimiento = nueva_fecha
 
-    if payload.monto > 0:
-        mov = MovimientoFinanciero(
-            tipo=TipoMovimiento.INGRESO,
-            concepto=f"Membresía personalizada – {usuario.nombre} ({payload.duracion_dias} días)",
-            categoria="mensualidad",
-            monto=payload.monto,
-            fecha=datetime.utcnow(),
-            metodo_pago=payload.metodo_pago,
-            usuario_id=usuario.id,
-            fuente="pago_directo",
-            created_by=current_user.id,
-        )
-        db.add(mov)
+    pago = Pago(
+        usuario_id=payload.usuario_id,
+        plan_id=None,
+        duracion_dias=payload.duracion_dias,
+        monto=payload.monto,
+        metodo_pago=payload.metodo_pago,
+    )
+    db.add(pago)
 
     db.commit()
+    db.refresh(pago)
 
     return {
+        "id": pago.id,
         "usuario_id": usuario.id,
         "duracion_dias": payload.duracion_dias,
         "monto": payload.monto,
         "nueva_fecha_vencimiento": nueva_fecha,
     }
+
+
+class PagoUpdate(BaseModel):
+    monto: Optional[float] = Field(None, ge=0)
+    metodo_pago: Optional[str] = Field(None, pattern=r'^(efectivo|transferencia)$')
+
+
+@router.patch("/{pago_id}")
+def editar_pago(
+    pago_id: int,
+    payload: PagoUpdate,
+    db: Session = Depends(get_db),
+    current_user: Usuario = Depends(_require_admin_or_coach),
+):
+    pago = db.query(Pago).filter(Pago.id == pago_id).first()
+    if not pago:
+        raise HTTPException(status_code=404, detail="Pago no encontrado.")
+
+    cambios = payload.model_dump(exclude_unset=True)
+    if not cambios:
+        return {"id": pago.id, "monto": pago.monto, "metodo_pago": pago.metodo_pago}
+
+    if "monto" in cambios:
+        pago.monto = cambios["monto"]
+    if "metodo_pago" in cambios:
+        pago.metodo_pago = cambios["metodo_pago"]
+
+    db.commit()
+    db.refresh(pago)
+    return {
+        "id": pago.id,
+        "usuario_id": pago.usuario_id,
+        "plan_id": pago.plan_id,
+        "monto": pago.monto,
+        "metodo_pago": pago.metodo_pago,
+    }
+
+
+@router.delete("/{pago_id}", status_code=status.HTTP_204_NO_CONTENT)
+def anular_pago(
+    pago_id: int,
+    db: Session = Depends(get_db),
+    current_user: Usuario = Depends(_require_admin_or_coach),
+):
+    pago = db.query(Pago).filter(Pago.id == pago_id).first()
+    if not pago:
+        raise HTTPException(status_code=404, detail="Pago no encontrado.")
+
+    usuario = db.query(Usuario).filter(Usuario.id == pago.usuario_id).first()
+    plan = db.query(Plan).filter(Plan.id == pago.plan_id).first() if pago.plan_id else None
+    dias_a_restar = plan.duracion_dias if plan else (pago.duracion_dias or 0)
+
+    if usuario and usuario.fecha_vencimiento and dias_a_restar:
+        usuario.fecha_vencimiento = usuario.fecha_vencimiento - timedelta(days=dias_a_restar)
+
+    db.delete(pago)
+    db.commit()
+    return
 
 
 @router.get("/usuario/{usuario_id}")
@@ -130,7 +185,8 @@ def historial_pagos(
         {
             "id": p.id,
             "plan_id": p.plan_id,
-            "plan_nombre": p.plan.nombre if p.plan else "Personalizado",
+            "plan_nombre": p.plan.nombre if p.plan else (f"Personalizado ({p.duracion_dias} días)" if p.duracion_dias else "Personalizado"),
+            "duracion_dias": p.duracion_dias,
             "fecha_pago": p.fecha_pago,
             "monto": p.monto,
             "metodo_pago": p.metodo_pago,

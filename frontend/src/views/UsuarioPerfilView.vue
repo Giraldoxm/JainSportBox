@@ -88,22 +88,24 @@
           <!-- Membresía -->
           <div class="bg-gray-50 rounded-xl p-3 col-span-2 sm:col-span-3">
             <p class="text-xs text-gray-400 font-semibold uppercase tracking-wide mb-2">Membresía</p>
-            <template v-if="usuario.fecha_vencimiento">
-              <div class="flex items-center justify-between">
-                <div>
+            <div class="flex items-center justify-between gap-3">
+              <div>
+                <template v-if="usuario.fecha_vencimiento">
                   <p class="text-sm font-bold" :class="colorTextoDias(diasRestantes(usuario.fecha_vencimiento))">
                     {{ etiquetaDias(diasRestantes(usuario.fecha_vencimiento)) }}
                   </p>
                   <p class="text-xs text-gray-500 mt-0.5">Vence el {{ formatFecha(usuario.fecha_vencimiento) }}</p>
-                </div>
-                <div class="w-12 h-12 rounded-full flex items-center justify-center" :class="bgCirculoDias(diasRestantes(usuario.fecha_vencimiento))">
-                  <span class="text-xs font-black" :class="colorTextoDias(diasRestantes(usuario.fecha_vencimiento))">
-                    {{ Math.abs(diasRestantes(usuario.fecha_vencimiento)) }}d
-                  </span>
-                </div>
+                </template>
+                <p v-else class="text-sm text-gray-400">Sin membresía activa</p>
               </div>
-            </template>
-            <p v-else class="text-sm text-gray-400">Sin membresía activa</p>
+              <button @click="abrirRenovar"
+                class="flex-shrink-0 inline-flex items-center gap-1.5 px-4 py-2 rounded-lg bg-red-600 hover:bg-red-700 text-white text-xs font-bold transition-colors shadow-sm">
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M12 4v16m8-8H4"/>
+                </svg>
+                Agregar membresía
+              </button>
+            </div>
           </div>
         </div>
       </div>
@@ -180,6 +182,7 @@
                 <th class="text-left px-5 py-3 text-xs font-bold text-gray-400 uppercase tracking-wide">Plan</th>
                 <th class="text-right px-5 py-3 text-xs font-bold text-gray-400 uppercase tracking-wide">Monto</th>
                 <th class="text-left px-5 py-3 text-xs font-bold text-gray-400 uppercase tracking-wide hidden sm:table-cell">Método</th>
+                <th class="text-right px-5 py-3 text-xs font-bold text-gray-400 uppercase tracking-wide">Acciones</th>
               </tr>
             </thead>
             <tbody>
@@ -192,6 +195,22 @@
                     :class="p.metodo_pago === 'efectivo' ? 'bg-emerald-100 text-emerald-700' : 'bg-blue-100 text-blue-700'">
                     {{ p.metodo_pago === 'efectivo' ? 'Efectivo' : 'Transferencia' }}
                   </span>
+                </td>
+                <td class="px-5 py-3.5 text-right">
+                  <div class="inline-flex items-center gap-1">
+                    <button @click="abrirEditarPago(p)" title="Editar monto / método"
+                      class="p-1.5 rounded-lg text-gray-400 hover:text-blue-600 hover:bg-blue-50 transition-colors">
+                      <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/>
+                      </svg>
+                    </button>
+                    <button @click="confirmarAnularPago(p)" title="Anular pago"
+                      class="p-1.5 rounded-lg text-gray-400 hover:text-red-600 hover:bg-red-50 transition-colors">
+                      <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6M1 7h22M9 7V4a1 1 0 011-1h4a1 1 0 011 1v3"/>
+                      </svg>
+                    </button>
+                  </div>
                 </td>
               </tr>
             </tbody>
@@ -321,6 +340,153 @@
       </div>
     </div>
 
+    <!-- ── Modal: Editar pago ── -->
+    <div v-if="showEditarPago" class="fixed inset-0 flex items-center justify-center bg-gray-900/60 backdrop-blur-sm z-50 p-4">
+      <div class="bg-white rounded-2xl w-full max-w-md shadow-2xl overflow-hidden">
+        <div class="bg-gradient-to-r from-gray-800 to-black px-6 py-5 flex items-center gap-3">
+          <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/>
+          </svg>
+          <div>
+            <h3 class="text-base font-bold text-white">Editar pago</h3>
+            <p class="text-gray-400 text-xs">{{ pagoEditando?.plan_nombre }} · {{ formatFechaCorta(pagoEditando?.fecha_pago) }}</p>
+          </div>
+          <button @click="showEditarPago = false" class="ml-auto text-gray-400 hover:text-white transition-colors">
+            <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+            </svg>
+          </button>
+        </div>
+
+        <div class="px-6 py-5 space-y-4">
+          <div class="bg-amber-50 border border-amber-100 rounded-lg p-3 text-xs text-amber-800">
+            Solo puedes editar el <strong>monto</strong> y el <strong>método de pago</strong>. Para corregir el plan, anula este pago y registra uno nuevo.
+          </div>
+
+          <div>
+            <label class="block text-xs font-bold text-gray-500 uppercase tracking-wide mb-1.5">Monto cobrado ($)</label>
+            <input v-model.number="formEditarPago.monto" type="number" min="0" step="any"
+              class="w-full px-3.5 py-2.5 rounded-xl border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-gray-800 focus:border-transparent transition"/>
+          </div>
+
+          <div>
+            <label class="block text-xs font-bold text-gray-500 uppercase tracking-wide mb-1.5">Método de pago</label>
+            <div class="grid grid-cols-2 gap-2">
+              <label v-for="m in metodos" :key="m.value"
+                class="flex items-center justify-center p-2.5 rounded-lg border-2 cursor-pointer transition-all text-sm font-semibold"
+                :class="formEditarPago.metodo_pago === m.value ? 'border-gray-800 bg-gray-50 text-gray-800' : 'border-gray-200 text-gray-600 hover:border-gray-300'">
+                <input type="radio" v-model="formEditarPago.metodo_pago" :value="m.value" class="sr-only">
+                {{ m.label }}
+              </label>
+            </div>
+          </div>
+
+          <p v-if="errorEditarPago" class="text-xs text-red-600 font-semibold bg-red-50 rounded-lg px-3 py-2">{{ errorEditarPago }}</p>
+
+          <div class="flex gap-3 pt-2">
+            <button @click="showEditarPago = false"
+              class="flex-1 py-2.5 rounded-xl border border-gray-200 text-gray-600 font-semibold hover:bg-gray-50 transition-colors text-sm">
+              Cancelar
+            </button>
+            <button @click="guardarEdicionPago" :disabled="guardandoEditarPago"
+              class="flex-1 py-2.5 rounded-xl bg-gray-800 hover:bg-black text-white font-bold transition-colors text-sm disabled:bg-gray-300 flex items-center justify-center gap-2">
+              <span v-if="guardandoEditarPago" class="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></span>
+              {{ guardandoEditarPago ? 'Guardando…' : 'Guardar' }}
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ── Modal: Agregar membresía ── -->
+    <div v-if="showRenovar" class="fixed inset-0 flex items-end sm:items-center justify-center bg-gray-900/60 backdrop-blur-sm z-50 p-4">
+      <div class="bg-white rounded-2xl w-full max-w-lg shadow-2xl max-h-[90vh] flex flex-col overflow-hidden">
+        <div class="bg-gradient-to-r from-red-600 to-red-700 px-6 py-5 flex items-center gap-3 flex-shrink-0">
+          <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/>
+          </svg>
+          <div>
+            <h3 class="text-lg font-bold text-white">Agregar Membresía</h3>
+            <p class="text-red-100 text-sm">{{ usuario?.nombre }}</p>
+          </div>
+          <button @click="showRenovar = false" class="ml-auto text-white/70 hover:text-white">
+            <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+            </svg>
+          </button>
+        </div>
+
+        <div class="px-6 py-5 overflow-y-auto flex-1 space-y-5">
+          <!-- Selección de plan -->
+          <div>
+            <p class="text-sm font-semibold text-gray-700 mb-3">Selecciona el plan a asignar</p>
+            <div class="grid grid-cols-2 gap-3">
+              <label v-for="plan in planes" :key="plan.id"
+                class="flex flex-col items-center p-4 rounded-xl border-2 cursor-pointer transition-all"
+                :class="renovarPlan === plan.id ? 'border-red-500 bg-red-50' : 'border-gray-200 hover:border-gray-300'">
+                <input type="radio" v-model="renovarPlan" :value="plan.id" class="sr-only">
+                <span class="text-2xl font-black mb-0.5" :class="renovarPlan === plan.id ? 'text-red-600' : 'text-gray-700'">
+                  {{ plan.duracion_dias }}<span class="text-sm font-bold">d</span>
+                </span>
+                <span class="text-sm font-bold text-center" :class="renovarPlan === plan.id ? 'text-red-700' : 'text-gray-600'">{{ plan.nombre }}</span>
+                <span class="text-xs mt-1" :class="renovarPlan === plan.id ? 'text-red-500' : 'text-gray-400'">${{ plan.precio.toLocaleString() }}</span>
+              </label>
+
+              <label class="flex flex-col items-center p-4 rounded-xl border-2 cursor-pointer transition-all col-span-2"
+                :class="renovarPlan === 'personalizado' ? 'border-red-500 bg-red-50' : 'border-gray-200 hover:border-gray-300'">
+                <input type="radio" v-model="renovarPlan" value="personalizado" class="sr-only">
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 mb-1" :class="renovarPlan === 'personalizado' ? 'text-red-500' : 'text-gray-400'" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6V4m0 2a2 2 0 100 4m0-4a2 2 0 110 4m-6 8a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4m6 6v10m6-2a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4"/></svg>
+                <span class="text-sm font-bold" :class="renovarPlan === 'personalizado' ? 'text-red-700' : 'text-gray-600'">Personalizado (días)</span>
+              </label>
+            </div>
+          </div>
+
+          <!-- Días personalizados -->
+          <div v-if="renovarPlan === 'personalizado'">
+            <label class="block text-sm font-semibold text-gray-700 mb-1.5">Días a agregar</label>
+            <input v-model.number="renovarDias" type="number" min="1" max="365"
+              class="w-full px-4 py-2.5 rounded-lg border border-gray-300 focus:ring-2 focus:ring-red-500 outline-none"
+              placeholder="Ej: 10">
+          </div>
+
+          <!-- Monto -->
+          <div>
+            <label class="block text-sm font-semibold text-gray-700 mb-1.5">
+              Monto cobrado ($)
+              <span v-if="renovarPlan && renovarPlan !== 'personalizado'" class="text-gray-400 font-normal">— sugerido ${{ (planes.find(p => p.id === renovarPlan)?.precio || 0).toLocaleString() }}</span>
+            </label>
+            <input v-model.number="renovarMonto" type="number" min="0" step="any"
+              class="w-full px-4 py-2.5 rounded-lg border border-gray-300 focus:ring-2 focus:ring-red-500 outline-none"
+              :placeholder="renovarPlan && renovarPlan !== 'personalizado' ? '$' + (planes.find(p => p.id === renovarPlan)?.precio || 0).toLocaleString() : 'Ej: 100000'">
+          </div>
+
+          <!-- Método de pago -->
+          <div>
+            <label class="block text-sm font-semibold text-gray-700 mb-1.5">Método de pago</label>
+            <div class="grid grid-cols-2 gap-2">
+              <label v-for="m in metodos" :key="m.value"
+                class="flex items-center justify-center gap-1.5 p-2.5 rounded-lg border-2 cursor-pointer transition-all text-sm font-semibold"
+                :class="renovarMetodo === m.value ? 'border-red-500 bg-red-50 text-red-700' : 'border-gray-200 text-gray-600 hover:border-gray-300'">
+                <input type="radio" v-model="renovarMetodo" :value="m.value" class="sr-only">
+                {{ m.label }}
+              </label>
+            </div>
+          </div>
+
+          <div v-if="errorRenovar" class="text-sm text-red-600 bg-red-50 border border-red-100 rounded-lg p-3">{{ errorRenovar }}</div>
+
+          <div class="flex gap-3">
+            <button @click="showRenovar = false" class="flex-1 py-2.5 rounded-xl border border-gray-200 text-gray-600 font-semibold hover:bg-gray-50 transition-colors">Cancelar</button>
+            <button @click="confirmarRenovacion" :disabled="guardandoRenovar || !renovarPlan"
+              class="flex-1 py-2.5 rounded-xl bg-red-600 hover:bg-red-700 text-white font-bold transition-colors disabled:bg-red-300 flex items-center justify-center gap-2">
+              <span v-if="guardandoRenovar" class="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></span>
+              {{ guardandoRenovar ? 'Guardando...' : 'Agregar Membresía' }}
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+
   </div>
 
   <!-- ── Modal: Enrolamiento de Huella ── -->
@@ -431,6 +597,120 @@ const fechasAsistencia = ref([])
 const cargandoAsistencias = ref(true)
 const pagos = ref([])
 const cargandoPagos = ref(true)
+const planes = ref([])
+
+// ── Renovar / Agregar membresía ─────────────────────────────
+const showRenovar = ref(false)
+const guardandoRenovar = ref(false)
+const renovarPlan = ref(null)
+const renovarDias = ref('')
+const renovarMonto = ref('')
+const renovarMetodo = ref('efectivo')
+const errorRenovar = ref('')
+const metodos = [
+  { value: 'efectivo', label: 'Efectivo' },
+  { value: 'transferencia', label: 'Transferencia' },
+]
+
+// ── Editar / Anular pago ────────────────────────────────────
+const showEditarPago = ref(false)
+const pagoEditando = ref(null)
+const formEditarPago = ref({ monto: 0, metodo_pago: 'efectivo' })
+const guardandoEditarPago = ref(false)
+const errorEditarPago = ref('')
+
+function abrirEditarPago(p) {
+  pagoEditando.value = p
+  formEditarPago.value = { monto: p.monto, metodo_pago: p.metodo_pago }
+  errorEditarPago.value = ''
+  showEditarPago.value = true
+}
+
+async function guardarEdicionPago() {
+  if (!pagoEditando.value) return
+  guardandoEditarPago.value = true
+  errorEditarPago.value = ''
+  try {
+    const payload = {}
+    if (formEditarPago.value.monto !== pagoEditando.value.monto) payload.monto = formEditarPago.value.monto
+    if (formEditarPago.value.metodo_pago !== pagoEditando.value.metodo_pago) payload.metodo_pago = formEditarPago.value.metodo_pago
+    if (Object.keys(payload).length === 0) {
+      showEditarPago.value = false
+      return
+    }
+    await api.patch(`/pagos/${pagoEditando.value.id}`, payload)
+    Object.assign(pagoEditando.value, payload)
+    showEditarPago.value = false
+  } catch (e) {
+    errorEditarPago.value = e.response?.data?.detail || 'Error al guardar el pago.'
+  } finally {
+    guardandoEditarPago.value = false
+  }
+}
+
+async function confirmarAnularPago(p) {
+  if (!confirm(`¿Anular el pago del plan "${p.plan_nombre}" por $${p.monto.toLocaleString('es-CO')}?\n\nSe restarán los días correspondientes de la fecha de vencimiento.`)) return
+  try {
+    await api.delete(`/pagos/${p.id}`)
+    const [u, pp] = await Promise.allSettled([
+      api.get(`/usuarios/${id}`),
+      api.get(`/pagos/usuario/${id}`),
+    ])
+    if (u.status === 'fulfilled') usuario.value = u.value.data
+    if (pp.status === 'fulfilled') pagos.value = pp.value.data || []
+  } catch (e) {
+    alert(e.response?.data?.detail || 'Error al anular el pago.')
+  }
+}
+
+function abrirRenovar() {
+  renovarPlan.value = null
+  renovarDias.value = ''
+  renovarMonto.value = ''
+  renovarMetodo.value = 'efectivo'
+  errorRenovar.value = ''
+  showRenovar.value = true
+}
+
+async function confirmarRenovacion() {
+  if (!renovarPlan.value) return
+  guardandoRenovar.value = true
+  errorRenovar.value = ''
+  try {
+    if (renovarPlan.value === 'personalizado') {
+      if (!renovarDias.value || renovarDias.value < 1) {
+        errorRenovar.value = 'Ingresa un número de días válido.'
+        guardandoRenovar.value = false
+        return
+      }
+      await api.post('/pagos/directo/', {
+        usuario_id: Number(id),
+        duracion_dias: renovarDias.value,
+        monto: renovarMonto.value || 0,
+        metodo_pago: renovarMetodo.value,
+      })
+    } else {
+      const plan = planes.value.find(p => p.id === renovarPlan.value)
+      await api.post('/pagos/', {
+        usuario_id: Number(id),
+        plan_id: renovarPlan.value,
+        monto: renovarMonto.value || plan?.precio || 0,
+        metodo_pago: renovarMetodo.value,
+      })
+    }
+    showRenovar.value = false
+    const [u, p] = await Promise.allSettled([
+      api.get(`/usuarios/${id}`),
+      api.get(`/pagos/usuario/${id}`),
+    ])
+    if (u.status === 'fulfilled') usuario.value = u.value.data
+    if (p.status === 'fulfilled') pagos.value = p.value.data || []
+  } catch (e) {
+    errorRenovar.value = e.response?.data?.detail || 'Error al registrar la membresía.'
+  } finally {
+    guardandoRenovar.value = false
+  }
+}
 
 // ── Editar ──────────────────────────────────────────────────
 const showEditar = ref(false)
@@ -647,10 +927,11 @@ function claseCelda(cell) {
 
 // ── Fetch ───────────────────────────────────────────────────
 onMounted(async () => {
-  const [userRes, asistRes, pagosRes] = await Promise.allSettled([
+  const [userRes, asistRes, pagosRes, planesRes] = await Promise.allSettled([
     api.get(`/usuarios/${id}`),
     api.get(`/asistencia/historial/${id}?meses=12`),
     api.get(`/pagos/usuario/${id}`),
+    api.get('/planes/'),
   ])
 
   if (userRes.status === 'fulfilled') usuario.value = userRes.value.data
@@ -661,6 +942,8 @@ onMounted(async () => {
 
   if (pagosRes.status === 'fulfilled') pagos.value = pagosRes.value.data || []
   cargandoPagos.value = false
+
+  if (planesRes.status === 'fulfilled') planes.value = planesRes.value.data || []
 
   conectarAccesoWS()
 })

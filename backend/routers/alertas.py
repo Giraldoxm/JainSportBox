@@ -22,11 +22,28 @@ def _require_admin_or_coach(current_user: Usuario = Depends(get_current_user)):
 
 def generar_alertas(db: Session) -> int:
     """Crea una alerta por usuario en cuanto entra en la ventana de 7 días antes del vencimiento.
-    No genera duplicados: una sola alerta por ciclo de membresía."""
+    No genera duplicados: una sola alerta pendiente por usuario. Si el usuario renovó
+    (fecha_vencimiento cambió), se descartan las alertas pendientes obsoletas."""
     hoy = date.today()
     limite = hoy + timedelta(days=VENTANA_DIAS)
     creadas = 0
 
+    # 1) Limpiar alertas pendientes obsoletas: el usuario renovó o ya salió de la ventana.
+    pendientes = db.query(AlertaMembresia).filter(AlertaMembresia.enviada == False).all()
+    for a in pendientes:
+        u = a.usuario
+        if (
+            not u
+            or not u.fecha_vencimiento
+            or u.fecha_vencimiento != a.fecha_vencimiento
+            or u.fecha_vencimiento < hoy
+            or u.fecha_vencimiento > limite
+        ):
+            db.delete(a)
+
+    db.flush()
+
+    # 2) Generar alertas faltantes para usuarios dentro de la ventana.
     usuarios = (
         db.query(Usuario)
         .filter(
@@ -37,18 +54,27 @@ def generar_alertas(db: Session) -> int:
     )
 
     for u in usuarios:
-        existe = db.query(AlertaMembresia).filter(
+        ya_tiene_pendiente = db.query(AlertaMembresia).filter(
+            AlertaMembresia.usuario_id == u.id,
+            AlertaMembresia.enviada == False,
+        ).first()
+        if ya_tiene_pendiente:
+            continue
+
+        existe_para_fecha = db.query(AlertaMembresia).filter(
             AlertaMembresia.usuario_id == u.id,
             AlertaMembresia.fecha_vencimiento == u.fecha_vencimiento,
         ).first()
-        if not existe:
-            dias = (u.fecha_vencimiento - hoy).days
-            db.add(AlertaMembresia(
-                usuario_id=u.id,
-                fecha_vencimiento=u.fecha_vencimiento,
-                dias_anticipacion=dias,
-            ))
-            creadas += 1
+        if existe_para_fecha:
+            continue
+
+        dias = (u.fecha_vencimiento - hoy).days
+        db.add(AlertaMembresia(
+            usuario_id=u.id,
+            fecha_vencimiento=u.fecha_vencimiento,
+            dias_anticipacion=dias,
+        ))
+        creadas += 1
 
     db.commit()
     return creadas

@@ -108,14 +108,15 @@ class Pago(Base):
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
     usuario_id: Mapped[int] = mapped_column(Integer, ForeignKey("usuarios.id"), nullable=False)
-    plan_id: Mapped[int] = mapped_column(Integer, ForeignKey("planes.id"), nullable=False)
+    plan_id: Mapped[Optional[int]] = mapped_column(Integer, ForeignKey("planes.id"), nullable=True)
+    duracion_dias: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)   # solo para pagos personalizados (plan_id NULL)
     fecha_pago: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
     monto: Mapped[float] = mapped_column(Float, nullable=False)
     metodo_pago: Mapped[Optional[str]] = mapped_column(String(50), nullable=True)   # efectivo, transferencia, etc.
 
     # ── Relaciones ──
     usuario: Mapped["Usuario"] = relationship("Usuario", back_populates="pagos")
-    plan: Mapped["Plan"] = relationship("Plan", back_populates="pagos")
+    plan: Mapped[Optional["Plan"]] = relationship("Plan", back_populates="pagos")
 
     def __repr__(self) -> str:
         return f"<Pago {self.id} – Usuario {self.usuario_id} → Plan {self.plan_id}>"

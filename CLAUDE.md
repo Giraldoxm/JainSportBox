@@ -80,7 +80,11 @@ There are no test commands — no test suite exists in this project.
 - Frontend: `meta.roles` on routes + `useAuth` composable in components
 - `pendiente` users are redirected to `/planes` by the router guard
 
-**Financial movements:** Payments and sales auto-generate `movimientos_financieros` rows with `fuente = "pago_membresia"` or `"venta_tienda"`. Manual entries use `"manual"`.
+**Financial movements:** `finanzas.py` surfaces income from three sources: rows in `pagos` (membership payments, both plan-based and personalizado), rows in `ventas` (shop sales), and rows in `movimientos_financieros` (manual entries + legacy `pago_directo` records). Pagos and ventas are NOT mirrored into `movimientos_financieros` — the finanzas listing reads from each table directly to avoid double-counting.
+
+**Pago model:** `plan_id` is nullable. Personalizado payments have `plan_id = NULL` and `duracion_dias` set to the days purchased. The historial endpoint shows them as `"Personalizado (N días)"`.
+
+**Email/document normalization:** All routes that write or look up `usuarios.email` apply `.strip().lower()` (login, registro, POST/PATCH usuarios, JWT subject in `get_current_user`). `documento_identidad` is `.strip()`-ed. The model has `unique=True` on both columns, but case normalization happens in code so `Foo@x.com` and `foo@x.com` are treated as the same account.
 
 **Fingerprint integration:** see the dedicated section below.
 
@@ -115,9 +119,19 @@ Route `/usuarios/:id` (roles: `admin`, `coach`). Three sections:
 
 **Attendance calendar:** Same month-navigation pattern as `HomeView` but fetches `GET /asistencia/historial/:id?meses=12` (admin endpoint).
 
-**Subscription history:** Table from `GET /pagos/usuario/:id` — date, plan name, amount, payment method.
+**Subscription history:** Table from `GET /pagos/usuario/:id` — date, plan name, amount, payment method, and per-row actions (edit/anular). The membership card has an "Agregar membresía" button (red) that opens a modal mirroring the "Activar Usuario" modal in `UsuariosView` (plan grid + "Personalizado (días)" option + monto + método). Confirmar dispatches to `POST /pagos/` (plan) or `POST /pagos/directo/` (personalizado).
+
+**Edit/anular pago:**
+- Edit (`PATCH /pagos/{id}`): only `monto` and `metodo_pago`. Plan changes are not allowed in-place — the UI tells the admin to anular and recreate.
+- Anular (`DELETE /pagos/{id}`): subtracts `plan.duracion_dias` (or `pago.duracion_dias` for personalizado) from `usuario.fecha_vencimiento`, then deletes the `Pago`. The resulting fecha may land in the past — that's correct (membership expired by the reversal).
 
 **Navigation:** The "ver" button in `UsuariosView` calls `router.push('/usuarios/${u.id}')` instead of opening a modal.
+
+## AlertasView — WhatsApp reminders
+
+Route `/alertas` (admin/coach). Two tabs: **Pendientes** (grouped by `dias_anticipacion`) and **Historial** (flat list, only `enviada=true`, sorted by `fecha_enviada` desc). There is no manual "Actualizar" button — `POST /alertas/generar` runs on mount and on tab switch.
+
+**Dedup logic in `generar_alertas`:** before creating new alerts, the function deletes any pending (`enviada=False`) alert whose `fecha_vencimiento` no longer matches the user's current `fecha_vencimiento` (i.e., the user renewed) or that has fallen outside the 7-day window. Then it creates one alert per user inside the window only if no pending alert exists for that user. This prevents accumulating duplicate pending alerts when the admin extends a membership.
 
 ## Asistencia routers
 

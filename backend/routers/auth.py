@@ -22,7 +22,8 @@ ALLOWED_TYPES = {"image/jpeg", "image/png", "image/webp"}
 
 @router.post("/login")
 def login(form_data: OAuth2PasswordRequestForm = Depends(), db: Session = Depends(get_db)):
-    usuario = db.query(Usuario).filter(Usuario.email == form_data.username).first()
+    email_norm = (form_data.username or "").strip().lower()
+    usuario = db.query(Usuario).filter(Usuario.email == email_norm).first()
     if not usuario or not verify_password(form_data.password, usuario.password_hash):
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
@@ -56,6 +57,8 @@ def registro_publico(
 ):
     if genero not in ("masculino", "femenino"):
         raise HTTPException(status_code=422, detail="Género inválido.")
+    email = (email or "").strip().lower()
+    documento_identidad = (documento_identidad or "").strip()
     if db.query(Usuario).filter(Usuario.email == email).first():
         raise HTTPException(status_code=400, detail="Ya existe una cuenta con ese email.")
     if db.query(Usuario).filter(Usuario.documento_identidad == documento_identidad).first():

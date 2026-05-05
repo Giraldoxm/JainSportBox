@@ -34,15 +34,17 @@ def crear_usuario(
     db: Session = Depends(get_db),
     current_user: Usuario = Depends(_require_admin_or_coach),
 ):
-    if db.query(Usuario).filter(Usuario.email == payload.email).first():
+    email_norm = (payload.email or "").strip().lower()
+    doc_norm = (payload.documento_identidad or "").strip()
+    if db.query(Usuario).filter(Usuario.email == email_norm).first():
         raise HTTPException(status_code=400, detail="Ya existe un usuario con ese email.")
-    if db.query(Usuario).filter(Usuario.documento_identidad == payload.documento_identidad).first():
+    if db.query(Usuario).filter(Usuario.documento_identidad == doc_norm).first():
         raise HTTPException(status_code=400, detail="Ya existe un usuario con ese documento de identidad.")
     nuevo = Usuario(
         nombre=payload.nombre,
-        email=payload.email,
+        email=email_norm,
         password_hash=get_password_hash(payload.password),
-        documento_identidad=payload.documento_identidad,
+        documento_identidad=doc_norm,
         genero=payload.genero,
         rol=payload.rol,
         huella_id=payload.huella_id,
@@ -69,14 +71,15 @@ def actualizar_usuario(
         usuario.nombre = payload.nombre
 
     if payload.email is not None:
+        email_norm = payload.email.strip().lower()
         duplicado = (
             db.query(Usuario)
-            .filter(Usuario.email == payload.email, Usuario.id != usuario_id)
+            .filter(Usuario.email == email_norm, Usuario.id != usuario_id)
             .first()
         )
         if duplicado:
             raise HTTPException(status_code=400, detail="Ya existe un usuario con ese email.")
-        usuario.email = payload.email
+        usuario.email = email_norm
 
     if payload.password is not None:
         usuario.password_hash = get_password_hash(payload.password)
@@ -85,14 +88,15 @@ def actualizar_usuario(
         usuario.telefono = payload.telefono
 
     if payload.documento_identidad is not None:
+        doc_norm = payload.documento_identidad.strip()
         duplicado_doc = (
             db.query(Usuario)
-            .filter(Usuario.documento_identidad == payload.documento_identidad, Usuario.id != usuario_id)
+            .filter(Usuario.documento_identidad == doc_norm, Usuario.id != usuario_id)
             .first()
         )
         if duplicado_doc:
             raise HTTPException(status_code=400, detail="Ya existe un usuario con ese documento de identidad.")
-        usuario.documento_identidad = payload.documento_identidad
+        usuario.documento_identidad = doc_norm
 
     if payload.genero is not None:
         usuario.genero = payload.genero
@@ -234,20 +238,6 @@ def activar_usuario(
         metodo_pago=payload.metodo_pago,
     )
     db.add(pago)
-
-    if payload.monto > 0:
-        mov = MovimientoFinanciero(
-            tipo=TipoMovimiento.INGRESO,
-            concepto=f"Activación de cuenta – {usuario.nombre} ({plan.nombre})",
-            categoria="mensualidad",
-            monto=payload.monto,
-            fecha=datetime.utcnow(),
-            metodo_pago=payload.metodo_pago,
-            usuario_id=usuario.id,
-            fuente="pago_membresia",
-            created_by=current_user.id,
-        )
-        db.add(mov)
 
     db.commit()
     return {
