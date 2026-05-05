@@ -7,7 +7,7 @@
         <p class="text-gray-500 mt-1">Gestiona los usuarios y sus membresías</p>
       </div>
       <div class="flex gap-2">
-        <button @click="abrirBuscarHuella" class="bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2.5 rounded-lg shadow-md hover:shadow-lg transition-all font-semibold flex items-center gap-2 transform active:scale-95">
+        <button @click="abrirBuscarHuella" class="bg-gray-700 hover:bg-gray-800 text-white px-4 py-2.5 rounded-lg shadow-md hover:shadow-lg transition-all font-semibold flex items-center gap-2 transform active:scale-95">
           <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
             <path fill-rule="evenodd" d="M6.625 2.655A9 9 0 0119 11a1 1 0 11-2 0 7 7 0 00-9.625-6.492 1 1 0 11-.75-1.853zM4.662 4.959A1 1 0 014.75 6.37 6.97 6.97 0 003 11a1 1 0 11-2 0 8.97 8.97 0 012.25-5.953 1 1 0 011.412-.088z" clip-rule="evenodd"/>
             <path fill-rule="evenodd" d="M5 11a5 5 0 1110 0 1 1 0 11-2 0 3 3 0 10-6 0c0 1.677-.345 3.276-.968 4.729a1 1 0 11-1.838-.789A9.964 9.964 0 005 11z" clip-rule="evenodd"/>
@@ -725,7 +725,7 @@
   <!-- ── Modal: Buscar por Huella ── -->
   <div v-if="showVerifyModal" class="fixed inset-0 flex items-center justify-center bg-gray-900/70 backdrop-blur-sm z-50 p-4">
     <div class="bg-white rounded-2xl w-full max-w-sm shadow-2xl overflow-hidden">
-      <div class="bg-gradient-to-r from-indigo-600 to-indigo-700 px-6 py-5 flex items-center gap-3">
+      <div class="bg-gradient-to-r from-gray-700 to-gray-800 px-6 py-5 flex items-center gap-3">
         <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 text-white flex-shrink-0" viewBox="0 0 20 20" fill="currentColor">
           <path fill-rule="evenodd" d="M6.625 2.655A9 9 0 0119 11a1 1 0 11-2 0 7 7 0 00-9.625-6.492 1 1 0 11-.75-1.853zM4.662 4.959A1 1 0 014.75 6.37 6.97 6.97 0 003 11a1 1 0 11-2 0 8.97 8.97 0 012.25-5.953 1 1 0 011.412-.088z" clip-rule="evenodd"/>
           <path fill-rule="evenodd" d="M5 11a5 5 0 1110 0 1 1 0 11-2 0 3 3 0 10-6 0c0 1.677-.345 3.276-.968 4.729a1 1 0 11-1.838-.789A9.964 9.964 0 005 11z" clip-rule="evenodd"/>
@@ -751,7 +751,7 @@
           </div>
           <div class="flex gap-3 w-full mt-1">
             <button @click="cerrarVerify" class="flex-1 py-2.5 rounded-xl border border-gray-200 text-gray-600 font-semibold hover:bg-gray-50 transition-colors">Cerrar</button>
-            <button @click="irAlPerfil(verifyStatus.usuario.id)" class="flex-1 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-bold transition-colors">Ver perfil</button>
+            <button @click="irAlPerfil(verifyStatus.usuario.id)" class="flex-1 py-2.5 rounded-xl bg-gray-700 hover:bg-gray-800 text-white font-bold transition-colors">Ver perfil</button>
           </div>
         </div>
 
@@ -766,7 +766,7 @@
           <p class="text-gray-400 text-sm">No hay ningún usuario registrado con esta huella.</p>
           <div class="flex gap-3 w-full mt-1">
             <button @click="cerrarVerify" class="flex-1 py-2.5 rounded-xl border border-gray-200 text-gray-600 font-semibold hover:bg-gray-50">Cerrar</button>
-            <button @click="reiniciarVerify" class="flex-1 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-bold transition-colors">Reintentar</button>
+            <button @click="reiniciarVerify" class="flex-1 py-2.5 rounded-xl bg-gray-700 hover:bg-gray-800 text-white font-bold transition-colors">Reintentar</button>
           </div>
         </div>
 
@@ -781,7 +781,7 @@
           <p class="text-gray-500 text-sm">{{ verifyStatus.mensaje }}</p>
           <div class="flex gap-3 w-full mt-1">
             <button @click="cerrarVerify" class="flex-1 py-2.5 rounded-xl border border-gray-200 text-gray-600 font-semibold hover:bg-gray-50">Cerrar</button>
-            <button @click="reiniciarVerify" class="flex-1 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-bold transition-colors">Reintentar</button>
+            <button @click="reiniciarVerify" class="flex-1 py-2.5 rounded-xl bg-gray-700 hover:bg-gray-800 text-white font-bold transition-colors">Reintentar</button>
           </div>
         </div>
 
@@ -795,9 +795,9 @@
           </div>
           <template v-else>
             <div class="relative w-20 h-20">
-              <div class="absolute inset-0 rounded-full bg-indigo-100 animate-ping opacity-40"></div>
-              <div class="relative w-20 h-20 bg-indigo-50 rounded-full flex items-center justify-center border-2 border-indigo-300">
-                <svg xmlns="http://www.w3.org/2000/svg" class="h-10 w-10 text-indigo-600" viewBox="0 0 20 20" fill="currentColor">
+              <div class="absolute inset-0 rounded-full bg-gray-200 animate-ping opacity-40"></div>
+              <div class="relative w-20 h-20 bg-gray-100 rounded-full flex items-center justify-center border-2 border-gray-400">
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-10 w-10 text-gray-700" viewBox="0 0 20 20" fill="currentColor">
                   <path fill-rule="evenodd" d="M6.625 2.655A9 9 0 0119 11a1 1 0 11-2 0 7 7 0 00-9.625-6.492 1 1 0 11-.75-1.853zM4.662 4.959A1 1 0 014.75 6.37 6.97 6.97 0 003 11a1 1 0 11-2 0 8.97 8.97 0 012.25-5.953 1 1 0 011.412-.088z" clip-rule="evenodd"/>
                   <path fill-rule="evenodd" d="M5 11a5 5 0 1110 0 1 1 0 11-2 0 3 3 0 10-6 0c0 1.677-.345 3.276-.968 4.729a1 1 0 11-1.838-.789A9.964 9.964 0 005 11z" clip-rule="evenodd"/>
                 </svg>

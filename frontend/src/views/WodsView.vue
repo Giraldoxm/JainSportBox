@@ -27,7 +27,7 @@
           v-for="wod in wodsHoy"
           :key="wod.id"
           class="rounded-2xl p-6 text-white shadow-xl transition-opacity"
-          :class="wod.activo ? 'bg-gradient-to-br from-red-700 to-black' : 'bg-gradient-to-br from-gray-500 to-gray-800 opacity-70'"
+          :class="wod.activo ? 'bg-gradient-to-br from-red-500 to-red-700' : 'bg-gradient-to-br from-gray-400 to-gray-600 opacity-70'"
         >
           <div class="flex items-start justify-between">
             <div class="flex-1">

@@ -19,6 +19,7 @@ _migraciones = [
     "ALTER TABLE medidas_salud ADD COLUMN cadera_cm REAL",
     "ALTER TABLE wods ADD COLUMN es_personalizado INTEGER NOT NULL DEFAULT 0",
     "ALTER TABLE wods ADD COLUMN genero_destino VARCHAR(20)",
+    "ALTER TABLE pagos ADD COLUMN duracion_dias INTEGER",
 ]
 with engine.connect() as _conn:
     for _sql in _migraciones:
@@ -77,6 +78,29 @@ with engine.connect() as _conn:
         ))
         _conn.execute(text("DROP TABLE medidas_salud"))
         _conn.execute(text("ALTER TABLE medidas_salud_new RENAME TO medidas_salud"))
+        _conn.commit()
+
+# Migración: hacer plan_id nullable en pagos (para pagos personalizados sin plan)
+with engine.connect() as _conn:
+    _info_pagos = {row[1]: row[3] for row in _conn.execute(text("PRAGMA table_info(pagos)")).fetchall()}
+    if _info_pagos.get("plan_id", 0) == 1:  # notnull=1 → NOT NULL aún activo
+        _conn.execute(text("""
+            CREATE TABLE pagos_new (
+                id INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT,
+                usuario_id INTEGER NOT NULL REFERENCES usuarios(id),
+                plan_id INTEGER REFERENCES planes(id),
+                duracion_dias INTEGER,
+                fecha_pago DATETIME,
+                monto REAL NOT NULL,
+                metodo_pago VARCHAR(50)
+            )
+        """))
+        _conn.execute(text(
+            "INSERT INTO pagos_new (id, usuario_id, plan_id, duracion_dias, fecha_pago, monto, metodo_pago) "
+            "SELECT id, usuario_id, plan_id, duracion_dias, fecha_pago, monto, metodo_pago FROM pagos"
+        ))
+        _conn.execute(text("DROP TABLE pagos"))
+        _conn.execute(text("ALTER TABLE pagos_new RENAME TO pagos"))
         _conn.commit()
 
 from pathlib import Path

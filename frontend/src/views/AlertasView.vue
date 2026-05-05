@@ -2,18 +2,9 @@
   <div class="animate-fade-in-up">
 
     <!-- Header -->
-    <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-6 gap-4">
-      <div>
-        <h2 class="text-3xl font-extrabold text-gray-900 tracking-tight">Alertas WhatsApp</h2>
-        <p class="text-gray-500 mt-1">Recordatorios de vencimiento de membresía</p>
-      </div>
-      <button @click="cargar()" :disabled="cargando"
-        class="flex items-center gap-2 bg-red-600 hover:bg-red-700 text-white font-bold py-2.5 px-5 rounded-lg shadow transition-colors disabled:opacity-50">
-        <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" :class="cargando ? 'animate-spin' : ''" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/>
-        </svg>
-        {{ cargando ? 'Actualizando...' : 'Actualizar' }}
-      </button>
+    <div class="mb-6">
+      <h2 class="text-3xl font-extrabold text-gray-900 tracking-tight">Alertas WhatsApp</h2>
+      <p class="text-gray-500 mt-1">Recordatorios de vencimiento de membresía</p>
     </div>
 
     <!-- Toast -->
@@ -62,51 +53,44 @@
 
     <!-- Lista de alertas -->
     <div v-else class="space-y-3">
-      <!-- Agrupadas por días_anticipacion -->
-      <template v-for="grupo in alertasAgrupadas" :key="grupo.dias">
-        <div class="flex items-center gap-3 mt-5 mb-2 first:mt-0">
-          <span class="text-xs font-black uppercase tracking-widest px-3 py-1 rounded-full"
-            :class="grupo.dias === 1 ? 'bg-red-100 text-red-700' : grupo.dias === 3 ? 'bg-amber-100 text-amber-700' : 'bg-blue-100 text-blue-700'">
-            {{ grupo.dias === 1 ? '⚠ Vence mañana' : `Vence en ${grupo.dias} días` }}
-          </span>
-          <div class="flex-1 h-px bg-gray-100"></div>
-          <span class="text-xs text-gray-400">{{ grupo.items.length }} usuario{{ grupo.items.length !== 1 ? 's' : '' }}</span>
-        </div>
-
-        <div v-for="alerta in grupo.items" :key="alerta.id"
-          class="bg-white rounded-2xl border shadow-sm p-5 flex items-center gap-4 transition-all"
-          :class="alerta.enviada ? 'border-gray-100 opacity-60' : grupo.dias === 1 ? 'border-red-100' : grupo.dias === 3 ? 'border-amber-100' : 'border-blue-100'">
-
-          <!-- Avatar -->
-          <div class="w-11 h-11 rounded-full flex-shrink-0 flex items-center justify-center text-white font-bold text-sm"
-            :class="alerta.enviada ? 'bg-gray-300' : grupo.dias === 1 ? 'bg-red-500' : grupo.dias === 3 ? 'bg-amber-500' : 'bg-blue-500'">
-            {{ alerta.usuario_nombre.charAt(0).toUpperCase() }}
+      <!-- Pendientes: agrupadas por días_anticipacion -->
+      <template v-if="filtro === 'pendientes'">
+        <template v-for="grupo in alertasAgrupadas" :key="grupo.dias">
+          <div class="flex items-center gap-3 mt-5 mb-2 first:mt-0">
+            <span class="text-xs font-black uppercase tracking-widest px-3 py-1 rounded-full"
+              :class="grupo.dias === 1 ? 'bg-red-100 text-red-700' : grupo.dias === 3 ? 'bg-amber-100 text-amber-700' : 'bg-blue-100 text-blue-700'">
+              {{ grupo.dias === 1 ? '⚠ Vence mañana' : `Vence en ${grupo.dias} días` }}
+            </span>
+            <div class="flex-1 h-px bg-gray-100"></div>
+            <span class="text-xs text-gray-400">{{ grupo.items.length }} usuario{{ grupo.items.length !== 1 ? 's' : '' }}</span>
           </div>
 
-          <!-- Info usuario -->
-          <div class="flex-1 min-w-0">
-            <p class="font-bold text-gray-800 truncate">{{ alerta.usuario_nombre }}</p>
-            <div class="flex items-center gap-3 mt-0.5">
-              <p class="text-sm text-gray-500">
-                Vence el <span class="font-semibold">{{ formatFecha(alerta.fecha_vencimiento) }}</span>
-              </p>
-              <span v-if="alerta.usuario_telefono" class="text-xs text-gray-400 flex items-center gap-1">
-                <svg xmlns="http://www.w3.org/2000/svg" class="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z"/>
-                </svg>
-                {{ alerta.usuario_telefono }}
-              </span>
-              <span v-else class="text-xs text-red-400">Sin teléfono</span>
+          <div v-for="alerta in grupo.items" :key="alerta.id"
+            class="bg-white rounded-2xl border shadow-sm p-5 flex items-center gap-4 transition-all"
+            :class="grupo.dias === 1 ? 'border-red-100' : grupo.dias === 3 ? 'border-amber-100' : 'border-blue-100'">
+
+            <div class="w-11 h-11 rounded-full flex-shrink-0 flex items-center justify-center text-white font-bold text-sm"
+              :class="grupo.dias === 1 ? 'bg-red-500' : grupo.dias === 3 ? 'bg-amber-500' : 'bg-blue-500'">
+              {{ alerta.usuario_nombre.charAt(0).toUpperCase() }}
             </div>
-            <p v-if="alerta.enviada && alerta.fecha_enviada" class="text-xs text-emerald-600 mt-0.5">
-              ✓ Enviada el {{ formatFechaHora(alerta.fecha_enviada) }}
-            </p>
-          </div>
 
-          <!-- Acciones -->
-          <div class="flex items-center gap-2 flex-shrink-0">
-            <template v-if="!alerta.enviada">
-              <!-- Botón WhatsApp -->
+            <div class="flex-1 min-w-0">
+              <p class="font-bold text-gray-800 truncate">{{ alerta.usuario_nombre }}</p>
+              <div class="flex items-center gap-3 mt-0.5">
+                <p class="text-sm text-gray-500">
+                  Vence el <span class="font-semibold">{{ formatFecha(alerta.fecha_vencimiento) }}</span>
+                </p>
+                <span v-if="alerta.usuario_telefono" class="text-xs text-gray-400 flex items-center gap-1">
+                  <svg xmlns="http://www.w3.org/2000/svg" class="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z"/>
+                  </svg>
+                  {{ alerta.usuario_telefono }}
+                </span>
+                <span v-else class="text-xs text-red-400">Sin teléfono</span>
+              </div>
+            </div>
+
+            <div class="flex items-center gap-2 flex-shrink-0">
               <a v-if="alerta.usuario_telefono"
                 :href="whatsappLink(alerta)"
                 target="_blank"
@@ -124,14 +108,46 @@
                   <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
                 </svg>
               </button>
-            </template>
-            <span v-else class="text-sm text-emerald-600 font-semibold flex items-center gap-1">
-              <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/>
-              </svg>
-              Enviada
-            </span>
+            </div>
           </div>
+        </template>
+      </template>
+
+      <!-- Historial: solo enviadas, sin agrupar -->
+      <template v-else>
+        <div v-for="alerta in alertasEnviadas" :key="alerta.id"
+          class="bg-white rounded-2xl border border-gray-100 shadow-sm p-5 flex items-center gap-4">
+          <div class="w-11 h-11 rounded-full flex-shrink-0 flex items-center justify-center text-white font-bold text-sm bg-emerald-500">
+            {{ alerta.usuario_nombre.charAt(0).toUpperCase() }}
+          </div>
+          <div class="flex-1 min-w-0">
+            <p class="font-bold text-gray-800 truncate">{{ alerta.usuario_nombre }}</p>
+            <div class="flex items-center gap-3 mt-0.5 flex-wrap">
+              <p class="text-sm text-gray-500">
+                Vencía el <span class="font-semibold">{{ formatFecha(alerta.fecha_vencimiento) }}</span>
+              </p>
+              <span v-if="alerta.usuario_telefono" class="text-xs text-gray-400 flex items-center gap-1">
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z"/>
+                </svg>
+                {{ alerta.usuario_telefono }}
+              </span>
+            </div>
+            <p v-if="alerta.fecha_enviada" class="text-xs text-emerald-600 mt-0.5">
+              ✓ Enviada el {{ formatFechaHora(alerta.fecha_enviada) }}
+            </p>
+          </div>
+          <span class="text-sm text-emerald-600 font-semibold flex items-center gap-1 flex-shrink-0">
+            <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/>
+            </svg>
+            Enviada
+          </span>
+        </div>
+
+        <div v-if="alertasEnviadas.length === 0"
+          class="bg-gray-50 border-2 border-dashed border-gray-200 rounded-2xl p-14 text-center">
+          <p class="text-gray-500 font-semibold">Aún no has enviado ningún recordatorio</p>
         </div>
       </template>
     </div>
@@ -149,10 +165,11 @@ const filtro = ref('pendientes')
 const toast = ref('')
 const pendientesCount = ref(0)
 
-// ── Agrupadas por días ────────────────────────────────────────
+// ── Agrupadas por días (solo pendientes) ──────────────────────
 const alertasAgrupadas = computed(() => {
   const grupos = {}
   for (const a of alertas.value) {
+    if (a.enviada) continue
     if (!grupos[a.dias_anticipacion]) grupos[a.dias_anticipacion] = []
     grupos[a.dias_anticipacion].push(a)
   }
@@ -160,6 +177,13 @@ const alertasAgrupadas = computed(() => {
     .sort(([a], [b]) => Number(a) - Number(b))
     .map(([dias, items]) => ({ dias: Number(dias), items }))
 })
+
+// ── Solo enviadas, ordenadas por fecha de envío descendente ───
+const alertasEnviadas = computed(() =>
+  alertas.value
+    .filter(a => a.enviada)
+    .sort((a, b) => new Date(b.fecha_enviada || 0) - new Date(a.fecha_enviada || 0))
+)
 
 // ── Fetch ─────────────────────────────────────────────────────
 async function cargar() {
