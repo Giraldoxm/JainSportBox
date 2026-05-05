@@ -1,9 +1,21 @@
+using System;
+
 namespace HuelleroBridge
 {
     public class VerifyResult
     {
         public int    UsuarioId { get; set; }
         public string Nombre    { get; set; }
+    }
+
+    public class AccesoEvento
+    {
+        public int     UsuarioId { get; set; }
+        public string  Nombre    { get; set; }
+        public string  Tipo      { get; set; }   // "entrada" | "salida"
+        public bool    Acceso    { get; set; }   // true = OK, false = denegado/no-match
+        public string  Detalle   { get; set; }   // mensaje de error si Acceso=false
+        public string  Hora      { get; set; }   // ISO8601 local
     }
 
     public class EnrollmentState
@@ -22,6 +34,11 @@ namespace HuelleroBridge
         public bool   Completado { get; private set; }
         public bool   Error      { get; private set; }
         public string Mensaje    { get; private set; } = "";
+
+        // ── Acceso (modo permanente, gimnasio en horario) ────────
+        public bool         AccesoActivo    { get; private set; }
+        public int          TemplatesEnCache { get; set; }
+        public AccesoEvento UltimoEvento    { get; private set; }
 
         // ── Verificación ──────────────────────────────────────────
         public bool         VerifyActivo    { get; private set; }
@@ -138,6 +155,23 @@ namespace HuelleroBridge
                 VerifyError     = false;
                 VerifyMensaje   = "";
             }
+        }
+
+        // ── Acceso: métodos ──────────────────────────────────────
+
+        public void IniciarAcceso()
+        {
+            lock (_lock) { AccesoActivo = true; }
+        }
+
+        public void DetenerAcceso()
+        {
+            lock (_lock) { AccesoActivo = false; }
+        }
+
+        public void RegistrarEvento(AccesoEvento ev)
+        {
+            lock (_lock) { UltimoEvento = ev; }
         }
     }
 }

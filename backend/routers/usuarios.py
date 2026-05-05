@@ -151,18 +151,6 @@ def eliminar_usuario(
     db.commit()
 
 
-@router.get("/{usuario_id}", response_model=UsuarioResponse)
-def obtener_usuario(
-    usuario_id: int,
-    db: Session = Depends(get_db),
-    current_user: Usuario = Depends(_require_admin_or_coach),
-):
-    usuario = db.query(Usuario).filter(Usuario.id == usuario_id).first()
-    if not usuario:
-        raise HTTPException(status_code=404, detail="Usuario no encontrado.")
-    return usuario
-
-
 @router.get("/", response_model=List[UsuarioResponse])
 def listar_usuarios(
     db: Session = Depends(get_db),
@@ -171,6 +159,9 @@ def listar_usuarios(
     return db.query(Usuario).filter(Usuario.rol != RolUsuario.PENDIENTE).all()
 
 
+# IMPORTANTE: rutas estáticas ANTES de las parametrizadas con {usuario_id}.
+# FastAPI matchea en orden de declaración; si /{usuario_id} se declara primero,
+# captura "pendientes" como ID y falla con 422.
 @router.get("/pendientes")
 def listar_pendientes(
     db: Session = Depends(get_db),
@@ -188,6 +179,7 @@ def listar_pendientes(
             "id": u.id,
             "nombre": u.nombre,
             "email": u.email,
+            "telefono": u.telefono,
             "documento_identidad": u.documento_identidad,
             "genero": u.genero,
             "created_at": u.created_at,
@@ -195,6 +187,18 @@ def listar_pendientes(
             "plan_solicitado": plan_solicitado,
         })
     return result
+
+
+@router.get("/{usuario_id}", response_model=UsuarioResponse)
+def obtener_usuario(
+    usuario_id: int,
+    db: Session = Depends(get_db),
+    current_user: Usuario = Depends(_require_admin_or_coach),
+):
+    usuario = db.query(Usuario).filter(Usuario.id == usuario_id).first()
+    if not usuario:
+        raise HTTPException(status_code=404, detail="Usuario no encontrado.")
+    return usuario
 
 
 class ActivarUsuarioPayload(BaseModel):

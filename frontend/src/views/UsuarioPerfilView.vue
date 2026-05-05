@@ -31,7 +31,7 @@
             </span>
             <span class="flex items-center gap-1.5 text-xs font-semibold text-white/80">
               <span class="w-2 h-2 rounded-full" :class="usuario.esta_en_gym ? 'bg-green-400' : 'bg-white/40'"></span>
-              {{ usuario.esta_en_gym ? 'En el Box' : 'Fuera' }}
+              {{ usuario.esta_en_gym ? 'Activo' : 'Fuera' }}
             </span>
           </div>
           <button
@@ -418,7 +418,7 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted } from 'vue'
+import { ref, computed, onMounted, onUnmounted } from 'vue'
 import { useRoute } from 'vue-router'
 import api from '../api'
 
@@ -661,5 +661,38 @@ onMounted(async () => {
 
   if (pagosRes.status === 'fulfilled') pagos.value = pagosRes.value.data || []
   cargandoPagos.value = false
+
+  conectarAccesoWS()
+})
+
+// ── WebSocket: refresca esta_en_gym del usuario cuando el bridge registra
+// entrada/salida — sin recargar la página.
+let accesoWS = null
+let accesoReconnectTimer = null
+
+const conectarAccesoWS = () => {
+  try {
+    accesoWS = new WebSocket('ws://localhost:8765')
+    accesoWS.onmessage = (ev) => {
+      try {
+        const data = JSON.parse(ev.data)
+        if (data.tipo === 'acceso_ok' && data.usuario_id === Number(id) && usuario.value) {
+          usuario.value.esta_en_gym = data.evento === 'entrada'
+        }
+      } catch {}
+    }
+    accesoWS.onclose = () => {
+      accesoWS = null
+      accesoReconnectTimer = setTimeout(conectarAccesoWS, 4000)
+    }
+    accesoWS.onerror = () => { try { accesoWS?.close() } catch {} }
+  } catch {
+    accesoReconnectTimer = setTimeout(conectarAccesoWS, 4000)
+  }
+}
+
+onUnmounted(() => {
+  clearTimeout(accesoReconnectTimer)
+  try { accesoWS?.close() } catch {}
 })
 </script>
