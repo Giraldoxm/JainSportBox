@@ -78,7 +78,7 @@
             <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 11V7a4 4 0 00-8 0v4M5 9h14l1 12H4L5 9z" />
             </svg>
-            Tienda POS
+            Tienda
           </router-link>
           <router-link to="/planes" @click="sidebarOpen = false"
             class="flex items-center gap-3 py-3 px-4 rounded-lg hover:bg-gray-800 transition-colors"
@@ -123,7 +123,7 @@
           </svg>
           Inicio
         </router-link>
-        <router-link v-if="!isPendiente" to="/wods" @click="sidebarOpen = false"
+        <router-link v-if="!isPendiente && !membresiaVencida" to="/wods" @click="sidebarOpen = false"
           class="flex items-center gap-3 py-3 px-4 rounded-lg hover:bg-gray-800 transition-colors"
           active-class="bg-red-600 hover:bg-red-700 font-semibold shadow-md">
           <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -131,7 +131,7 @@
           </svg>
           WODs
         </router-link>
-        <router-link v-if="!isPendiente && (isAdmin || tieneWodsPersonalizados)" to="/wods/personalizados" @click="sidebarOpen = false"
+        <router-link v-if="!isPendiente && !membresiaVencida && (isAdmin || tieneWodsPersonalizados)" to="/wods/personalizados" @click="sidebarOpen = false"
           class="flex items-center gap-3 py-3 px-4 rounded-lg hover:bg-gray-800 transition-colors"
           active-class="bg-red-600 hover:bg-red-700 font-semibold shadow-md">
           <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -147,7 +147,7 @@
           </svg>
           Planes
         </router-link>
-        <router-link v-if="!isPendiente && isCliente" to="/salud" @click="sidebarOpen = false"
+        <router-link v-if="!isPendiente && isCliente && !membresiaVencida" to="/salud" @click="sidebarOpen = false"
           class="flex items-center gap-3 py-3 px-4 rounded-lg hover:bg-gray-800 transition-colors"
           active-class="bg-red-600 hover:bg-red-700 font-semibold shadow-md">
           <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -155,7 +155,7 @@
           </svg>
           Mi Salud
         </router-link>
-        <router-link v-if="!isPendiente" to="/marcas" @click="sidebarOpen = false"
+        <router-link v-if="!isPendiente && !membresiaVencida" to="/marcas" @click="sidebarOpen = false"
           class="flex items-center gap-3 py-3 px-4 rounded-lg hover:bg-gray-800 transition-colors"
           active-class="bg-red-600 hover:bg-red-700 font-semibold shadow-md">
           <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -207,11 +207,11 @@
 <script setup>
 import { computed, ref, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
-import { useAuth } from '../composables/useAuth'
+import { useAuth, setFechaVencimiento } from '../composables/useAuth'
 import api from '../api'
 
 const router = useRouter()
-const { nombre, rol, isAdmin, isCoach, isCliente, isPendiente, canManage } = useAuth()
+const { nombre, rol, isAdmin, isCoach, isCliente, isPendiente, canManage, membresiaVencida } = useAuth()
 
 const sidebarOpen = ref(false)
 const tieneWodsPersonalizados = ref(localStorage.getItem('tieneWodsPersonalizados') === 'true')
@@ -223,6 +223,8 @@ onMounted(async () => {
     tieneWodsPersonalizados.value = !!data.incluye_wods_personalizados
     localStorage.setItem('tieneWodsPersonalizados', String(tieneWodsPersonalizados.value))
     if (data.genero) localStorage.setItem('userGenero', data.genero)
+    // Refrescar fecha de vencimiento para que el sidebar reaccione tras renovaciones.
+    setFechaVencimiento(data.fecha_vencimiento || '')
   } catch { /* silencioso */ }
 })
 

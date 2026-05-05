@@ -1,9 +1,11 @@
 using System;
 using System.Drawing;
+using System.Threading.Tasks;
 using System.Windows.Forms;
 
 namespace HuelleroBridge
 {
+
     // Ventana invisible — solo existe para proveer el HWND y message pump COM que
     // necesita el SDK de DigitalPersona para despachar eventos. Se posiciona fuera de
     // pantalla con tamaño 1×1 y opacidad 0 para que nunca sea visible. La captura en
@@ -11,6 +13,8 @@ namespace HuelleroBridge
     internal class BridgeForm : Form
     {
         private readonly FingerprintCapture _capture;
+        private readonly EnrollmentState    _state;
+        private System.Windows.Forms.Timer  _reloadTimer;
 
         public FingerprintCapture Capture => _capture;
 
@@ -28,6 +32,7 @@ namespace HuelleroBridge
             Height          = 1;
             Opacity         = 0;
 
+            _state   = state;
             _capture = new FingerprintCapture(state, json => hub.Broadcast(json));
         }
 
@@ -37,10 +42,37 @@ namespace HuelleroBridge
             // Iniciar captura una vez que la ventana (y su HWND) existen
             _capture.Start();
             Console.WriteLine("Presiona Ctrl+C para salir.");
+
+            // Arranque automático del modo acceso: el gimnasio queda activo todo el horario.
+            // Se carga el cache de templates y se entra en estado AccesoActivo. Cada huella
+            // que se coloque (cuando no hay enrolamiento ni verify activos) registra
+            // entrada/salida automáticamente en el backend.
+            _ = IniciarAccesoAuto();
+
+            // Refresco periódico de templates (5 min) para captar enrolamientos hechos
+            // desde otra terminal o el frontend.
+            _reloadTimer = new System.Windows.Forms.Timer { Interval = 5 * 60 * 1000 };
+            _reloadTimer.Tick += async (s, ev) => await _capture.RecargarTemplatesAsync();
+            _reloadTimer.Start();
+        }
+
+        private async Task IniciarAccesoAuto()
+        {
+            try
+            {
+                var n = await _capture.RecargarTemplatesAsync();
+                _state.IniciarAcceso();
+                Console.WriteLine($"[ACCESO] Modo acceso permanente ACTIVO ({n} usuarios cargados).");
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"[ACCESO] No se pudo iniciar modo acceso: {ex.Message}");
+            }
         }
 
         protected override void OnFormClosed(FormClosedEventArgs e)
         {
+            _reloadTimer?.Stop();
             _capture.Stop();
             base.OnFormClosed(e);
         }

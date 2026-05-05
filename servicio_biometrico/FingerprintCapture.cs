@@ -67,7 +67,31 @@ namespace HuelleroBridge
         public void CargarTemplates(List<TemplateEntry> templates)
         {
             _templates = templates ?? new List<TemplateEntry>();
+            _state.TemplatesEnCache = _templates.Count;
             Console.WriteLine($"[HUELLERO] Templates cargados: {_templates.Count}");
+        }
+
+        /// <summary>
+        /// Descarga todos los templates desde el backend. Pensado para refrescar el cache
+        /// del modo acceso después de un enrolamiento o periódicamente.
+        /// </summary>
+        public async Task<int> RecargarTemplatesAsync()
+        {
+            try
+            {
+                var req  = new HttpRequestMessage(HttpMethod.Get, $"{ApiBase}/usuarios/con-template/lista");
+                req.Headers.Add("X-Bridge-Secret", BridgeSecret);
+                var resp = await _http.SendAsync(req);
+                var json = await resp.Content.ReadAsStringAsync();
+                var entries = HttpApi.ParseTemplateList(json);
+                CargarTemplates(entries);
+                return entries.Count;
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"[HUELLERO] Error recargando templates: {ex.Message}");
+                return -1;
+            }
         }
 
         // ============ Eventos del SDK ============
@@ -76,13 +100,18 @@ namespace HuelleroBridge
         {
             Console.WriteLine("[HUELLERO] Huella capturada");
 
-            if (_state.VerifyActivo)
+            // Prioridad: enrolamiento manual > verificación one-shot > acceso permanente.
+            if (_state.Activo)
+            {
+                ProcesarEnrolamiento(Sample);
+            }
+            else if (_state.VerifyActivo)
             {
                 ProcesarVerificacion(Sample);
             }
-            else if (_state.Activo)
+            else if (_state.AccesoActivo)
             {
-                ProcesarEnrolamiento(Sample);
+                ProcesarAcceso(Sample);
             }
             else
             {
@@ -171,6 +200,111 @@ namespace HuelleroBridge
             _broadcast("{\"tipo\":\"verify_no_match\"}");
         }
 
+        private void ProcesarAcceso(Sample Sample)
+        {
+            var extractor = new FeatureExtraction();
+            var feedback  = CaptureFeedback.None;
+            var features  = new FeatureSet();
+            extractor.CreateFeatureSet(Sample, DataPurpose.Verification, ref feedback, ref features);
+
+            if (feedback != CaptureFeedback.Good || features == null)
+            {
+                Console.WriteLine($"[ACCESO] Calidad insuficiente: {feedback}");
+                _state.RegistrarEvento(new AccesoEvento {
+                    Acceso  = false,
+                    Nombre  = "Lectura inválida",
+                    Detalle = $"Calidad insuficiente: {feedback}",
+                    Hora    = DateTime.Now.ToString("HH:mm:ss"),
+                });
+                _broadcast("{\"tipo\":\"acceso_calidad\"}");
+                return;
+            }
+
+            foreach (var entry in _templates)
+            {
+                try
+                {
+                    var tmpl = new Template();
+                    tmpl.DeSerialize(Convert.FromBase64String(entry.Base64));
+                    var result = new Verification.Result();
+                    _verificator.Verify(features, tmpl, ref result);
+                    if (result.Verified)
+                    {
+                        Console.WriteLine($"[ACCESO] Coincidencia: usuario {entry.UsuarioId} ({entry.Nombre})");
+                        Task.Run(() => RegistrarAsistencia(entry.UsuarioId, entry.Nombre));
+                        return;
+                    }
+                }
+                catch (Exception ex)
+                {
+                    Console.WriteLine($"[ACCESO] Error comparando template {entry.UsuarioId}: {ex.Message}");
+                }
+            }
+
+            Console.WriteLine("[ACCESO] Huella no reconocida.");
+            _state.RegistrarEvento(new AccesoEvento {
+                Acceso  = false,
+                Nombre  = "Huella no reconocida",
+                Detalle = "Sin coincidencia en la base de datos",
+                Hora    = DateTime.Now.ToString("HH:mm:ss"),
+            });
+            _broadcast("{\"tipo\":\"acceso_no_match\"}");
+        }
+
+        private async Task RegistrarAsistencia(int usuarioId, string nombre)
+        {
+            try
+            {
+                var req = new HttpRequestMessage(HttpMethod.Post, $"{ApiBase}/asistencia/por-usuario/{usuarioId}");
+                req.Content = new StringContent("", Encoding.UTF8, "application/json");
+                req.Headers.Add("X-Bridge-Secret", BridgeSecret);
+                var resp = await _http.SendAsync(req);
+                var body = await resp.Content.ReadAsStringAsync();
+
+                if (resp.IsSuccessStatusCode)
+                {
+                    // Extraer el "tipo" devuelto (entrada|salida) sin parser JSON.
+                    var tipoMatch = System.Text.RegularExpressions.Regex.Match(body, "\"tipo\"\\s*:\\s*\"(entrada|salida)\"");
+                    var tipo = tipoMatch.Success ? tipoMatch.Groups[1].Value : "entrada";
+
+                    Console.WriteLine($"[ACCESO] {tipo.ToUpper()} registrada para {nombre} (#{usuarioId})");
+                    _state.RegistrarEvento(new AccesoEvento {
+                        UsuarioId = usuarioId,
+                        Nombre    = nombre,
+                        Tipo      = tipo,
+                        Acceso    = true,
+                        Hora      = DateTime.Now.ToString("HH:mm:ss"),
+                    });
+                    _broadcast($"{{\"tipo\":\"acceso_ok\",\"usuario_id\":{usuarioId},\"nombre\":\"{nombre}\",\"evento\":\"{tipo}\"}}");
+                }
+                else
+                {
+                    var detMatch = System.Text.RegularExpressions.Regex.Match(body, "\"detail\"\\s*:\\s*\"([^\"]+)\"");
+                    var detalle  = detMatch.Success ? detMatch.Groups[1].Value : $"HTTP {resp.StatusCode}";
+                    Console.WriteLine($"[ACCESO] Acceso denegado para {nombre}: {detalle}");
+                    _state.RegistrarEvento(new AccesoEvento {
+                        UsuarioId = usuarioId,
+                        Nombre    = nombre,
+                        Acceso    = false,
+                        Detalle   = detalle,
+                        Hora      = DateTime.Now.ToString("HH:mm:ss"),
+                    });
+                    _broadcast($"{{\"tipo\":\"acceso_denegado\",\"usuario_id\":{usuarioId},\"nombre\":\"{nombre}\"}}");
+                }
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"[ACCESO] Excepción registrando asistencia: {ex.Message}");
+                _state.RegistrarEvento(new AccesoEvento {
+                    UsuarioId = usuarioId,
+                    Nombre    = nombre,
+                    Acceso    = false,
+                    Detalle   = ex.Message,
+                    Hora      = DateTime.Now.ToString("HH:mm:ss"),
+                });
+            }
+        }
+
         private async Task GuardarTemplate(int usuarioId, string templateB64)
         {
             try
@@ -187,6 +321,8 @@ namespace HuelleroBridge
                     Console.WriteLine($"[HUELLERO] Template guardado para usuario {usuarioId}.");
                     _state.MarcarCompletado();
                     _broadcast($"{{\"tipo\":\"enrol_ok\",\"usuario_id\":{usuarioId}}}");
+                    // Refrescar cache para que el nuevo usuario funcione en modo acceso sin reiniciar.
+                    _ = RecargarTemplatesAsync();
                 }
                 else
                 {

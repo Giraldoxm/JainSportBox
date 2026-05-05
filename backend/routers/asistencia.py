@@ -1,6 +1,7 @@
+import os
 from datetime import date, datetime
 
-from fastapi import APIRouter, Depends, HTTPException, Query, status
+from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
 from sqlalchemy.orm import Session
 
 from database import get_db
@@ -15,6 +16,26 @@ def _require_admin_or_coach(current_user: Usuario = Depends(get_current_user)):
     if current_user.rol not in (RolUsuario.ADMIN, RolUsuario.COACH):
         raise HTTPException(status_code=403, detail="Solo admin o coach pueden realizar esta acción.")
     return current_user
+
+
+def _autorizar_bridge_o_admin(request: Request, db: Session) -> None:
+    bridge_secret = os.environ.get("BRIDGE_SECRET", "")
+    x_secret = request.headers.get("X-Bridge-Secret", "")
+    if bridge_secret and x_secret == bridge_secret:
+        return
+    from jose import jwt as jose_jwt
+    from security import ALGORITHM, SECRET_KEY
+    token = request.headers.get("Authorization", "").removeprefix("Bearer ").strip()
+    if not token:
+        raise HTTPException(status_code=401, detail="Not authenticated")
+    try:
+        payload_jwt = jose_jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
+        email = payload_jwt.get("sub")
+    except Exception:
+        raise HTTPException(status_code=401, detail="Not authenticated")
+    caller = db.query(Usuario).filter(Usuario.email == email).first()
+    if not caller or caller.rol not in (RolUsuario.ADMIN, RolUsuario.COACH):
+        raise HTTPException(status_code=403, detail="Sin permisos.")
 
 
 def _registrar(usuario: Usuario, db: Session) -> AsistenciaResponse:
@@ -42,12 +63,13 @@ def registrar_asistencia(payload: AsistenciaCreate, db: Session = Depends(get_db
 
 
 @router.post("/por-usuario/{usuario_id}", response_model=AsistenciaResponse, status_code=status.HTTP_201_CREATED)
-def registrar_asistencia_por_id(usuario_id: int, db: Session = Depends(get_db)):
+def registrar_asistencia_por_id(usuario_id: int, request: Request, db: Session = Depends(get_db)):
     """
     Registra asistencia dado el usuario_id directamente.
-    Usado por el bridge DigitalPersona después de identificar la huella localmente.
+    Usado por el bridge DigitalPersona (X-Bridge-Secret) o por admin/coach (JWT).
     Valida que la membresía esté vigente antes de permitir entrada.
     """
+    _autorizar_bridge_o_admin(request, db)
     usuario = db.query(Usuario).filter(Usuario.id == usuario_id).first()
     if not usuario:
         raise HTTPException(status_code=404, detail="Usuario no encontrado.")

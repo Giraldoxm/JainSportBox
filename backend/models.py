@@ -330,6 +330,24 @@ class AlertaMembresia(Base):
         return f"<AlertaMembresia {self.id} – Usuario {self.usuario_id} -{self.dias_anticipacion}d>"
 
 
+# ────────────────────── Métodos de Pago ──────────────────────
+
+class MetodoPago(Base):
+    """Cuenta bancaria/transferencia que el admin expone a los usuarios al adquirir un plan."""
+    __tablename__ = "metodos_pago"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    banco: Mapped[str] = mapped_column(String(80), nullable=False)
+    tipo_cuenta: Mapped[str] = mapped_column(String(40), nullable=False)  # ahorros, corriente, nequi, daviplata, etc.
+    numero_cuenta: Mapped[str] = mapped_column(String(50), nullable=False)
+    orden: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    activo: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+
+    def __repr__(self) -> str:
+        return f"<MetodoPago {self.id} – {self.banco} ({self.tipo_cuenta})>"
+
+
 # ──────────────────── Utilidad: crear tablas ──────────────────
 
 def init_db(database_url: str = "sqlite:///crossfit_box.db") -> None:

@@ -63,6 +63,7 @@ namespace HuelleroBridge
                 else if (method == "DELETE" && path == "/enroll")           HandleEnrollCancel(ctx);
                 else if (method == "POST"   && path == "/verify/start")     HandleVerifyStart(ctx);
                 else if (method == "DELETE" && path == "/verify")           HandleVerifyCancel(ctx);
+                else if (method == "POST"   && path == "/access/reload")    HandleAccessReload(ctx);
                 else { ctx.Response.StatusCode = 404; Write(ctx, "{\"error\":\"not found\"}"); }
             }
             catch (Exception ex)
@@ -76,8 +77,13 @@ namespace HuelleroBridge
         {
             var e  = _state;
             var vr = e.VerifyResultado;
+            var ev = e.UltimoEvento;
             var dispositivo = e.LectorConectado ? "conectado" : "desconectado";
-            var modo = e.Activo ? "enrolando" : e.VerifyActivo ? "verificando" : "idle";
+            var modo = e.Activo
+                ? "enrolando"
+                : e.VerifyActivo ? "verificando"
+                : e.AccesoActivo ? "acceso"
+                : "idle";
 
             var verJson = $@"{{
     ""activo"": {B(e.VerifyActivo)},
@@ -89,10 +95,23 @@ namespace HuelleroBridge
     ""usuario"": {(vr != null ? $"{{\"id\":{vr.UsuarioId},\"nombre\":\"{Esc(vr.Nombre)}\"}}" : "null")}
   }}";
 
+            var ultimoEventoJson = ev == null
+                ? "null"
+                : $@"{{
+    ""usuario_id"": {ev.UsuarioId},
+    ""nombre"": ""{Esc(ev.Nombre)}"",
+    ""tipo"": ""{Esc(ev.Tipo ?? "")}"",
+    ""acceso"": {B(ev.Acceso)},
+    ""detalle"": ""{Esc(ev.Detalle ?? "")}"",
+    ""hora"": ""{Esc(ev.Hora ?? "")}""
+  }}";
+
             var json = $@"{{
   ""dispositivo"": ""{dispositivo}"",
   ""modo"": ""{modo}"",
-  ""templates_en_cache"": 0,
+  ""templates_en_cache"": {e.TemplatesEnCache},
+  ""acceso_activo"": {B(e.AccesoActivo)},
+  ""ultimo_evento"": {ultimoEventoJson},
   ""enrolamiento"": {{
     ""activo"": {B(e.Activo)},
     ""usuario_id"": {(e.UsuarioId.HasValue ? e.UsuarioId.Value.ToString() : "null")},
@@ -161,7 +180,17 @@ namespace HuelleroBridge
             Console.WriteLine("[HTTP] Verificación cancelada");
         }
 
-        private static List<TemplateEntry> ParseTemplateList(string json)
+        private void HandleAccessReload(HttpListenerContext ctx)
+        {
+            System.Threading.Tasks.Task.Run(async () =>
+            {
+                var n = await _capture.RecargarTemplatesAsync();
+                Console.WriteLine($"[HTTP] Templates recargados: {n}");
+            });
+            Write(ctx, "{\"ok\":true}");
+        }
+
+        internal static List<TemplateEntry> ParseTemplateList(string json)
         {
             var result = new List<TemplateEntry>();
             // Simple parser para el array JSON del backend

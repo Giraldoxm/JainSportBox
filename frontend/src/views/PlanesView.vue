@@ -7,13 +7,22 @@
         <h2 class="text-3xl font-extrabold text-gray-900 tracking-tight">Planes de Suscripción</h2>
         <p class="text-gray-500 mt-1">Elige el plan que mejor se adapte a tu entrenamiento</p>
       </div>
-      <button v-if="isAdmin" @click="abrirCrear"
-        class="bg-red-600 hover:bg-red-700 text-white px-5 py-2.5 rounded-lg shadow-md hover:shadow-lg transition-all font-semibold flex items-center gap-2 transform active:scale-95">
-        <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
-          <path fill-rule="evenodd" d="M10 3a1 1 0 011 1v5h5a1 1 0 110 2h-5v5a1 1 0 11-2 0v-5H4a1 1 0 110-2h5V4a1 1 0 011-1z" clip-rule="evenodd" />
-        </svg>
-        Nuevo Plan
-      </button>
+      <div v-if="isAdmin" class="flex gap-2">
+        <button @click="abrirMetodosPago"
+          class="bg-white border border-gray-300 hover:border-red-500 hover:text-red-600 text-gray-700 px-4 py-2.5 rounded-lg shadow-sm transition-all font-semibold flex items-center gap-2">
+          <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z"/>
+          </svg>
+          Métodos de Pago
+        </button>
+        <button @click="abrirCrear"
+          class="bg-red-600 hover:bg-red-700 text-white px-5 py-2.5 rounded-lg shadow-md hover:shadow-lg transition-all font-semibold flex items-center gap-2 transform active:scale-95">
+          <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+            <path fill-rule="evenodd" d="M10 3a1 1 0 011 1v5h5a1 1 0 110 2h-5v5a1 1 0 11-2 0v-5H4a1 1 0 110-2h5V4a1 1 0 011-1z" clip-rule="evenodd" />
+          </svg>
+          Nuevo Plan
+        </button>
+      </div>
     </div>
 
     <!-- Loading -->
@@ -168,15 +177,29 @@
               </svg>
               Métodos de Pago
             </p>
-            <!-- ── ZONA DE MÉTODOS DE PAGO — completar luego ── -->
-            <div class="rounded-xl border-2 border-dashed border-gray-200 bg-gray-50 px-4 py-5 text-center text-gray-400 text-sm">
-              <svg xmlns="http://www.w3.org/2000/svg" class="h-8 w-8 mx-auto mb-2 text-gray-300" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M17 9V7a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2m2 4h10a2 2 0 002-2v-6a2 2 0 00-2-2H9a2 2 0 00-2 2v6a2 2 0 002 2zm7-5a2 2 0 11-4 0 2 2 0 014 0z"/>
-              </svg>
-              <p class="font-semibold text-gray-500">Métodos de pago disponibles</p>
-              <p class="text-xs mt-1 text-gray-400">Esta sección se completará próximamente.</p>
+            <div v-if="metodosPago.length === 0" class="rounded-xl border-2 border-dashed border-gray-200 bg-gray-50 px-4 py-5 text-center text-gray-400 text-sm">
+              <p class="font-semibold text-gray-500">No hay métodos de pago disponibles</p>
+              <p class="text-xs mt-1 text-gray-400">Contacta al administrador.</p>
             </div>
-            <!-- ── FIN ZONA MÉTODOS DE PAGO ── -->
+            <div v-else class="space-y-2">
+              <div v-for="(m, idx) in metodosPago" :key="m.id"
+                class="rounded-xl border border-gray-200 bg-white px-4 py-3 hover:border-red-300 transition-colors">
+                <div class="flex items-start gap-3">
+                  <span class="w-6 h-6 rounded-full bg-red-600 text-white text-xs font-black flex items-center justify-center flex-shrink-0 mt-0.5">{{ idx + 1 }}</span>
+                  <div class="flex-1 min-w-0">
+                    <p class="text-sm font-bold text-gray-900">{{ m.banco }}</p>
+                    <p class="text-xs text-gray-500 mt-0.5">{{ m.tipo_cuenta }}</p>
+                    <div class="flex items-center gap-2 mt-1.5">
+                      <code class="text-sm font-mono font-semibold text-gray-800 bg-gray-100 px-2 py-0.5 rounded">{{ m.numero_cuenta }}</code>
+                      <button type="button" @click="copiarCuenta(m.numero_cuenta)"
+                        class="text-xs text-red-600 hover:text-red-700 font-semibold">
+                        {{ copiadoId === m.id ? '¡Copiado!' : 'Copiar' }}
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
           </div>
 
           <!-- Instrucciones -->
@@ -332,6 +355,77 @@
       </div>
     </div>
 
+    <!-- ── Modal: Gestionar métodos de pago (admin) ── -->
+    <div v-if="showMetodosModal" class="fixed inset-0 flex items-end sm:items-center justify-center bg-gray-900/60 backdrop-blur-sm z-50 p-4">
+      <div class="bg-white rounded-2xl w-full max-w-2xl shadow-2xl max-h-[90vh] flex flex-col">
+        <div class="flex justify-between items-center px-6 pt-6 pb-4 border-b border-gray-100 flex-shrink-0">
+          <div>
+            <h3 class="text-2xl font-bold text-gray-900">Métodos de Pago</h3>
+            <p class="text-xs text-gray-500 mt-0.5">Aparecen en el orden de la lista a los usuarios al adquirir un plan.</p>
+          </div>
+          <button @click="showMetodosModal = false" class="text-gray-400 hover:text-gray-600">
+            <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+            </svg>
+          </button>
+        </div>
+
+        <div class="overflow-y-auto flex-1 px-6 py-5 space-y-3">
+          <div v-if="metodosPago.length === 0" class="text-center py-6 text-gray-400 text-sm italic">
+            No hay métodos registrados aún.
+          </div>
+          <div v-for="(m, idx) in metodosPago" :key="m.id"
+            class="rounded-xl border border-gray-200 px-4 py-3 flex items-center gap-3">
+            <div class="flex flex-col gap-1">
+              <button type="button" @click="moverMetodo(idx, -1)" :disabled="idx === 0"
+                class="text-gray-400 hover:text-red-600 disabled:opacity-30">▲</button>
+              <button type="button" @click="moverMetodo(idx, 1)" :disabled="idx === metodosPago.length - 1"
+                class="text-gray-400 hover:text-red-600 disabled:opacity-30">▼</button>
+            </div>
+            <div class="flex-1 min-w-0">
+              <p class="text-sm font-bold text-gray-900">{{ m.banco }}</p>
+              <p class="text-xs text-gray-500">{{ m.tipo_cuenta }} · <code class="font-mono">{{ m.numero_cuenta }}</code></p>
+            </div>
+            <button type="button" @click="abrirEditarMetodo(m)" title="Editar"
+              class="p-2 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors">
+              <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+              </svg>
+            </button>
+            <button type="button" @click="eliminarMetodo(m)" title="Eliminar"
+              class="p-2 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors">
+              <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+              </svg>
+            </button>
+          </div>
+        </div>
+
+        <form @submit.prevent="guardarMetodo" class="px-6 pb-6 pt-4 border-t border-gray-100 space-y-3 flex-shrink-0">
+          <p class="text-sm font-bold text-gray-700">{{ metodoEditando ? 'Editar método' : 'Agregar nuevo método' }}</p>
+          <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
+            <input v-model="formMetodo.banco" type="text" required placeholder="Banco"
+              class="px-3 py-2.5 rounded-lg border border-gray-300 focus:ring-2 focus:ring-red-500 outline-none text-sm">
+            <input v-model="formMetodo.tipo_cuenta" type="text" required placeholder="Tipo de cuenta"
+              class="px-3 py-2.5 rounded-lg border border-gray-300 focus:ring-2 focus:ring-red-500 outline-none text-sm">
+            <input v-model="formMetodo.numero_cuenta" type="text" required placeholder="Número de cuenta"
+              class="px-3 py-2.5 rounded-lg border border-gray-300 focus:ring-2 focus:ring-red-500 outline-none text-sm">
+          </div>
+          <div v-if="errorMetodo" class="text-sm text-red-600 bg-red-50 border border-red-100 rounded-lg p-2">{{ errorMetodo }}</div>
+          <div class="flex gap-2">
+            <button v-if="metodoEditando" type="button" @click="cancelarEdicionMetodo"
+              class="px-4 py-2 rounded-lg border border-gray-200 text-gray-600 font-semibold hover:bg-gray-50 text-sm">
+              Cancelar edición
+            </button>
+            <button type="submit" :disabled="guardandoMetodo"
+              class="flex-1 py-2.5 rounded-lg bg-red-600 hover:bg-red-700 text-white font-bold transition-colors disabled:bg-red-300 text-sm">
+              {{ guardandoMetodo ? 'Guardando...' : (metodoEditando ? 'Guardar cambios' : 'Agregar método') }}
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+
   </div>
 </template>
 
@@ -345,6 +439,15 @@ const { isAdmin, isPendiente } = useAuth()
 const planes        = ref([])
 const loading       = ref(true)
 const adminTelefono = ref('')
+
+// Métodos de pago (lista visible a todos; admin gestiona)
+const metodosPago      = ref([])
+const showMetodosModal = ref(false)
+const metodoEditando   = ref(null)
+const formMetodo       = ref({ banco: '', tipo_cuenta: '', numero_cuenta: '' })
+const errorMetodo      = ref('')
+const guardandoMetodo  = ref(false)
+const copiadoId        = ref(null)
 
 // Plan seleccionado para adquirir
 const planAdquiriendo  = ref(null)
@@ -455,8 +558,88 @@ const ejecutarEliminar = async () => {
   }
 }
 
+// ── Métodos de pago ──────────────────────────────────────────
+const fetchMetodosPago = async () => {
+  try { metodosPago.value = (await api.get('/metodos-pago/')).data }
+  catch (e) { console.error(e) }
+}
+
+const copiarCuenta = async (numero) => {
+  try { await navigator.clipboard.writeText(numero) } catch {}
+  const m = metodosPago.value.find(x => x.numero_cuenta === numero)
+  if (m) {
+    copiadoId.value = m.id
+    setTimeout(() => { if (copiadoId.value === m.id) copiadoId.value = null }, 1500)
+  }
+}
+
+const abrirMetodosPago = () => {
+  metodoEditando.value = null
+  formMetodo.value = { banco: '', tipo_cuenta: '', numero_cuenta: '' }
+  errorMetodo.value = ''
+  showMetodosModal.value = true
+}
+
+const abrirEditarMetodo = (m) => {
+  metodoEditando.value = m
+  formMetodo.value = { banco: m.banco, tipo_cuenta: m.tipo_cuenta, numero_cuenta: m.numero_cuenta }
+  errorMetodo.value = ''
+}
+
+const cancelarEdicionMetodo = () => {
+  metodoEditando.value = null
+  formMetodo.value = { banco: '', tipo_cuenta: '', numero_cuenta: '' }
+  errorMetodo.value = ''
+}
+
+const guardarMetodo = async () => {
+  guardandoMetodo.value = true
+  errorMetodo.value = ''
+  try {
+    if (metodoEditando.value) {
+      await api.patch(`/metodos-pago/${metodoEditando.value.id}`, formMetodo.value)
+    } else {
+      await api.post('/metodos-pago/', formMetodo.value)
+    }
+    cancelarEdicionMetodo()
+    await fetchMetodosPago()
+  } catch (e) {
+    errorMetodo.value = e.response?.data?.detail || 'Error al guardar el método.'
+  } finally {
+    guardandoMetodo.value = false
+  }
+}
+
+const eliminarMetodo = async (m) => {
+  if (!confirm(`¿Eliminar el método "${m.banco}"?`)) return
+  try {
+    await api.delete(`/metodos-pago/${m.id}`)
+    await fetchMetodosPago()
+  } catch (e) {
+    alert(e.response?.data?.detail || 'Error al eliminar el método.')
+  }
+}
+
+const moverMetodo = async (idx, delta) => {
+  const j = idx + delta
+  if (j < 0 || j >= metodosPago.value.length) return
+  const a = metodosPago.value[idx]
+  const b = metodosPago.value[j]
+  // Intercambiar valores de orden y persistir.
+  try {
+    await Promise.all([
+      api.patch(`/metodos-pago/${a.id}`, { orden: b.orden }),
+      api.patch(`/metodos-pago/${b.id}`, { orden: a.orden }),
+    ])
+    await fetchMetodosPago()
+  } catch (e) {
+    alert('Error al reordenar.')
+  }
+}
+
 onMounted(async () => {
   await fetchPlanes()
+  fetchMetodosPago()
   try {
     const { data } = await api.get('/contacto')
     adminTelefono.value = data.telefono || ''

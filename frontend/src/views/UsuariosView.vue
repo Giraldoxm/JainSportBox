@@ -97,7 +97,7 @@
               <span class="flex items-center gap-1 text-xs font-semibold px-2 py-1 rounded-full border"
                 :class="user.esta_en_gym ? 'bg-green-100 text-green-800 border-green-200' : 'bg-gray-100 text-gray-600 border-gray-200'">
                 <span class="w-1.5 h-1.5 rounded-full" :class="user.esta_en_gym ? 'bg-green-500' : 'bg-gray-400'"></span>
-                {{ user.esta_en_gym ? 'En Box' : 'Fuera' }}
+                {{ user.esta_en_gym ? 'Activo' : 'Fuera' }}
               </span>
               <button @click="verUsuario(user)" class="p-2 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors">
                 <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/></svg>
@@ -158,7 +158,7 @@
                   <span class="px-3 py-1 inline-flex items-center gap-1.5 text-xs font-semibold rounded-full border shadow-sm"
                     :class="user.esta_en_gym ? 'bg-green-100 text-green-800 border-green-200' : 'bg-gray-100 text-gray-600 border-gray-200'">
                     <span class="w-2 h-2 rounded-full" :class="user.esta_en_gym ? 'bg-green-500' : 'bg-gray-400'"></span>
-                    {{ user.esta_en_gym ? 'En el Box' : 'Fuera' }}
+                    {{ user.esta_en_gym ? 'Activo' : 'Fuera' }}
                   </span>
                 </td>
                 <td class="px-6 py-4 whitespace-nowrap">
@@ -181,7 +181,7 @@
     <!-- ── Tab: Pendientes ── -->
     <template v-if="filtroActivo === 'pendientes'">
       <div v-if="loadingPendientes" class="flex justify-center py-16">
-        <div class="animate-spin rounded-full h-8 w-8 border-b-2 border-amber-500"></div>
+        <div class="animate-spin rounded-full h-8 w-8 border-b-2 border-red-600"></div>
       </div>
       <div v-else-if="pendientes.length === 0" class="bg-white rounded-xl border border-gray-100 px-6 py-12 text-center text-gray-400">
         <svg xmlns="http://www.w3.org/2000/svg" class="h-12 w-12 mx-auto text-gray-300 mb-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -190,10 +190,10 @@
         No hay usuarios pendientes de aprobación.
       </div>
       <div v-else class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-        <div v-for="p in pendientes" :key="p.id" class="bg-white rounded-xl border border-amber-100 shadow-sm p-5 flex flex-col gap-3">
+        <div v-for="p in pendientes" :key="p.id" class="bg-white rounded-xl border border-red-100 shadow-sm p-5 flex flex-col gap-3">
           <div class="flex items-center gap-3">
-            <div class="w-10 h-10 rounded-full bg-amber-100 flex items-center justify-center flex-shrink-0">
-              <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 text-amber-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <div class="w-10 h-10 rounded-full bg-red-100 flex items-center justify-center flex-shrink-0">
+              <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 text-red-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"/>
               </svg>
             </div>
@@ -208,21 +208,17 @@
               <p class="font-semibold text-gray-700">{{ p.documento_identidad }}</p>
             </div>
             <div class="bg-gray-50 rounded-lg px-3 py-2">
+              <p class="text-gray-400 font-semibold uppercase tracking-wide mb-0.5">Teléfono</p>
+              <p class="font-semibold text-gray-700">{{ p.telefono || '—' }}</p>
+            </div>
+            <div class="bg-gray-50 rounded-lg px-3 py-2 col-span-2">
               <p class="text-gray-400 font-semibold uppercase tracking-wide mb-0.5">Género</p>
               <p class="font-semibold text-gray-700 capitalize">{{ p.genero || '—' }}</p>
             </div>
           </div>
-          <div class="bg-amber-50 rounded-lg px-3 py-2 text-xs">
-            <p class="text-amber-600 font-semibold uppercase tracking-wide mb-0.5">Plan solicitado</p>
-            <p v-if="p.plan_solicitado" class="font-bold text-amber-800">
-              {{ p.plan_solicitado.nombre }}
-              <span class="font-normal text-amber-700"> · ${{ p.plan_solicitado.precio.toLocaleString('es-CO') }} · {{ p.plan_solicitado.duracion_dias }} días</span>
-            </p>
-            <p v-else class="text-amber-700 italic">Sin plan seleccionado</p>
-          </div>
           <p class="text-xs text-gray-400">Registrado {{ formatFechaCorta(p.created_at) }}</p>
           <button @click="abrirActivar(p)"
-            class="w-full py-2.5 rounded-xl bg-amber-500 hover:bg-amber-600 text-white font-bold text-sm transition-colors flex items-center justify-center gap-2">
+            class="w-full py-2.5 rounded-xl bg-red-600 hover:bg-red-700 text-white font-bold text-sm transition-colors flex items-center justify-center gap-2">
             <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/>
             </svg>
@@ -235,13 +231,13 @@
     <!-- ── Modal: Activar usuario pendiente ── -->
     <div v-if="showActivar" class="fixed inset-0 flex items-end sm:items-center justify-center bg-gray-900/60 backdrop-blur-sm z-50 p-4">
       <div class="bg-white rounded-2xl w-full max-w-lg shadow-2xl max-h-[90vh] flex flex-col overflow-hidden">
-        <div class="bg-gradient-to-r from-amber-500 to-amber-600 px-6 py-5 flex items-center gap-3 flex-shrink-0">
+        <div class="bg-gradient-to-r from-red-600 to-red-700 px-6 py-5 flex items-center gap-3 flex-shrink-0">
           <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/>
           </svg>
           <div>
             <h3 class="text-lg font-bold text-white">Activar Usuario</h3>
-            <p class="text-amber-100 text-sm">{{ activarUsuario?.nombre }}</p>
+            <p class="text-red-100 text-sm">{{ activarUsuario?.nombre }}</p>
           </div>
           <button @click="showActivar = false" class="ml-auto text-white/70 hover:text-white">
             <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -257,13 +253,13 @@
             <div class="grid grid-cols-2 gap-3">
               <label v-for="plan in planes" :key="plan.id"
                 class="flex flex-col items-center p-4 rounded-xl border-2 cursor-pointer transition-all"
-                :class="activarPlan === plan.id ? 'border-amber-500 bg-amber-50' : 'border-gray-200 hover:border-gray-300'">
+                :class="activarPlan === plan.id ? 'border-red-500 bg-red-50' : 'border-gray-200 hover:border-gray-300'">
                 <input type="radio" v-model="activarPlan" :value="plan.id" class="sr-only">
-                <span class="text-2xl font-black mb-0.5" :class="activarPlan === plan.id ? 'text-amber-600' : 'text-gray-700'">
+                <span class="text-2xl font-black mb-0.5" :class="activarPlan === plan.id ? 'text-red-600' : 'text-gray-700'">
                   {{ plan.duracion_dias }}<span class="text-sm font-bold">d</span>
                 </span>
-                <span class="text-sm font-bold text-center" :class="activarPlan === plan.id ? 'text-amber-700' : 'text-gray-600'">{{ plan.nombre }}</span>
-                <span class="text-xs mt-1" :class="activarPlan === plan.id ? 'text-amber-500' : 'text-gray-400'">${{ plan.precio.toLocaleString() }}</span>
+                <span class="text-sm font-bold text-center" :class="activarPlan === plan.id ? 'text-red-700' : 'text-gray-600'">{{ plan.nombre }}</span>
+                <span class="text-xs mt-1" :class="activarPlan === plan.id ? 'text-red-500' : 'text-gray-400'">${{ plan.precio.toLocaleString() }}</span>
               </label>
             </div>
           </div>
@@ -275,7 +271,7 @@
               <span v-if="activarPlan" class="text-gray-400 font-normal">— sugerido ${{ (planes.find(p => p.id === activarPlan)?.precio || 0).toLocaleString() }}</span>
             </label>
             <input v-model.number="activarMonto" type="number" min="0" step="any"
-              class="w-full px-4 py-2.5 rounded-lg border border-gray-300 focus:ring-2 focus:ring-amber-500 outline-none"
+              class="w-full px-4 py-2.5 rounded-lg border border-gray-300 focus:ring-2 focus:ring-red-500 outline-none"
               :placeholder="activarPlan ? '$' + (planes.find(p => p.id === activarPlan)?.precio || 0).toLocaleString() : 'Ej: 100000'">
           </div>
 
@@ -285,7 +281,7 @@
             <div class="grid grid-cols-2 gap-2">
               <label v-for="m in metodos" :key="m.value"
                 class="flex items-center justify-center gap-1.5 p-2.5 rounded-lg border-2 cursor-pointer transition-all text-sm font-semibold"
-                :class="activarMetodo === m.value ? 'border-amber-500 bg-amber-50 text-amber-700' : 'border-gray-200 text-gray-600 hover:border-gray-300'">
+                :class="activarMetodo === m.value ? 'border-red-500 bg-red-50 text-red-700' : 'border-gray-200 text-gray-600 hover:border-gray-300'">
                 <input type="radio" v-model="activarMetodo" :value="m.value" class="sr-only">
                 {{ m.label }}
               </label>
@@ -297,7 +293,7 @@
           <div class="flex gap-3">
             <button @click="showActivar = false" class="flex-1 py-2.5 rounded-xl border border-gray-200 text-gray-600 font-semibold hover:bg-gray-50 transition-colors">Cancelar</button>
             <button @click="confirmarActivar" :disabled="guardandoActivar || !activarPlan"
-              class="flex-1 py-2.5 rounded-xl bg-amber-500 hover:bg-amber-600 text-white font-bold transition-colors disabled:bg-amber-200 flex items-center justify-center gap-2">
+              class="flex-1 py-2.5 rounded-xl bg-red-600 hover:bg-red-700 text-white font-bold transition-colors disabled:bg-red-300 flex items-center justify-center gap-2">
               <span v-if="guardandoActivar" class="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></span>
               {{ guardandoActivar ? 'Activando...' : 'Activar Usuario' }}
             </button>
@@ -382,7 +378,7 @@
               <p class="text-xs text-gray-400 font-semibold uppercase tracking-wide mb-1">En el box</p>
               <div class="flex items-center gap-2 mt-1">
                 <span class="w-2.5 h-2.5 rounded-full" :class="usuarioSeleccionado.esta_en_gym ? 'bg-green-500' : 'bg-gray-300'"></span>
-                <p class="text-sm font-semibold text-gray-800">{{ usuarioSeleccionado.esta_en_gym ? 'En el Box' : 'Fuera' }}</p>
+                <p class="text-sm font-semibold text-gray-800">{{ usuarioSeleccionado.esta_en_gym ? 'Activo' : 'Fuera' }}</p>
               </div>
             </div>
             <div class="bg-gray-50 rounded-xl p-4">
@@ -1401,8 +1397,47 @@ const guardarEdicion = async () => {
   }
 }
 
-onMounted(() => { fetchUsuarios(); fetchPlanes(); fetchPendientes() })
-onUnmounted(() => { clearInterval(enrolPollInterval) })
+// ── WebSocket: actualización en tiempo real del estado en gym ──
+// El bridge .NET hace broadcast de eventos "acceso_ok" cada vez que registra
+// una entrada/salida. Escuchamos ese socket y patcheamos solo el usuario
+// afectado en la lista local — no recargamos toda la tabla.
+let accesoWS = null
+let accesoReconnectTimer = null
+
+const aplicarEventoAcceso = (data) => {
+  if (data?.tipo !== 'acceso_ok' || !data.usuario_id) return
+  const u = usuarios.value.find(x => x.id === data.usuario_id)
+  if (u) u.esta_en_gym = data.evento === 'entrada'
+}
+
+const conectarAccesoWS = () => {
+  try {
+    accesoWS = new WebSocket('ws://localhost:8765')
+    accesoWS.onmessage = (ev) => {
+      try { aplicarEventoAcceso(JSON.parse(ev.data)) } catch {}
+    }
+    accesoWS.onclose = () => {
+      accesoWS = null
+      // Reintento suave por si el bridge se reinicia.
+      accesoReconnectTimer = setTimeout(conectarAccesoWS, 4000)
+    }
+    accesoWS.onerror = () => { try { accesoWS?.close() } catch {} }
+  } catch {
+    accesoReconnectTimer = setTimeout(conectarAccesoWS, 4000)
+  }
+}
+
+onMounted(() => {
+  fetchUsuarios()
+  fetchPlanes()
+  fetchPendientes()
+  conectarAccesoWS()
+})
+onUnmounted(() => {
+  clearInterval(enrolPollInterval)
+  clearTimeout(accesoReconnectTimer)
+  try { accesoWS?.close() } catch {}
+})
 </script>
 
 <style>

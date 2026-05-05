@@ -117,6 +117,11 @@ const router = createRouter({
   routes
 })
 
+import { membresiaVencidaFor } from '../composables/useAuth'
+
+// Rutas permitidas para clientes con membresía vencida
+const RUTAS_CLIENTE_VENCIDO = ['/home', '/planes', '/']
+
 router.beforeEach((to, from, next) => {
   const token = localStorage.getItem('token')
   const rol = localStorage.getItem('userRol') || 'cliente'
@@ -132,6 +137,16 @@ router.beforeEach((to, from, next) => {
   // Usuarios pendientes solo pueden ver /planes
   if (rol === 'pendiente' && to.path !== '/planes' && to.path !== '/') {
     return next('/planes')
+  }
+
+  // Clientes con membresía vencida solo ven /home y /planes.
+  // OJO: solo aplica si HAY token — sin token, el rol "cliente" es solo un default
+  // de localStorage y no debe activar la restricción (evita bucle hacia /login).
+  if (token && rol === 'cliente') {
+    const fechaVenc = localStorage.getItem('fechaVencimiento') || ''
+    if (membresiaVencidaFor(fechaVenc) && !RUTAS_CLIENTE_VENCIDO.includes(to.path)) {
+      return next('/home')
+    }
   }
 
   if (to.meta.roles && !to.meta.roles.includes(rol)) {
