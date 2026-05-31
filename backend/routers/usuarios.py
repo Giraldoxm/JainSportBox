@@ -4,9 +4,11 @@ import uuid
 from datetime import date, datetime, timedelta
 from pathlib import Path
 from typing import List, Optional
+from zoneinfo import ZoneInfo
 
 from fastapi import APIRouter, Depends, File, HTTPException, Request, UploadFile, status
 from pydantic import BaseModel, Field
+from sqlalchemy import func
 from sqlalchemy.orm import Session
 
 from database import get_db
@@ -49,6 +51,7 @@ def crear_usuario(
         rol=payload.rol,
         huella_id=payload.huella_id,
         telefono=payload.telefono,
+        fecha_nacimiento=payload.fecha_nacimiento,
     )
     db.add(nuevo)
     db.commit()
@@ -100,6 +103,9 @@ def actualizar_usuario(
 
     if payload.genero is not None:
         usuario.genero = payload.genero
+
+    if payload.fecha_nacimiento is not None:
+        usuario.fecha_nacimiento = payload.fecha_nacimiento
 
     db.commit()
     db.refresh(usuario)
@@ -191,6 +197,24 @@ def listar_pendientes(
             "plan_solicitado": plan_solicitado,
         })
     return result
+
+
+@router.get("/cumpleanos-hoy", response_model=List[UsuarioResponse])
+def cumpleanos_hoy(
+    db: Session = Depends(get_db),
+    _: Usuario = Depends(_require_admin_or_coach),
+):
+    hoy = datetime.now(ZoneInfo("America/Bogota")).date()
+    hoy_md = hoy.strftime("%m-%d")
+    return (
+        db.query(Usuario)
+        .filter(
+            Usuario.fecha_nacimiento.isnot(None),
+            func.strftime("%m-%d", Usuario.fecha_nacimiento) == hoy_md,
+            Usuario.fecha_vencimiento >= hoy,
+        )
+        .all()
+    )
 
 
 @router.get("/{usuario_id}", response_model=UsuarioResponse)

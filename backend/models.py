@@ -66,6 +66,7 @@ class Usuario(Base):
     esta_en_gym: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
     foto_url: Mapped[Optional[str]] = mapped_column(String(300), nullable=True)
     genero: Mapped[Optional[str]] = mapped_column(String(20), nullable=True)
+    fecha_nacimiento: Mapped[Optional[date]] = mapped_column(Date, nullable=True)
     plan_solicitado_id: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
 

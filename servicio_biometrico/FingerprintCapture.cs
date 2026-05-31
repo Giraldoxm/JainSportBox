@@ -28,6 +28,11 @@ namespace HuelleroBridge
 
         private List<TemplateEntry> _templates = new List<TemplateEntry>();
 
+        // Cooldown por usuario: evita doble-registro cuando el usuario pone el dedo
+        // varias veces seguidas mientras el HTTP está en vuelo.
+        private readonly Dictionary<int, DateTime> _ultimoAcceso = new Dictionary<int, DateTime>();
+        private const int CooldownSegundos = 4;
+
         private const string ApiBase      = "http://localhost:8000";
         private const string BridgeSecret = "jain_bridge_secret_2024";
 
@@ -230,6 +235,15 @@ namespace HuelleroBridge
                     _verificator.Verify(features, tmpl, ref result);
                     if (result.Verified)
                     {
+                        // Cooldown: ignorar si ya se procesó este usuario hace menos de N segundos.
+                        if (_ultimoAcceso.TryGetValue(entry.UsuarioId, out var ultimoTs) &&
+                            (DateTime.UtcNow - ultimoTs).TotalSeconds < CooldownSegundos)
+                        {
+                            Console.WriteLine($"[ACCESO] Cooldown activo para {entry.Nombre} — ignorando captura.");
+                            return;
+                        }
+                        _ultimoAcceso[entry.UsuarioId] = DateTime.UtcNow;
+
                         Console.WriteLine($"[ACCESO] Coincidencia: usuario {entry.UsuarioId} ({entry.Nombre})");
                         Task.Run(() => RegistrarAsistencia(entry.UsuarioId, entry.Nombre));
                         return;

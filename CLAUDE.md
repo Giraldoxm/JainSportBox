@@ -53,7 +53,7 @@ There are no test commands — no test suite exists in this project.
 - Bridge: `servicio_biometrico/` — .NET 4.8 Windows app for DigitalPersona U.are.U 4500 fingerprint reader
 
 **Backend layout:**
-- `backend/main.py` — FastAPI app creation, CORS config, router registration. Runs SQLite migrations on startup (ALTER TABLE in try/except; table reconstruction for nullability changes via PRAGMA table_info). Mounts `backend/uploads/` as `/uploads` for static files (user profile photos). Starts APScheduler with two jobs: alerts job (9 AM Bogotá + on startup) and `_job_reset_gym` (every 5 minutes, resets `esta_en_gym = False` for users whose last entry exceeds `MINUTOS_SESION`).
+- `backend/main.py` — FastAPI app creation, CORS config, router registration. Runs SQLite migrations on startup (ALTER TABLE in try/except; table reconstruction for nullability changes via PRAGMA table_info). Mounts `backend/uploads/` as `/uploads` for static files (user profile photos). Starts APScheduler with two jobs: alerts job (9 AM Bogotá + on startup) and `_job_reset_gym` (every 3 minutes, resets `esta_en_gym = False` for users whose last entry exceeds `MINUTOS_SESION`).
 - `backend/models.py` — All SQLAlchemy models (13 tables): `usuarios`, `planes`, `pagos`, `wods`, `resultados_wod`, `productos`, `ventas`, `asistencias`, `movimientos_financieros`, `medidas_salud`, `marcas_rm`, `alertas_membresia`, `metodos_pago`
 - `backend/database.py` — SQLite session factory
 - `backend/security.py` — BCrypt password hashing, JWT creation/validation (HS256, 7-day expiry)
@@ -116,7 +116,9 @@ Route `/usuarios/:id` (roles: `admin`, `coach`). Three sections:
 
 **Profile card:** Centered column layout — photo on top, name below (prevents mobile truncation). Shows email, document, phone, gender, fingerprint status, membership status. "Editar perfil" button in the header opens an edit modal.
 
-**Edit modal:** Fields: nombre, email, teléfono, documento_identidad, género, optional password change (checkbox toggle + visibility toggle). Only sends changed fields to the backend (`PATCH /usuarios/:id`). Updates `usuario.value` reactively on success without page reload.
+**Edit modal:** Fields: nombre, email, teléfono, documento_identidad, género, fecha_nacimiento (opcional), optional password change (checkbox toggle + visibility toggle). Only sends changed fields to the backend (`PATCH /usuarios/:id`). Updates `usuario.value` reactively on success without page reload.
+
+**Profile card:** Muestra `fecha_nacimiento` como "15 ene 1995 (30 años)" usando el helper `formatCumpleanos(f)` — calcula la edad en base a la fecha de hoy. Solo se muestra si el campo existe.
 
 **Attendance calendar:** Same month-navigation pattern as `HomeView` but fetches `GET /asistencia/historial/:id?meses=12` (admin endpoint).
 
@@ -146,19 +148,28 @@ Route `/alertas` (admin/coach). Two tabs: **Pendientes** (grouped by `dias_antic
 
 **Constante `MINUTOS_SESION`** (en `asistencia.py`): duración máxima de sesión usada tanto por `GET /en-gym` como por el job `_job_reset_gym` en `main.py`. Cambiar en un solo lugar.
 
-**Auto-reset `esta_en_gym`:** el job `_job_reset_gym` (APScheduler, cada 5 min) busca usuarios con `esta_en_gym=True` cuya última entrada supere `MINUTOS_SESION` y los resetea a `False` sin crear registro de salida. Cubre el caso de usuarios que salen sin pasar por el torniquete.
+**Auto-reset `esta_en_gym`:** el job `_job_reset_gym` (APScheduler, cada 3 min) busca usuarios con `esta_en_gym=True` cuya última entrada supere `MINUTOS_SESION` y los resetea a `False` sin crear registro de salida. Cubre el caso de usuarios que salen sin pasar por el torniquete.
 
 **Deduplicación en sesiones-por-bloque:** los registros se ordenan por `fecha_hora` antes de agrupar. Si un usuario entró más de una vez en el mismo bloque (salió y volvió), solo aparece la primera entrada. Esto evita duplicados causados por re-entradas dentro del mismo bloque.
 
 ## SesionesView — consulta de sesiones por bloque horario
 
-Ruta `/sesiones` (roles: `admin`, `coach`). Dos modos:
+Ruta `/sesiones` (roles: `admin`, `coach`). Tres modos:
 
 **Modo "Esta semana"** (carga automático al entrar):
 - Tabs de los 7 días (Lun–Dom) con badge del total de asistentes por día
 - Día de hoy resaltado en negro; día seleccionado en rojo; días sin asistencias con opacidad reducida
 - Grid de `BloqueCard` del día seleccionado
 - Buscador por nombre en tiempo real
+
+**Modo "Este mes":**
+- Calendario mensual centrado (`max-w-md mx-auto`) con navegación ← → por mes (`mesOffset` ref, 0 = mes actual, no permite ir al futuro)
+- Cada celda muestra número de día + badge rojo con total de asistentes (suma de `b.total` por fecha)
+- Colores: hoy en negro, día seleccionado en rojo, días con datos en rojo suave, días sin datos en gris
+- Clic en celda → selecciona día y muestra grid de `BloqueCard` debajo con buscador
+- Clic en día ya seleccionado → lo deselecciona
+- Estado: `bloquesMes`, `diaSeleccionadoMes`, `cargandoMes`, `semanaMes` (computed que construye filas de 7 celdas con nulls para relleno)
+- Helper `getMesInfo(offset)` devuelve `{ year, month }` para cualquier offset
 
 **Modo "Fecha específica":**
 - Selector de fecha + botón "Ver sesiones"
@@ -169,13 +180,22 @@ Ruta `/sesiones` (roles: `admin`, `coach`). Dos modos:
 - Lista: nombre · hora exacta de entrada (HH:MM)
 - Botón "+N más" si hay más de 5 asistentes
 
-## UsuariosView — panel "En el box ahora"
+## UsuariosView — paneles superiores
 
-`UsuariosView.vue` incluye un panel negro en la parte superior que muestra en tiempo real los usuarios con `esta_en_gym=True`:
-- Se llama `GET /asistencia/en-gym` al montar y se refresca cada 10 segundos
-- Un `setInterval` de 1 segundo incrementa un `ticker` ref que fuerza el recomputed del contador
-- Cada chip muestra nombre + countdown `M:SS restante` cambiando de color: verde (>50% tiempo), ámbar (<50%), rojo parpadeante (expirado)
-- Al expirar permanece visible en rojo hasta que el job de 5 min limpie `esta_en_gym` en la BD
+### Panel "Cumpleaños hoy"
+
+`UsuariosView.vue` muestra un panel colapsable justo debajo del header cuando algún miembro activo cumple años ese día:
+- Se llama `GET /usuarios/cumpleanos-hoy` al montar (`fetchCumpleaneros`)
+- Solo aparece si `cumpleaneros.length > 0`
+- El panel es colapsable: `cumpleanosExpandido` ref (inicia en `true`); al colapsar queda solo la barra con emoji 🎂, título y badge rojo con el count
+- Cada fila muestra nombre + botón verde "Felicitar" (abre WhatsApp con mensaje pregenerado) + botón "Ver perfil"
+- Helper `whatsappCumpleanos(u)`: formatea el teléfono como `57` + dígitos y genera el link `https://wa.me/...?text=...` con mensaje de felicitación y batido gratis
+- El endpoint backend filtra por `strftime("%m-%d", fecha_nacimiento) == hoy` **y** `fecha_vencimiento >= hoy` — usuarios con membresía vencida no aparecen
+- El endpoint `GET /usuarios/cumpleanos-hoy` debe declararse **antes** de `GET /{usuario_id}` en el router para que FastAPI no lo capture como ID
+
+### Panel "En el box ahora"
+
+El filtro "En el box ahora" en la tabla de usuarios usa `enGym` (ref), cargado con `GET /asistencia/en-gym` al montar y refrescado cada 10 segundos via `gymInterval`. No hay panel visual separado ni countdown — el panel de chips con temporizador fue eliminado.
 
 ## Mi Salud — health metrics
 
@@ -315,7 +335,7 @@ Lo único conservado en `Program.cs` además del shell WinForms es `SetThreadExe
 |---|---|
 | `Program.cs` | Entry point `[STAThread]`; redirige logs a `bridge.log`, suelta consola con `FreeConsole`, levanta WebSocket/HttpApi/BridgeForm |
 | `BridgeForm.cs` | Ventana WinForms invisible (HWND para message pump COM); crea `FingerprintCapture` en `OnLoad` |
-| `FingerprintCapture.cs` | Implementa `DPFP.Capture.EventHandler`; instancia `new Capture(Priority.High)` para captura en background; maneja enrolamiento y verificación |
+| `FingerprintCapture.cs` | Implementa `DPFP.Capture.EventHandler`; instancia `new Capture(Priority.High)` para captura en background; maneja enrolamiento, verificación y acceso. Incluye cooldown de `CooldownSegundos` (4 s) por usuario en modo acceso para evitar doble-registro cuando el usuario pone el dedo varias veces seguidas. |
 | `ver-logs.ps1` / `.cmd` | Tail coloreado de `bridge.log` en vivo |
 | `EnrollmentState.cs` | Estado compartido (thread-safe con `lock`) entre captura y HTTP API |
 | `HttpApi.cs` | `HttpListener` en puerto 8001; endpoints REST consumidos por el frontend |
@@ -370,6 +390,7 @@ El secreto se define en `backend/.env` como `BRIDGE_SECRET=jain_bridge_secret_20
 | `huella_template` | `Text`, nullable | Template FMD en Base64 generado por el SDK |
 | `esta_en_gym` | `Boolean` | Toggle entrada/salida para control de acceso |
 | `fecha_vencimiento` | `Date` | Validada en `POST /asistencia/por-usuario/{id}` antes de registrar entrada |
+| `fecha_nacimiento` | `Date`, nullable | Cumpleaños del miembro; usada por `GET /usuarios/cumpleanos-hoy` |
 
 ### Endpoints de asistencia relevantes
 
