@@ -15,6 +15,7 @@ class UsuarioCreate(BaseModel):
     rol: RolUsuario = RolUsuario.CLIENTE
     huella_id: Optional[str] = None
     telefono: str = Field(..., min_length=7, max_length=20)
+    fecha_nacimiento: Optional[date] = None
 
 
 class UsuarioUpdate(BaseModel):
@@ -24,6 +25,7 @@ class UsuarioUpdate(BaseModel):
     telefono: Optional[str] = Field(None, max_length=20)
     documento_identidad: Optional[str] = Field(None, min_length=5, max_length=20)
     genero: Optional[str] = Field(None, pattern=r'^(masculino|femenino)$')
+    fecha_nacimiento: Optional[date] = None
 
 
 class UsuarioResponse(BaseModel):
@@ -38,6 +40,7 @@ class UsuarioResponse(BaseModel):
     esta_en_gym: bool
     foto_url: Optional[str]
     genero: Optional[str]
+    fecha_nacimiento: Optional[date] = None
     plan_solicitado_id: Optional[int]
     created_at: datetime
 

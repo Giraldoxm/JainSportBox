@@ -43,7 +43,7 @@ def _autorizar_bridge_o_admin(request: Request, db: Session) -> None:
         raise HTTPException(status_code=403, detail="Sin permisos.")
 
 
-MINUTOS_SESION = 75  # tiempo máximo de una sesión; usado por el job de reset en main.py
+MINUTOS_SESION = 65  # tiempo máximo de una sesión; usado por el job de reset en main.py
 
 
 def _registrar(usuario: Usuario, db: Session) -> AsistenciaResponse:

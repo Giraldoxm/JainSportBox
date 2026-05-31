@@ -71,6 +71,10 @@
             <p v-else class="text-sm text-gray-400">—</p>
           </div>
           <div class="bg-gray-50 rounded-xl p-3">
+            <p class="text-xs text-gray-400 font-semibold uppercase tracking-wide mb-1">Cumpleaños</p>
+            <p class="text-sm font-semibold text-gray-800">{{ formatCumpleanos(usuario.fecha_nacimiento) }}</p>
+          </div>
+          <div class="bg-gray-50 rounded-xl p-3">
             <p class="text-xs text-gray-400 font-semibold uppercase tracking-wide mb-1">Miembro desde</p>
             <p class="text-sm font-semibold text-gray-800">{{ formatFechaCorta(usuario.created_at) }}</p>
           </div>
@@ -285,6 +289,13 @@
                 Femenino
               </button>
             </div>
+          </div>
+
+          <!-- Fecha de nacimiento -->
+          <div>
+            <label class="block text-xs font-bold text-gray-500 uppercase tracking-wide mb-1.5">Fecha de nacimiento <span class="text-gray-400 font-normal">(opcional)</span></label>
+            <input v-model="form.fecha_nacimiento" type="date"
+              class="w-full px-3.5 py-2.5 rounded-xl border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-gray-800 focus:border-transparent transition"/>
           </div>
 
           <!-- Contraseña -->
@@ -727,6 +738,7 @@ function abrirEditar() {
     telefono: usuario.value.telefono || '',
     documento_identidad: usuario.value.documento_identidad || '',
     genero: usuario.value.genero || '',
+    fecha_nacimiento: usuario.value.fecha_nacimiento || '',
     password: '',
   }
   cambiarPassword.value = false
@@ -749,6 +761,7 @@ async function guardarEdicion() {
   if (form.value.telefono !== (usuario.value.telefono || '')) payload.telefono = form.value.telefono
   if (form.value.documento_identidad !== (usuario.value.documento_identidad || '')) payload.documento_identidad = form.value.documento_identidad
   if (form.value.genero !== (usuario.value.genero || '')) payload.genero = form.value.genero
+  if (form.value.fecha_nacimiento !== (usuario.value.fecha_nacimiento || '')) payload.fecha_nacimiento = form.value.fecha_nacimiento || null
   if (cambiarPassword.value && form.value.password) payload.password = form.value.password
 
   if (Object.keys(payload).length === 0) {
@@ -847,6 +860,16 @@ function formatFecha(f) {
 function formatFechaCorta(f) {
   if (!f) return ''
   return new Date(f).toLocaleDateString('es-CO', { day: 'numeric', month: 'short', year: 'numeric' })
+}
+
+function formatCumpleanos(f) {
+  if (!f) return '—'
+  const [y, m, d] = f.split('-').map(Number)
+  const hoy = new Date()
+  let edad = hoy.getFullYear() - y
+  if (hoy.getMonth() + 1 < m || (hoy.getMonth() + 1 === m && hoy.getDate() < d)) edad--
+  const fecha = new Date(y, m - 1, d).toLocaleDateString('es-CO', { day: 'numeric', month: 'short', year: 'numeric' })
+  return `${fecha} (${edad} años)`
 }
 
 function diasRestantes(fecha) {

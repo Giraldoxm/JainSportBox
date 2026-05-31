@@ -23,25 +23,47 @@
       </div>
     </div>
 
-    <!-- Panel: usuarios en el box ahora con countdown -->
-    <div v-if="enGymConContador.length > 0" class="mb-5 bg-gray-900 rounded-2xl p-4">
-      <p class="text-xs font-bold text-gray-400 uppercase tracking-widest mb-3">
-        En el box ahora &middot; {{ enGymConContador.length }}
-      </p>
-      <div class="flex flex-wrap gap-2">
+    <!-- Panel: cumpleaños hoy -->
+    <div v-if="cumpleaneros.length > 0" class="mb-5 border border-gray-300/60 rounded-2xl overflow-hidden">
+      <!-- Header clicable -->
+      <button
+        @click="cumpleanosExpandido = !cumpleanosExpandido"
+        class="w-full flex items-center justify-between px-4 py-3 hover:bg-gray-50/60 transition-colors">
+        <div class="flex items-center gap-2">
+          <span>🎂</span>
+          <span class="text-xs font-bold text-gray-600 uppercase tracking-widest">Cumpleaños hoy</span>
+          <span class="text-[10px] font-black bg-red-600 text-white w-4 h-4 flex items-center justify-center rounded-full">{{ cumpleaneros.length }}</span>
+        </div>
+        <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 text-gray-400 transition-transform"
+          :class="cumpleanosExpandido ? 'rotate-180' : ''"
+          fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/>
+        </svg>
+      </button>
+      <!-- Filas colapsables -->
+      <div v-if="cumpleanosExpandido" class="flex flex-col divide-y divide-gray-100">
         <div
-          v-for="u in enGymConContador" :key="u.usuario_id"
-          class="flex items-center gap-2 bg-gray-800 rounded-xl px-3 py-2">
-          <span class="text-sm font-semibold text-white truncate max-w-[120px]">{{ u.nombre }}</span>
-          <span
-            class="text-xs font-bold px-2 py-0.5 rounded-full whitespace-nowrap"
-            :class="u.segundos_restantes > u.minutos_sesion * 60 * 0.5
-              ? 'bg-emerald-900 text-emerald-400'
-              : u.segundos_restantes > 0
-                ? 'bg-amber-900 text-amber-400'
-                : 'bg-red-900 text-red-400 animate-pulse'">
-            {{ u.segundos_restantes > 0 ? formatContador(u.segundos_restantes) + ' restante' : 'Expirando…' }}
-          </span>
+          v-for="u in cumpleaneros" :key="u.id"
+          class="flex items-center justify-between gap-3 px-4 py-2.5 bg-transparent">
+          <span class="text-sm font-semibold text-gray-800 truncate">{{ u.nombre }}</span>
+          <div class="flex items-center gap-2 flex-shrink-0">
+            <a
+              v-if="u.telefono"
+              :href="whatsappCumpleanos(u)"
+              target="_blank"
+              class="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold transition-colors">
+              <svg xmlns="http://www.w3.org/2000/svg" class="h-3.5 w-3.5" viewBox="0 0 24 24" fill="currentColor">
+                <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347z"/>
+                <path d="M12 0C5.373 0 0 5.373 0 12c0 2.126.553 4.116 1.522 5.85L0 24l6.335-1.48A11.945 11.945 0 0012 24c6.627 0 12-5.373 12-12S18.627 0 12 0zm0 21.818a9.818 9.818 0 01-5.006-1.371l-.36-.214-3.73.871.938-3.63-.234-.373A9.817 9.817 0 012.182 12C2.182 6.57 6.57 2.182 12 2.182c5.43 0 9.818 4.388 9.818 9.818 0 5.43-4.388 9.818-9.818 9.818z"/>
+              </svg>
+              Felicitar
+            </a>
+            <button
+              @click="router.push(`/usuarios/${u.id}`)"
+              class="px-3 py-1.5 rounded-lg bg-white border border-gray-200 hover:border-gray-300 text-gray-600 hover:text-gray-800 text-xs font-semibold transition-colors">
+              Ver perfil
+            </button>
+          </div>
         </div>
       </div>
     </div>
@@ -664,6 +686,11 @@
               </button>
             </div>
           </div>
+          <div class="mb-5">
+            <label class="block text-gray-700 text-sm font-semibold mb-2">Fecha de nacimiento <span class="text-gray-400 font-normal">(opcional)</span></label>
+            <input v-model="nuevoUsuario.fecha_nacimiento" type="date"
+              class="w-full px-4 py-3 rounded-lg border border-gray-300 focus:ring-2 focus:ring-red-500 outline-none transition-all">
+          </div>
           <div class="mb-6">
             <label class="block text-gray-700 text-sm font-semibold mb-2">Rol</label>
             <select v-model="nuevoUsuario.rol" class="w-full px-4 py-3 rounded-lg border border-gray-300 focus:ring-2 focus:ring-red-500 outline-none appearance-none transition-all">
@@ -942,29 +969,9 @@ const router = useRouter()
 const BRIDGE_URL = 'http://localhost:8001'
 const ENROL_STEPS = 4
 
-// ── En gym: countdown en tiempo real ────────────────────────
+// ── En gym ───────────────────────────────────────────────────
 const enGym = ref([])
-const ticker = ref(0)
 let gymInterval = null
-let tickInterval = null
-
-const enGymConContador = computed(() => {
-  ticker.value // dependencia para recomputar cada segundo
-  const ahora = Date.now()
-  return enGym.value
-    .map(u => {
-      const entradaMs = new Date(u.entrada_desde + 'Z').getTime()
-      const transcurridos = (ahora - entradaMs) / 1000
-      const sesionSeg = u.minutos_sesion * 60
-      return { ...u, segundos_restantes: Math.max(0, sesionSeg - transcurridos) }
-    })
-})
-
-function formatContador(seg) {
-  const m = Math.floor(seg / 60)
-  const s = Math.floor(seg % 60)
-  return `${m}:${String(s).padStart(2, '0')}`
-}
 
 const fetchEnGym = async () => {
   try { enGym.value = (await api.get('/asistencia/en-gym')).data } catch {}
@@ -1141,7 +1148,7 @@ const tabs = computed(() => [
 // ── Crear ────────────────────────────────────────────────────
 const showForm = ref(false)
 const saving = ref(false)
-const nuevoUsuario = ref({ nombre: '', documento_identidad: '', email: '', password: '', rol: 'cliente', telefono: '', genero: '' })
+const nuevoUsuario = ref({ nombre: '', documento_identidad: '', email: '', password: '', rol: 'cliente', telefono: '', genero: '', fecha_nacimiento: '' })
 const planSeleccionado = ref('ninguno')
 const montoPlanDefault = ref('')
 const planPersonalizado = ref({ dias: '', monto: '' })
@@ -1332,7 +1339,7 @@ const confirmarRenovacion = async () => {
 // ── Crear ────────────────────────────────────────────────────
 const cerrarFormulario = () => {
   showForm.value = false
-  nuevoUsuario.value = { nombre: '', documento_identidad: '', email: '', password: '', rol: 'cliente', telefono: '', genero: '' }
+  nuevoUsuario.value = { nombre: '', documento_identidad: '', email: '', password: '', rol: 'cliente', telefono: '', genero: '', fecha_nacimiento: '' }
   planSeleccionado.value = 'ninguno'
   montoPlanDefault.value = ''
   planPersonalizado.value = { dias: '', monto: '' }
@@ -1353,7 +1360,9 @@ const quitarFoto = () => { fotoArchivo.value = null; fotoPreview.value = null }
 const crearUsuario = async () => {
   saving.value = true
   try {
-    const { data: nuevo } = await api.post('/usuarios/', nuevoUsuario.value)
+    const payload = { ...nuevoUsuario.value }
+    if (!payload.fecha_nacimiento) payload.fecha_nacimiento = null
+    const { data: nuevo } = await api.post('/usuarios/', payload)
 
     if (fotoArchivo.value) {
       const fd = new FormData()
@@ -1478,19 +1487,37 @@ const conectarAccesoWS = () => {
   }
 }
 
+// ── Cumpleaños hoy ───────────────────────────────────────────
+const cumpleaneros = ref([])
+const cumpleanosExpandido = ref(true)
+
+function whatsappCumpleanos(u) {
+  const tel = '57' + u.telefono.replace(/\D/g, '')
+  const msg = `¡Feliz cumpleaños ${u.nombre.split(' ')[0]}! 🎂🎉 De parte de todo el equipo del Box te deseamos un excelente día. Pasa hoy por el box y reclama tu batido gratis 🥤`
+  return `https://wa.me/${tel}?text=${encodeURIComponent(msg)}`
+}
+
+async function fetchCumpleaneros() {
+  try {
+    const { data } = await api.get('/usuarios/cumpleanos-hoy')
+    cumpleaneros.value = data
+  } catch {
+    cumpleaneros.value = []
+  }
+}
+
 onMounted(() => {
   fetchUsuarios()
   fetchPlanes()
   fetchPendientes()
+  fetchCumpleaneros()
   conectarAccesoWS()
   fetchEnGym()
-  gymInterval  = setInterval(fetchEnGym, 10_000)   // refresca la lista cada 10 s
-  tickInterval = setInterval(() => { ticker.value++ }, 1_000) // tick cada segundo
+  gymInterval = setInterval(fetchEnGym, 10_000)
 })
 onUnmounted(() => {
   clearInterval(enrolPollInterval)
   clearInterval(gymInterval)
-  clearInterval(tickInterval)
   clearTimeout(accesoReconnectTimer)
   try { accesoWS?.close() } catch {}
 })

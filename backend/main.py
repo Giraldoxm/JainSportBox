@@ -23,6 +23,7 @@ _migraciones = [
     "ALTER TABLE marcas_rm ADD COLUMN peso_adicional REAL",
     "ALTER TABLE marcas_rm ADD COLUMN nivel INTEGER",
     "ALTER TABLE marcas_rm ADD COLUMN palier INTEGER",
+    "ALTER TABLE usuarios ADD COLUMN fecha_nacimiento DATE",
 ]
 with engine.connect() as _conn:
     for _sql in _migraciones:
@@ -187,7 +188,7 @@ def _job_alertas():
 
 # ── Scheduler: reset esta_en_gym para sesiones vencidas ───────
 def _job_reset_gym():
-    """Cada 5 minutos libera el flag esta_en_gym de usuarios cuya última
+    """Cada 3 minutos libera el flag esta_en_gym de usuarios cuya última
     entrada fue hace más de MINUTOS_SESION. Cubre el caso de quienes salen
     sin pasar por el torniquete."""
     from datetime import datetime as _dt
@@ -223,8 +224,8 @@ _scheduler = BackgroundScheduler(timezone="America/Bogota")
 _scheduler.add_job(_job_alertas, CronTrigger(hour=9, minute=0))
 # También al arrancar para no perder el día actual
 _scheduler.add_job(_job_alertas, "date")
-# Reset de esta_en_gym cada 5 minutos
-_scheduler.add_job(_job_reset_gym, "interval", minutes=5)
+# Reset de esta_en_gym cada 3 minutos
+_scheduler.add_job(_job_reset_gym, "interval", minutes=3)
 _scheduler.start()
 
 
