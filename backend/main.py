@@ -147,7 +147,7 @@ from fastapi.staticfiles import StaticFiles
 from apscheduler.schedulers.background import BackgroundScheduler
 from apscheduler.triggers.cron import CronTrigger
 
-from routers import alertas, asistencia, auth, finanzas, marcas, metodos_pago, pagos, planes, productos, salud, usuarios, ventas, wods
+from routers import alertas, asistencia, auth, ejercicios, finanzas, marcas, metodos_pago, pagos, planes, productos, salud, usuarios, ventas, wods
 from seed import seed_planes, seed_admin
 
 seed_planes()
@@ -252,3 +252,4 @@ app.include_router(salud.router)
 app.include_router(marcas.router)
 app.include_router(alertas.router)
 app.include_router(metodos_pago.router)
+app.include_router(ejercicios.router)

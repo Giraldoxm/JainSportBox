@@ -15,6 +15,7 @@ import WodsPersonalizadosView from '../views/WodsPersonalizadosView.vue'
 import HomeView from '../views/HomeView.vue'
 import UsuarioPerfilView from '../views/UsuarioPerfilView.vue'
 import SesionesView from '../views/SesionesView.vue'
+import EjerciciosView from '../views/EjerciciosView.vue'
 
 const routes = [
   {
@@ -117,6 +118,12 @@ const routes = [
         path: 'sesiones',
         name: 'Sesiones',
         component: SesionesView,
+        meta: { roles: ['admin', 'coach'] },
+      },
+      {
+        path: 'ejercicios',
+        name: 'Ejercicios',
+        component: EjerciciosView,
         meta: { roles: ['admin', 'coach'] },
       }
     ]

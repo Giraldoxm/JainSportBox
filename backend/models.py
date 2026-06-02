@@ -142,6 +142,12 @@ class WOD(Base):
     # ── Relaciones ──
     coach: Mapped[Optional["Usuario"]] = relationship("Usuario", foreign_keys=[coach_id])
     resultados: Mapped[List["ResultadoWOD"]] = relationship("ResultadoWOD", back_populates="wod", cascade="all, delete-orphan")
+    ejercicios: Mapped[List["WODEjercicio"]] = relationship(
+        "WODEjercicio",
+        back_populates="wod",
+        cascade="all, delete-orphan",
+        order_by="WODEjercicio.orden",
+    )
 
     def __repr__(self) -> str:
         return f"<WOD {self.id} – {self.titulo} ({self.fecha})>"
@@ -169,6 +175,48 @@ class ResultadoWOD(Base):
 
     def __repr__(self) -> str:
         return f"<ResultadoWOD {self.id} – Usuario {self.usuario_id} / WOD {self.wod_id}>"
+
+
+# ──────────────────────── Catálogo de ejercicios ──────────────
+
+class Ejercicio(Base):
+    """Ejercicio reutilizable (nombre + video) para armar los WODs."""
+    __tablename__ = "ejercicios"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    nombre: Mapped[str] = mapped_column(String(150), nullable=False, unique=True)
+    video_url: Mapped[Optional[str]] = mapped_column(String(500), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+
+    def __repr__(self) -> str:
+        return f"<Ejercicio {self.id} – {self.nombre}>"
+
+
+class WODEjercicio(Base):
+    """Ejercicio incluido en un WOD, con notas (repeticiones, peso, etc.) y orden."""
+    __tablename__ = "wod_ejercicios"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    wod_id: Mapped[int] = mapped_column(Integer, ForeignKey("wods.id"), nullable=False)
+    ejercicio_id: Mapped[int] = mapped_column(Integer, ForeignKey("ejercicios.id"), nullable=False)
+    notas: Mapped[Optional[str]] = mapped_column(Text, nullable=True)  # reps, peso, esquema...
+    orden: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
+
+    # ── Relaciones ──
+    wod: Mapped["WOD"] = relationship("WOD", back_populates="ejercicios")
+    ejercicio: Mapped["Ejercicio"] = relationship("Ejercicio")
+
+    # Atajos para la serialización en WODResponse
+    @property
+    def nombre(self) -> Optional[str]:
+        return self.ejercicio.nombre if self.ejercicio else None
+
+    @property
+    def video_url(self) -> Optional[str]:
+        return self.ejercicio.video_url if self.ejercicio else None
+
+    def __repr__(self) -> str:
+        return f"<WODEjercicio WOD {self.wod_id} → Ejercicio {self.ejercicio_id}>"
 
 
 # ──────────────────────────── Inventario ──────────────────────

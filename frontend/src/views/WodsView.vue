@@ -44,9 +44,10 @@
                 </span>
               </div>
               <h3 class="text-2xl font-black mb-3">{{ wod.titulo }}</h3>
-              <p class="whitespace-pre-line leading-relaxed" :class="wod.activo ? 'text-red-100' : 'text-gray-300'">
+              <p v-if="wod.descripcion" class="whitespace-pre-line leading-relaxed mb-3" :class="wod.activo ? 'text-red-100' : 'text-gray-300'">
                 {{ wod.descripcion }}
               </p>
+              <WodEjerciciosLista :ejercicios="wod.ejercicios" dark />
             </div>
             <div v-if="puedeEditar" class="flex gap-2 ml-4 flex-shrink-0">
               <!-- Toggle activo/inactivo -->
@@ -121,7 +122,8 @@
                     {{ wod.activo ? 'Activo' : 'Inactivo' }}
                   </span>
                 </div>
-                <p class="text-sm text-gray-500 line-clamp-2 mt-0.5">{{ wod.descripcion }}</p>
+                <p v-if="wod.descripcion" class="text-sm text-gray-500 line-clamp-2 mt-0.5">{{ wod.descripcion }}</p>
+                <WodEjerciciosLista v-if="wod.ejercicios && wod.ejercicios.length" :ejercicios="wod.ejercicios" class="mt-2" />
               </div>
               <div class="flex gap-1 flex-shrink-0">
                 <button
@@ -187,15 +189,16 @@
             />
           </div>
           <div>
-            <label class="block text-sm font-semibold text-gray-700 mb-1.5">Descripción / Movimientos</label>
+            <label class="block text-sm font-semibold text-gray-700 mb-1.5">Descripción / Notas generales <span class="text-gray-400 font-normal">(opcional)</span></label>
             <textarea
               v-model="form.descripcion"
-              required
-              rows="5"
-              placeholder="Ej:&#10;5 Pull-ups&#10;10 Push-ups&#10;15 Air Squats"
-              class="w-full px-4 py-2.5 rounded-lg border border-gray-300 focus:ring-2 focus:ring-red-500 focus:border-red-500 outline-none transition-all resize-none font-mono text-sm"
+              rows="3"
+              placeholder="Ej: AMRAP 20 min. Escala según nivel."
+              class="w-full px-4 py-2.5 rounded-lg border border-gray-300 focus:ring-2 focus:ring-red-500 focus:border-red-500 outline-none transition-all resize-none text-sm"
             ></textarea>
           </div>
+          <!-- Ejercicios del WOD -->
+          <WodEjerciciosEditor v-model="form.ejercicios" :catalogo="catalogo" />
           <!-- Toggle activo en el formulario -->
           <div class="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
             <span class="text-sm font-semibold text-gray-700">Visible para clientes</span>
@@ -232,15 +235,18 @@
 <script setup>
 import { ref, computed, onMounted } from 'vue'
 import api from '../api'
+import WodEjerciciosEditor from '../components/WodEjerciciosEditor.vue'
+import WodEjerciciosLista from '../components/WodEjerciciosLista.vue'
 
 const wods = ref([])
+const catalogo = ref([])
 const cargando = ref(true)
 const mostrarModal = ref(false)
 const editando = ref(null)
 const guardando = ref(false)
 const errorForm = ref('')
 
-const form = ref({ titulo: '', descripcion: '', fecha: '', activo: true })
+const form = ref({ titulo: '', descripcion: '', fecha: '', activo: true, ejercicios: [] })
 
 const userRol = computed(() => localStorage.getItem('userRol') || 'cliente')
 const puedeEditar = computed(() => ['admin', 'coach'].includes(userRol.value))
@@ -283,13 +289,30 @@ async function cargarWods() {
   }
 }
 
+async function cargarCatalogo() {
+  try {
+    const { data } = await api.get('/ejercicios/')
+    catalogo.value = data
+  } catch (e) {
+    catalogo.value = []
+  }
+}
+
 function abrirFormulario(wod = null) {
   editando.value = wod
   errorForm.value = ''
   if (wod) {
-    form.value = { titulo: wod.titulo, descripcion: wod.descripcion, fecha: wod.fecha, activo: wod.activo }
+    form.value = {
+      titulo: wod.titulo,
+      descripcion: wod.descripcion,
+      fecha: wod.fecha,
+      activo: wod.activo,
+      ejercicios: (wod.ejercicios || []).map(e => ({
+        ejercicio_id: e.ejercicio_id, nombre: e.nombre, video_url: e.video_url, notas: e.notas || '',
+      })),
+    }
   } else {
-    form.value = { titulo: '', descripcion: '', fecha: hoyISO.value, activo: true }
+    form.value = { titulo: '', descripcion: '', fecha: hoyISO.value, activo: true, ejercicios: [] }
   }
   mostrarModal.value = true
 }
@@ -303,10 +326,19 @@ async function guardarWod() {
   guardando.value = true
   errorForm.value = ''
   try {
+    const payload = {
+      titulo: form.value.titulo,
+      descripcion: form.value.descripcion,
+      fecha: form.value.fecha,
+      activo: form.value.activo,
+      ejercicios: form.value.ejercicios.map((e, i) => ({
+        ejercicio_id: e.ejercicio_id, notas: e.notas?.trim() || null, orden: i,
+      })),
+    }
     if (editando.value) {
-      await api.put(`/wods/${editando.value.id}`, form.value)
+      await api.put(`/wods/${editando.value.id}`, payload)
     } else {
-      await api.post('/wods/', form.value)
+      await api.post('/wods/', payload)
     }
     cerrarModal()
     await cargarWods()
@@ -337,5 +369,8 @@ async function eliminarWod(wod) {
   }
 }
 
-onMounted(cargarWods)
+onMounted(() => {
+  cargarWods()
+  if (puedeEditar.value) cargarCatalogo()
+})
 </script>

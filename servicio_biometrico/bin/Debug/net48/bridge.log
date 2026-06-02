@@ -2392,3 +2392,7 @@ Presiona Ctrl+C para salir.
 [WS] Cliente desconectado
 [WS] Cliente conectado: 127.0.0.1
 [WS] Cliente conectado: 127.0.0.1
+
+===== Bridge iniciado 2026-06-01 15:42:24 =====
+1/06/2026 3:42:25 p. m. [Info] Server started at ws://0.0.0.0:8765 (actual port 8765) 
+[WS] Escuchando en ws://localhost:8765

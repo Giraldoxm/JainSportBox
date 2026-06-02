@@ -88,6 +88,14 @@
             </svg>
             Alertas WhatsApp
           </router-link>
+          <router-link to="/ejercicios" @click="sidebarOpen = false"
+            class="flex items-center gap-3 py-3 px-4 rounded-lg hover:bg-gray-800 transition-colors"
+            active-class="bg-red-600 hover:bg-red-700 font-semibold shadow-md">
+            <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h7" />
+            </svg>
+            Ejercicios
+          </router-link>
         </template>
 
         <template v-if="!isPendiente && isAdmin">

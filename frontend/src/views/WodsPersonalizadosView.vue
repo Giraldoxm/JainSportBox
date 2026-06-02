@@ -87,7 +87,8 @@
                   </span>
                 </div>
                 <h4 class="text-xl font-black mb-1">{{ wod.titulo }}</h4>
-                <p class="text-sm whitespace-pre-line leading-relaxed opacity-90">{{ wod.descripcion }}</p>
+                <p v-if="wod.descripcion" class="text-sm whitespace-pre-line leading-relaxed opacity-90 mb-2">{{ wod.descripcion }}</p>
+                <WodEjerciciosLista :ejercicios="wod.ejercicios" dark />
               </div>
               <div class="flex gap-2 flex-shrink-0">
                 <button
@@ -149,7 +150,8 @@
                     {{ wod.activo ? 'Activo' : 'Inactivo' }}
                   </span>
                 </div>
-                <p class="text-sm text-gray-500 line-clamp-2">{{ wod.descripcion }}</p>
+                <p v-if="wod.descripcion" class="text-sm text-gray-500 line-clamp-2">{{ wod.descripcion }}</p>
+                <WodEjerciciosLista v-if="wod.ejercicios && wod.ejercicios.length" :ejercicios="wod.ejercicios" class="mt-2" />
               </div>
               <div class="flex gap-1 flex-shrink-0">
                 <button
@@ -227,7 +229,8 @@
               </span>
             </div>
             <h3 class="text-2xl font-black mb-3">{{ wodDeHoy.titulo }}</h3>
-            <p class="whitespace-pre-line leading-relaxed opacity-90">{{ wodDeHoy.descripcion }}</p>
+            <p v-if="wodDeHoy.descripcion" class="whitespace-pre-line leading-relaxed opacity-90 mb-3">{{ wodDeHoy.descripcion }}</p>
+            <WodEjerciciosLista :ejercicios="wodDeHoy.ejercicios" dark />
           </div>
 
           <div v-else-if="!cargando" class="bg-gray-50 border-2 border-dashed border-gray-200 rounded-2xl p-10 text-center">
@@ -261,7 +264,8 @@
               </div>
               <div class="flex-1 min-w-0">
                 <p class="font-bold text-gray-800 truncate">{{ wod.titulo }}</p>
-                <p class="text-sm text-gray-500 line-clamp-2 mt-0.5">{{ wod.descripcion }}</p>
+                <p v-if="wod.descripcion" class="text-sm text-gray-500 line-clamp-2 mt-0.5">{{ wod.descripcion }}</p>
+                <WodEjerciciosLista v-if="wod.ejercicios && wod.ejercicios.length" :ejercicios="wod.ejercicios" class="mt-2" />
               </div>
             </div>
           </div>
@@ -346,15 +350,17 @@
           </div>
 
           <div>
-            <label class="block text-sm font-semibold text-gray-700 mb-1.5">Descripción / Movimientos</label>
+            <label class="block text-sm font-semibold text-gray-700 mb-1.5">Descripción / Notas generales <span class="text-gray-400 font-normal">(opcional)</span></label>
             <textarea
               v-model="form.descripcion"
-              required
-              rows="5"
-              placeholder="Ej:&#10;5 Pull-ups&#10;10 Push-ups&#10;15 Air Squats"
-              class="w-full px-4 py-2.5 rounded-lg border border-gray-300 focus:ring-2 focus:ring-red-500 focus:border-red-500 outline-none transition-all resize-none font-mono text-sm"
+              rows="3"
+              placeholder="Ej: AMRAP 20 min. Escala según nivel."
+              class="w-full px-4 py-2.5 rounded-lg border border-gray-300 focus:ring-2 focus:ring-red-500 focus:border-red-500 outline-none transition-all resize-none text-sm"
             ></textarea>
           </div>
+
+          <!-- Ejercicios del WOD -->
+          <WodEjerciciosEditor v-model="form.ejercicios" :catalogo="catalogo" />
 
           <!-- Toggle activo -->
           <div class="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
@@ -403,10 +409,13 @@
 import { ref, computed, onMounted } from 'vue'
 import api from '../api'
 import { useAuth } from '../composables/useAuth'
+import WodEjerciciosEditor from '../components/WodEjerciciosEditor.vue'
+import WodEjerciciosLista from '../components/WodEjerciciosLista.vue'
 
 const { isAdmin } = useAuth()
 
 const wods = ref([])
+const catalogo = ref([])
 const cargando = ref(true)
 const sinAcceso = ref(false)
 const mostrarModal = ref(false)
@@ -421,6 +430,7 @@ const form = ref({
   activo: true,
   genero_destino: '',
   generos: { masculino: true, femenino: true },
+  ejercicios: [],
 })
 
 const generoCliente = computed(() => localStorage.getItem('userGenero') || '')
@@ -475,6 +485,15 @@ async function cargar() {
   }
 }
 
+async function cargarCatalogo() {
+  try {
+    const { data } = await api.get('/ejercicios/')
+    catalogo.value = data
+  } catch (e) {
+    catalogo.value = []
+  }
+}
+
 function abrirModal(wod = null) {
   editando.value = wod
   errorForm.value = ''
@@ -486,6 +505,9 @@ function abrirModal(wod = null) {
       activo: wod.activo,
       genero_destino: wod.genero_destino,
       generos: { masculino: false, femenino: false },
+      ejercicios: (wod.ejercicios || []).map(e => ({
+        ejercicio_id: e.ejercicio_id, nombre: e.nombre, video_url: e.video_url, notas: e.notas || '',
+      })),
     }
   } else {
     form.value = {
@@ -495,6 +517,7 @@ function abrirModal(wod = null) {
       activo: true,
       genero_destino: '',
       generos: { masculino: true, femenino: true },
+      ejercicios: [],
     }
   }
   mostrarModal.value = true
@@ -509,12 +532,16 @@ async function guardar() {
   guardando.value = true
   errorForm.value = ''
   try {
+    const ejercicios = form.value.ejercicios.map((e, i) => ({
+      ejercicio_id: e.ejercicio_id, notas: e.notas?.trim() || null, orden: i,
+    }))
     if (editando.value) {
       await api.put(`/wods/${editando.value.id}`, {
         titulo: form.value.titulo,
         descripcion: form.value.descripcion,
         fecha: form.value.fecha,
         activo: form.value.activo,
+        ejercicios,
       })
     } else {
       const generos = []
@@ -531,6 +558,7 @@ async function guardar() {
         fecha: form.value.fecha,
         activo: form.value.activo,
         es_personalizado: true,
+        ejercicios,
       }
       for (const g of generos) {
         await api.post('/wods/', { ...base, genero_destino: g })
@@ -565,5 +593,8 @@ async function eliminarWod(wod) {
   }
 }
 
-onMounted(cargar)
+onMounted(() => {
+  cargar()
+  if (isAdmin.value) cargarCatalogo()
+})
 </script>

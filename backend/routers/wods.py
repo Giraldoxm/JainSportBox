@@ -6,7 +6,7 @@ from sqlalchemy import desc
 from sqlalchemy.orm import Session
 
 from database import get_db
-from models import Pago, Plan, RolUsuario, Usuario, WOD
+from models import Ejercicio, Pago, Plan, RolUsuario, Usuario, WOD, WODEjercicio
 from schemas.wod import WODCreate, WODUpdate, WODResponse
 from security import get_current_user
 
@@ -23,6 +23,26 @@ def _require_admin(current_user: Usuario = Depends(get_current_user)):
     if current_user.rol != RolUsuario.ADMIN:
         raise HTTPException(status_code=403, detail="Solo el administrador puede realizar esta acción.")
     return current_user
+
+
+def _aplicar_ejercicios(wod: WOD, items, db: Session) -> None:
+    """Reemplaza los ejercicios de un WOD con la lista recibida. Valida que existan."""
+    wod.ejercicios.clear()
+    db.flush()
+    for idx, item in enumerate(items or []):
+        existe = db.query(Ejercicio).filter(Ejercicio.id == item.ejercicio_id).first()
+        if not existe:
+            raise HTTPException(
+                status_code=422,
+                detail=f"El ejercicio con id {item.ejercicio_id} no existe.",
+            )
+        wod.ejercicios.append(
+            WODEjercicio(
+                ejercicio_id=item.ejercicio_id,
+                notas=(item.notas or None),
+                orden=item.orden if item.orden is not None else idx,
+            )
+        )
 
 
 def _tiene_plan_personalizado(usuario_id: int, db: Session) -> bool:
@@ -78,9 +98,12 @@ def crear_wod(
         if not payload.genero_destino:
             raise HTTPException(status_code=422, detail="Debes seleccionar el género para un WOD personalizado.")
     data = payload.model_dump()
+    ejercicios = data.pop("ejercicios", None)
     data["coach_id"] = current_user.id
     wod = WOD(**data)
     db.add(wod)
+    db.flush()
+    _aplicar_ejercicios(wod, payload.ejercicios, db)
     db.commit()
     db.refresh(wod)
     return wod
@@ -96,8 +119,13 @@ def actualizar_wod(
     wod = db.query(WOD).filter(WOD.id == wod_id).first()
     if not wod:
         raise HTTPException(status_code=404, detail="WOD no encontrado.")
-    for field, value in payload.model_dump(exclude_unset=True).items():
+    data = payload.model_dump(exclude_unset=True)
+    tiene_ejercicios = "ejercicios" in data
+    data.pop("ejercicios", None)
+    for field, value in data.items():
         setattr(wod, field, value)
+    if tiene_ejercicios:
+        _aplicar_ejercicios(wod, payload.ejercicios, db)
     db.commit()
     db.refresh(wod)
     return wod
