@@ -9,6 +9,7 @@ from sqlalchemy import func
 from sqlalchemy.orm import Session, joinedload
 
 from database import get_db
+from fechas import hoy_bogota
 from models import Asistencia, RolUsuario, Usuario
 from schemas.asistencia import (
     AsistenciaCreate, AsistenciaResponse,
@@ -50,7 +51,7 @@ MINUTOS_SESION = 65  # tiempo máximo de una sesión; usado por el job de reset 
 
 def _validar_membresia(usuario: Usuario) -> None:
     # Toda marcación es una entrada → siempre se valida la membresía.
-    if not usuario.fecha_vencimiento or usuario.fecha_vencimiento < date.today():
+    if not usuario.fecha_vencimiento or usuario.fecha_vencimiento < hoy_bogota():
         raise HTTPException(
             status_code=403,
             detail=f"Membresía vencida o sin plan activo para {usuario.nombre}.",
@@ -106,7 +107,7 @@ def mi_historial(
     db: Session = Depends(get_db),
     current_user: Usuario = Depends(get_current_user),
 ):
-    hoy = date.today()
+    hoy = hoy_bogota()
     mes = hoy.month
     anio = hoy.year
     for _ in range(meses - 1):
@@ -142,7 +143,7 @@ def historial_usuario(
     if not usuario:
         raise HTTPException(status_code=404, detail="Usuario no encontrado.")
 
-    hoy = date.today()
+    hoy = hoy_bogota()
     mes = hoy.month
     anio = hoy.year
     for _ in range(meses - 1):

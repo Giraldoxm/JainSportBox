@@ -574,8 +574,12 @@ const colorCategoria = (cat) => COLORES_CATEGORIA[cat] || 'bg-gray-100 text-gray
 const formatMoneda = (v) =>
   new Intl.NumberFormat('es-CO', { style: 'currency', currency: 'COP', maximumFractionDigits: 0 }).format(v || 0)
 
-const formatFecha = (f) =>
-  new Date(f).toLocaleDateString('es-CO', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })
+const formatFecha = (f) => {
+  // El backend guarda datetimes en UTC sin sufijo de zona: parsearlos como UTC
+  // y mostrarlos en hora de Bogotá (si no, la hora sale corrida +5h).
+  const iso = /Z|[+-]\d{2}:?\d{2}$/.test(f) ? f : f + 'Z'
+  return new Date(iso).toLocaleDateString('es-CO', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit', timeZone: 'America/Bogota' })
+}
 
 onMounted(cargarTodo)
 </script>

@@ -151,7 +151,10 @@ def test_balance_sin_doble_conteo(client, admin_headers, cliente, db_session):
 
 def test_balance_filtro_fechas_excluye(client, admin_headers):
     _mov(client, admin_headers, "ingreso", 10000)
-    manana = (date.today() + timedelta(days=1)).isoformat()
+    # El movimiento se crea con datetime.utcnow(); calcular "mañana" desde esa
+    # misma base para que el test no dependa de la hora local (después de las
+    # 7 PM Bogotá, utcnow ya es el día siguiente).
+    manana = (datetime.utcnow() + timedelta(days=1)).date().isoformat()
     r = client.get(f"/finanzas/balance?fecha_desde={manana}", headers=admin_headers)
     assert r.json()["ingresos_total"] == 0
 
