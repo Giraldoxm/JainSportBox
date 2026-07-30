@@ -114,7 +114,7 @@ La suite (`backend/tests/`) cubre todos los routers; el plan completo y los hall
 
 **Migraciones de arranque (`backend/main.py`):** hay TRES bloques, y agregar una columna nueva exige tocar los dos primeros:
 1. **Bloque SQLite** (`if engine.url.get_backend_name() == "sqlite"`): `ALTER TABLE … ADD COLUMN` en try/except + reconstrucción de tabla para cambios de nullability (rename → CREATE → INSERT → DROP, guardado por `PRAGMA table_info`). **Solo corre en SQLite (dev).**
-2. **Bloque Postgres** (`if … != "sqlite"`, lista `_cols_pg`): `ALTER TABLE … ADD COLUMN IF NOT EXISTS …` (idempotente). **Imprescindible:** en Postgres `create_all` NO agrega columnas a tablas existentes, así que una columna nueva que solo esté en el bloque SQLite **faltará en Railway** y romperá los INSERT (fue la causa del bug "no deja crear WODs"). Cuidado con los tipos: `BOOLEAN DEFAULT FALSE` (no `DEFAULT 0` como en SQLite).
+2. **Bloque Postgres** (`if … != "sqlite"`, lista `_cols_pg`): `ALTER TABLE … ADD COLUMN IF NOT EXISTS …` (idempotente). **Imprescindible:** en Postgres `create_all` NO agrega columnas a tablas existentes, así que una columna nueva que solo esté en el bloque SQLite **faltará en producción** y romperá los INSERT (fue la causa del bug "no deja crear WODs"). Cuidado con los tipos: `BOOLEAN DEFAULT FALSE` (no `DEFAULT 0` como en SQLite).
 3. **Bloque de índices** (`_indices`, cross-DB): `CREATE INDEX IF NOT EXISTS`, corre en ambos motores.
 
 **Regla:** al agregar una columna, agregala al modelo Y a los bloques 1 y 2. Hay también limpiezas de datos puntuales (p.ej. `DELETE … WHERE fuente='venta_tienda'`) que corren cross-DB e idempotentes.
@@ -463,7 +463,7 @@ Start-Process -FilePath "servicio_biometrico\bin\Debug\net48\HuelleroBridge.exe"
 
 **Logs en vivo:** `servicio_biometrico\ver-logs.cmd` (tail coloreado de `bridge.log`).
 
-**A qué backend apunta:** por defecto el bridge habla con el backend de **Railway (producción)** — ver `BridgeConfig.cs`. Para apuntarlo a un backend local en dev, definir `JSB_API_BASE=http://localhost:8000` antes de arrancarlo. `ApiBase`/`BridgeSecret` son `static readonly` (se leen **una sola vez** al iniciar), así que tras cambiar la env var hay que **reiniciar el bridge**. Si el enrolamiento falla con `Excepción al guardar template: Error al enviar la solicitud` (un `HttpRequestException` de conexión, no de TLS), casi siempre es que `ApiBase` apunta a un backend que no responde — confirmar con la línea `[CONFIG] ApiBase` del log al arrancar.
+**A qué backend apunta:** por defecto el bridge habla con el **backend de producción** — ver `BridgeConfig.cs`. Para apuntarlo a un backend local en dev, definir `JSB_API_BASE=http://localhost:8000` antes de arrancarlo. `ApiBase`/`BridgeSecret` son `static readonly` (se leen **una sola vez** al iniciar), así que tras cambiar la env var hay que **reiniciar el bridge**. Si el enrolamiento falla con `Excepción al guardar template: Error al enviar la solicitud` (un `HttpRequestException` de conexión, no de TLS), casi siempre es que `ApiBase` apunta a un backend que no responde — confirmar con la línea `[CONFIG] ApiBase` del log al arrancar.
 
 ### Por qué .NET y no Python
 
@@ -492,7 +492,7 @@ Lo único conservado en `Program.cs` además del shell WinForms es `SetThreadExe
 |---|---|
 | `Program.cs` | Entry point `[STAThread]`; redirige logs a `bridge.log`, suelta consola con `FreeConsole`, levanta WebSocket/HttpApi/BridgeForm. Al arrancar loguea `[CONFIG] ApiBase` y `[CONFIG] BridgeSecret` (definido/vacío) — primer log a revisar si el enrolamiento o las asistencias fallan. |
 | `BridgeForm.cs` | Ventana WinForms invisible (HWND para message pump COM); crea `FingerprintCapture` en `OnLoad` |
-| `BridgeConfig.cs` | Config por entorno (fuente única): `ApiBase` (env `JSB_API_BASE`, **default = backend de Railway en producción**; definir `JSB_API_BASE=http://localhost:8000` para apuntar a un backend local en dev) y `BridgeSecret` (env `BRIDGE_SECRET`, default `jain_bridge_secret_2024`). Referenciado por `FingerprintCapture` y `HttpApi`. |
+| `BridgeConfig.cs` | Config por entorno (fuente única): `ApiBase` (env `JSB_API_BASE`, **default = backend de producción**; definir `JSB_API_BASE=http://localhost:8000` para apuntar a un backend local en dev) y `BridgeSecret` (env `BRIDGE_SECRET`, default `jain_bridge_secret_2024`). Referenciado por `FingerprintCapture` y `HttpApi`. |
 | `FingerprintCapture.cs` | Implementa `DPFP.Capture.EventHandler`; instancia `new Capture(Priority.High)` para captura en background; maneja enrolamiento, verificación y acceso. Incluye cooldown de `CooldownSegundos` (4 s) por usuario en modo acceso para evitar doble-registro cuando el usuario pone el dedo varias veces seguidas. Dispara la palanquera vía `RelayController.Abrir()` cuando el backend confirma una **entrada** (no en salida). |
 | `RelayController.cs` | Abre la palanquera mandando el byte `'A'` por USB-serial a un Arduino UNO. Ver sección "Palanquera (relé + Arduino)" más abajo. |
 | `arduino/palanquera_rele/palanquera_rele.ino` | Sketch del Arduino UNO que controla el módulo de relé. |
@@ -646,20 +646,30 @@ VITE_API_URL=           # URL del backend; si falta, usa http://127.0.0.1:8000 (
 
 Los orígenes se leen de la env var `CORS_ORIGINS` (coma-separado) en `backend/main.py`. Si no está definida, el default son los puertos de Vite (`localhost:5173/5174`, `127.0.0.1:5173/5174`). En producción hay que setear el dominio del frontend (ej. `CORS_ORIGINS=https://jainsportbox.netlify.app`, **sin barra final**).
 
-## Deployment (Railway backend + Netlify frontend)
+## Deployment (Render backend + Supabase datos + Netlify frontend)
 
-El detalle completo va en `DEPLOYMENT.md`. Setup actual: **backend en Railway** (`https://web-production-ca5df.up.railway.app`), **frontend en Netlify** (`https://jainsportbox.netlify.app`), **Postgres en Railway**.
+El detalle completo va en `DEPLOYMENT.md`. Setup: **backend en Render Starter**, **Postgres y Storage en Supabase (plan free)**, **frontend en Netlify** (`https://jainsportbox.netlify.app`). Costo total ~$7/mes.
 
-**Backend (Railway):**
-- Builder: Dockerfile explícito (`Dockerfile` en la raíz, `railway.toml` con `builder = "dockerfile"`). Es necesario porque el repo es mixto Python/.NET y nixpacks intentaba `dotnet restore`. El Dockerfile construye solo el backend FastAPI.
-- El start command sale del `CMD` del Dockerfile (`sh -c "uvicorn main:app --host 0.0.0.0 --port ${PORT:-8000}"`). **No usar un "Custom Start Command" con `cd` en la UI de Railway** ni un `Procfile` con `cd backend && ...`: Railway los corre en modo *exec* (sin shell) y falla con `The executable cd could not be found`. Por eso no hay `Procfile` en el repo.
-- Variables requeridas en Railway: las 7 de arriba (`SECRET_KEY`, `ADMIN_*`, `BRIDGE_SECRET`) + `DATABASE_URL=${{Postgres.DATABASE_URL}}` + `CORS_ORIGINS=https://jainsportbox.netlify.app`.
+**Por qué no Railway:** el sistema se vende a un gimnasio y el plan Hobby de Railway es explícitamente **no-comercial**; Pro son $20/mes con crédito que no se acumula. Los planes free que suspenden el proceso (Render free) tampoco sirven: la primera huella del día esperaría el cold start y la palanquera no abriría a tiempo.
+
+**Backend (Render):**
+- Config en `render.yaml`: `runtime: docker`, `plan: starter`, `dockerfilePath: ./Dockerfile`, `healthCheckPath: /`. Todas las env vars con `sync: false` (se cargan en el dashboard, nunca en git).
+- Dockerfile explícito porque el repo es mixto Python/.NET y el autodetector intentaba `dotnet restore`. El start command sale del `CMD` (`uvicorn … --workers 1`).
+- **1 worker**: Starter da 0.5 CPU / 512 MB. Además mantiene chico el pool contra Supabase y evita duplicar los jobs de APScheduler.
+- Variables: las 7 de arriba (`SECRET_KEY`, `ADMIN_*`, `BRIDGE_SECRET`) + `DATABASE_URL` + `CORS_ORIGINS=https://jainsportbox.netlify.app` + las 6 de `S3_*`.
+
+**Datos (Supabase, plan free — permite uso comercial):**
+- **Usar el session pooler (puerto 5432), NO el transaction pooler (6543).** `_debo_correr_scheduler()` en `main.py` toma un `pg_try_advisory_lock` a nivel de sesión sobre una conexión persistente; el modo transaction lo liberaría al terminar cada consulta y además rompe los prepared statements de psycopg3.
+- Pool dimensionado para el free tier: `DB_POOL_SIZE=3`, `DB_MAX_OVERFLOW=2` (env vars), `pool_recycle=300`.
+- Storage vía protocolo S3: `backend/storage.py` funciona sin cambios de código. El bucket debe ser **público** y `S3_REGION` la región real del proyecto (`"auto"` era de R2).
+- El proyecto free se pausa a los 7 días sin actividad; `_job_reset_gym` (cada 3 min) lo mantiene despierto mientras el backend corra.
+- **Sin PITR:** el respaldo propio es `backup-db.ps1` (raíz), agendado diario en la PC del gym → OneDrive, retención 14.
 
 **Frontend (Netlify):**
 - Config en `netlify.toml`: `base = "frontend"`, `command = "npm run build"`, `publish = "dist"` (relativo a base — **no** `frontend/dist`, daría `frontend/frontend/dist`). Rewrite SPA `/* → /index.html`.
-- Variable en Netlify: `VITE_API_URL=https://web-production-ca5df.up.railway.app` (sin barra final).
+- Variable en Netlify: `VITE_API_URL` = URL de Render (sin barra final).
 - `frontend/node_modules` **no** debe estar trackeado en git: sus binarios (`vite`) commiteados desde Windows pierden el bit de ejecución y Netlify falla con `vite: Permission denied`. Está en `.gitignore`; Netlify hace su propio `npm install`.
 
 **Gotchas de dependencias (diferencias dev local vs. imagen limpia):**
-- `database.py` reescribe la URL de Postgres a `postgresql+psycopg://` para usar psycopg v3 (lo que está en `requirements.txt`), porque psycopg2 no está instalado. Maneja tanto `postgres://` como `postgresql://` (Railway entrega el segundo).
+- `database.py` reescribe la URL de Postgres a `postgresql+psycopg://` para usar psycopg v3 (lo que está en `requirements.txt`), porque psycopg2 no está instalado. Maneja tanto `postgres://` como `postgresql://`. También fuerza `sslmode=require` (el default de psycopg es `prefer`, que aceptaría texto plano).
 - `bcrypt` está fijado a `4.0.1` en `requirements.txt`: passlib 1.7.4 revienta con bcrypt ≥ 4.1 (`ValueError: password cannot be longer than 72 bytes` en la detección de backend).

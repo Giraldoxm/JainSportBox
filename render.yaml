@@ -1,0 +1,71 @@
+# Blueprint de Render para el backend FastAPI.
+#
+# El plan Starter no duerme el proceso: la primera huella del día abre la
+# palanquera sin cold start, y APScheduler (alertas 9 AM + reset de esta_en_gym
+# cada 3 min) sigue corriendo. El plan free NO sirve acá porque suspende el
+# servicio tras 15 min de inactividad.
+#
+# Postgres y las fotos viven en Supabase, no en Render: el disco de Render es
+# efímero y el plan free de Supabase permite uso comercial.
+#
+# Todas las variables van con `sync: false` — se cargan a mano en el dashboard
+# para que ningún secreto quede en git.
+
+services:
+  - type: web
+    name: jainsportbox-api
+    runtime: docker
+    plan: starter
+    region: oregon
+    dockerfilePath: ./Dockerfile
+    dockerContext: .
+    healthCheckPath: /
+    autoDeploy: true
+    envVars:
+      # ── Base de datos ──────────────────────────────────────────
+      # URI del *session pooler* de Supabase (puerto 5432), NO la del
+      # transaction pooler (6543): el advisory lock del scheduler es de sesión.
+      - key: DATABASE_URL
+        sync: false
+
+      # ── Seguridad ──────────────────────────────────────────────
+      # Debe ser la MISMA que tenía Railway, o se invalidan los JWT vigentes
+      # y todos los socios quedan deslogueados.
+      - key: SECRET_KEY
+        sync: false
+      # Clave compartida con el bridge .NET (header X-Bridge-Secret).
+      - key: BRIDGE_SECRET
+        sync: false
+
+      # ── Admin sembrado al arrancar (backend/seed.py) ───────────
+      - key: ADMIN_NOMBRE
+        sync: false
+      - key: ADMIN_EMAIL
+        sync: false
+      - key: ADMIN_PASSWORD
+        sync: false
+      - key: ADMIN_TELEFONO
+        sync: false
+      - key: ADMIN_DOCUMENTO
+        sync: false
+
+      # ── CORS ───────────────────────────────────────────────────
+      # Dominio del frontend en Netlify, sin barra final.
+      - key: CORS_ORIGINS
+        sync: false
+
+      # ── Storage (Supabase Storage vía protocolo S3) ────────────
+      # El bucket debe ser PÚBLICO o las fotos no cargan en el navegador.
+      # S3_REGION debe ser la región real del proyecto ("auto" era de R2).
+      - key: S3_BUCKET
+        sync: false
+      - key: S3_ENDPOINT_URL
+        sync: false
+      - key: S3_REGION
+        sync: false
+      - key: S3_ACCESS_KEY_ID
+        sync: false
+      - key: S3_SECRET_ACCESS_KEY
+        sync: false
+      - key: S3_PUBLIC_URL
+        sync: false

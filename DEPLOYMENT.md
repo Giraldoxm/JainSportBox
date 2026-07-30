@@ -4,8 +4,11 @@ Despliegue de JainSportBox como **página web pública (PWA instalable)** con **
 
 **Escenario elegido:**
 - **Alcance:** Mixto — clientes entran por internet + estación de huella/recepción en la PC del gym.
-- **Hosting backend:** Nube gestionada (Railway / Render / Fly).
-- **Base de datos:** Migración de SQLite → PostgreSQL.
+- **Hosting backend:** **Render Starter** ($7/mes). El sistema se vende a un gimnasio, y el plan Hobby de Railway es explícitamente **no-comercial** (Pro son $20/mes con crédito que no se acumula, para un consumo real de ~$3). Los planes free que suspenden el proceso quedan descartados: la primera huella del día esperaría el cold start y la palanquera no abriría a tiempo.
+- **Base de datos:** **Postgres en Supabase**, plan free (permite uso comercial).
+- **Fotos:** **Supabase Storage** vía protocolo S3.
+
+**Costo total: ~$7/mes (~28k COP).**
 
 ---
 
@@ -19,14 +22,21 @@ Despliegue de JainSportBox como **página web pública (PWA instalable)** con **
                                                      │ HTTPS (axios)
                                                      ▼
                                      ┌──────────────────────────────┐
-                                     │  Backend FastAPI (Railway)    │
-                                     │  api.tudominio.com + Postgres │
-                                     └───────────────▲──────────────┘
-                                                     │ HTTPS
-                       ┌─────────────────────────────┴───────────────┐
+                                     │  Backend FastAPI (Render)     │
+                                     │  jainsportbox-api.onrender.com│
+                                     └───────┬───────────────▲──────┘
+                                             │ SSL            │ HTTPS
+                                             ▼                │
+                              ┌──────────────────────────┐    │
+                              │  Supabase (plan free)     │    │
+                              │  • Postgres (session pool)│    │
+                              │  • Storage (fotos, S3)    │    │
+                              └──────────────────────────┘    │
+                       ┌─────────────────────────────────────┴───────┐
                        │  PC del gym (recepción)                       │
                        │  • Bridge .NET (huella + Arduino) → cloud API │
                        │  • Frontend LOCAL en http://localhost (huella)│
+                       │  • backup-db.ps1 diario → OneDrive            │
                        └───────────────────────────────────────────────┘
 ```
 
@@ -86,42 +96,66 @@ Script Python de una sola corrida:
 
 ---
 
-## Capa 3 — Backend en la nube (Railway)
+## Capa 3 — Backend en Render + datos en Supabase
 
-### 3.1 CORS por entorno — `backend/main.py`
-```python
-import os
-origins = os.getenv("CORS_ORIGINS", "http://localhost:5173").split(",")
-# Railway: CORS_ORIGINS=https://app.tudominio.com,http://localhost:5173,http://localhost:4173
-```
+### 3.1 Conexión a Supabase — usar el **session pooler**
+
+En Supabase: *Connect → Session pooler* (puerto **5432**). **No** usar el transaction pooler (6543): `_debo_correr_scheduler()` en `backend/main.py` toma un `pg_try_advisory_lock` **a nivel de sesión** sobre una conexión persistente, y el modo transaction lo liberaría al terminar cada consulta (además de romper los prepared statements de psycopg3). El pooler también resuelve que la conexión directa de Supabase sea IPv6-only.
+
+`backend/database.py` normaliza la URI a `postgresql+psycopg://` y le agrega `sslmode=require` (el default de psycopg es `prefer`, que aceptaría caer a texto plano). El pool está dimensionado para el free tier: `DB_POOL_SIZE=3`, `DB_MAX_OVERFLOW=2`, `pool_recycle=300`.
 
 ### 3.2 Comando de arranque
-```
-uvicorn main:app --host 0.0.0.0 --port $PORT
-```
 
-### 3.3 Variables de entorno en Railway
+Sale del `CMD` del `Dockerfile`: `uvicorn main:app --host 0.0.0.0 --port $PORT --workers 1`. **1 worker** porque Render Starter da 0.5 CPU / 512 MB; además mantiene chico el pool contra Supabase y evita que los jobs de APScheduler se dupliquen.
+
+### 3.3 Variables de entorno en Render
 | Variable | Origen |
 |---|---|
-| `DATABASE_URL` | inyectada por el addon Postgres |
-| `SECRET_KEY` | generar valor seguro |
+| `DATABASE_URL` | URI del **session pooler** de Supabase |
+| `SECRET_KEY` | **la misma que tenía Railway**, o se invalidan los JWT vigentes y todos los socios quedan deslogueados |
 | `ADMIN_NOMBRE`, `ADMIN_EMAIL`, `ADMIN_PASSWORD`, `ADMIN_TELEFONO`, `ADMIN_DOCUMENTO` | seed admin |
 | `BRIDGE_SECRET` | clave compartida con el bridge |
-| `CORS_ORIGINS` | dominios del frontend |
+| `CORS_ORIGINS` | dominios del frontend, sin barra final |
+| `S3_*` (6) | Supabase Storage, ver 3.4 |
 
-### 3.4 Almacenamiento de `/uploads` (fotos de perfil) — ✅ RESUELTO: Object storage (R2/S3)
-El filesystem de Railway/Render es **efímero** (se borra en cada deploy → se pierden las fotos). Se eligió **almacenamiento de objetos S3-compatible** (Cloudflare R2 / AWS S3).
+Todas van con `sync: false` en `render.yaml` — se cargan a mano en el dashboard para que ningún secreto quede en git.
 
-Implementado en `backend/storage.py`: abstracción `guardar_archivo()` / `eliminar_archivo()` usada por los routers `usuarios`, `auth` (registro) y `productos`. Si `S3_BUCKET` está definido sube al bucket vía boto3; si no, cae al filesystem local (dev). `eliminar_archivo()` tolera URLs de ambos backends, así que los registros viejos (creados en local) se siguen pudiendo borrar tras migrar.
+### 3.4 Almacenamiento de `/uploads` (fotos de perfil) — Supabase Storage
+El filesystem de Render es **efímero** (se borra en cada deploy → se pierden las fotos), así que las fotos van a object storage.
 
-Variables de entorno S3/R2 (ver `backend/.env.example`): `S3_BUCKET`, `S3_PUBLIC_URL`, `S3_ENDPOINT_URL`, `S3_ACCESS_KEY_ID`, `S3_SECRET_ACCESS_KEY`, `S3_REGION`.
+Implementado en `backend/storage.py`: abstracción `guardar_archivo()` / `eliminar_archivo()` usada por los routers `usuarios`, `auth` (registro) y `productos`. Si `S3_BUCKET` está definido sube al bucket vía boto3; si no, cae al filesystem local (dev). Como Supabase Storage expone endpoint **S3-compatible**, funciona sin cambios de código — solo variables de entorno. `eliminar_archivo()` tolera URLs de ambos backends, así que los registros viejos se siguen pudiendo borrar tras migrar.
+
+Dos detalles que rompen si se pasan por alto:
+- El bucket debe crearse **público**, o las fotos devuelven 400 en el navegador.
+- `S3_REGION` debe ser la **región real del proyecto**; `"auto"` solo valía para R2.
 
 ### 3.5 Archivos de despliegue (raíz del repo)
-- `railway.toml` — builder nixpacks + `startCommand` (entra a `backend/`).
-- `Procfile` — fallback con el mismo comando de arranque.
-- `.python-version` — fija Python 3.13.
+- `render.yaml` — blueprint: `runtime: docker`, `plan: starter`, `healthCheckPath: /`, env vars con `sync: false`.
+- `Dockerfile` — imagen del backend. Explícito para que el autodetector no vea el proyecto .NET de `servicio_biometrico/` y corra `dotnet restore`.
+- `railway.toml` — **legado**, se borra cuando Railway se apague definitivamente.
 
-**Entregable de la capa:** `https://api.tudominio.com/docs` accesible, login funcional contra Postgres en la nube.
+**Entregable de la capa:** `https://<app>.onrender.com/docs` accesible, login funcional contra Supabase.
+
+---
+
+## Capa 3-bis — Migración Railway → Render + Supabase (una sola vez)
+
+1. **Crear el proyecto Supabase** (región más cercana a Colombia) y guardar la contraseña de la DB.
+2. **Volcar Railway** (conexión directa, no el pooler):
+   ```
+   pg_dump "<RAILWAY_URL>" --schema=public --no-owner --no-privileges --clean --if-exists -Fc -f jsb.dump
+   ```
+3. **Restaurar en Supabase**:
+   ```
+   pg_restore --no-owner --no-privileges -d "<SUPABASE_URL>" jsb.dump
+   ```
+   `--no-owner --no-privileges` es obligatorio: el rol `postgres` de Supabase no puede asignar ownership de Railway.
+4. **Verificar conteos** por tabla (`usuarios`, `pagos`, `asistencias`, `marcas_rm`, `movimientos_financieros`) contra el origen antes de seguir.
+5. **Archivos:** si las fotos estaban en R2, copiar los objetos a Supabase conservando el prefijo `uploads/` y reescribir las URLs guardadas — `UPDATE usuarios SET foto_url = replace(foto_url, '<viejo>', '<nuevo>')`, ídem `productos`. Son las dos únicas columnas de archivos.
+6. **Cutover:** `VITE_API_URL` en Netlify → URL de Render; `JSB_API_BASE` en la PC del gym → URL de Render (ver Capa 5.1); `start-estacion.ps1 -ApiUrl <URL>`.
+7. **No apagar Railway todavía** — dejarlo vivo unos días como rollback.
+
+Las migraciones de arranque de `main.py` (`ADD COLUMN IF NOT EXISTS` + `CREATE INDEX IF NOT EXISTS`) son idempotentes y corren solas en el primer arranque. No hay nada que adaptar.
 
 ---
 
@@ -198,7 +232,7 @@ export default defineConfig({
 `ApiBase` y `BridgeSecret` estaban hardcodeados en `FingerprintCapture.cs` y `HttpApi.cs`. Se centralizaron en **`servicio_biometrico/BridgeConfig.cs`**, que los lee de variables de entorno con default local:
 ```csharp
 public static readonly string ApiBase =
-    (Environment.GetEnvironmentVariable("JSB_API_BASE") ?? "http://localhost:8000").TrimEnd('/');
+    (Environment.GetEnvironmentVariable("JSB_API_BASE") ?? "<backend de producción>").TrimEnd('/');
 public static readonly string BridgeSecret =
     Environment.GetEnvironmentVariable("BRIDGE_SECRET") ?? "jain_bridge_secret_2024";
 ```
@@ -206,9 +240,11 @@ Ambos archivos ahora referencian `BridgeConfig.*` (fuente única, sin riesgo de 
 
 **Configurar en la PC del gym** (env vars de máquina, requieren reabrir la sesión/proceso):
 ```powershell
-setx JSB_API_BASE "https://api.tudominio.com" /M
+setx JSB_API_BASE "https://<app>.onrender.com" /M
 setx BRIDGE_SECRET "<mismo valor que el backend>" /M
 ```
+
+> **Al migrar de host:** `ApiBase` es `static readonly` — se lee **una sola vez al arrancar**, así que hay que **reiniciar el bridge**. Confirmar en `bridge.log` la línea `[CONFIG] ApiBase`. Y actualizar también el default hardcodeado en `BridgeConfig.cs`, o una compilación limpia sin la env var apuntaría al backend viejo (ya apagado).
 
 ### 5.2 Notas
 - El bridge sigue exponiendo `localhost:8001` (HTTP API) y `localhost:8765` (WebSocket) para la estación local.
@@ -241,6 +277,42 @@ Verificado: `vite preview` sirve `/`, deep routes (`/usuarios` → 200 vía fall
 
 ---
 
+## Capa 7 — Respaldo de la base de datos
+
+El plan free de Supabase **no ofrece point-in-time recovery ni restauración bajo demanda garantizada**. Para datos de un cliente que paga (pagos, membresías, asistencias) hace falta una copia que no dependa del proveedor.
+
+**Dónde corre:** la PC de recepción del gym, ya encendida 24/7 para el bridge. Cuesta $0 y no agrega servicios al despliegue (un cron job en Render sería un servicio aparte con costo extra).
+
+**`backup-db.ps1`** (raíz del repo): `pg_dump -Fc` del esquema `public` → carpeta en **OneDrive**, que al sincronizar deja el respaldo fuera del sitio sin pagar almacenamiento. Nombre con timestamp, **retención de los últimos 14**, log propio. Descarta dumps de menos de 1 KB en vez de rotar sobre ellos (un dump vacío no debe pisar copias buenas).
+
+```powershell
+.\backup-db.ps1                          # usa JSB_BACKUP_URL y OneDrive
+.\backup-db.ps1 -DestDir D:\Backups -Retener 30
+```
+
+**Requisitos:**
+- Client tools de PostgreSQL instaladas (`pg_dump` / `pg_restore`); no vienen con Windows. El script las busca en el PATH y en `C:\Program Files\PostgreSQL\*\bin\`.
+- Variable de entorno de sistema `JSB_BACKUP_URL` con la URI de Supabase. **Nunca** dentro del script: ese archivo va a git.
+  ```powershell
+  setx JSB_BACKUP_URL "postgresql://postgres.<ref>:<pwd>@aws-1-<region>.pooler.supabase.com:5432/postgres" /M
+  ```
+
+**Agendarlo:** Task Scheduler, diario 3 AM (fuera del horario del gym), con *"ejecutar aunque el usuario no haya iniciado sesión"* y *"ejecutar apenas sea posible si se perdió una ejecución programada"* (cubre que la PC estuviera apagada):
+```
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File "<ruta>\backup-db.ps1"
+```
+
+**Restaurar:**
+```
+pg_restore --no-owner --no-privileges -d "<URI destino>" jsb-YYYYMMDD.dump
+```
+
+> Un backup que nunca se restauró no es un backup. Probar la restauración **una vez, de entrada**, contra un proyecto Supabase descartable, y comparar conteos de tablas.
+
+**Entregable de la capa:** dump diario en OneDrive, con la restauración verificada al menos una vez.
+
+---
+
 ## Orden de ejecución recomendado
 
 | # | Capa | Depende de |
@@ -251,20 +323,30 @@ Verificado: `vite preview` sirve `/`, deep routes (`/usuarios` → 200 vía fall
 | 4 | Frontend web + PWA | Capa 3 |
 | 5 | Bridge biométrico | Capa 3 |
 | 6 | Estación de huella local | Capas 4–5 |
+| 7 | Respaldo de la base | Capa 3 |
 
 ---
 
 ## Decisiones pendientes
 
-1. ~~**Fotos de perfil (`/uploads`):**~~ ✅ RESUELTO → object storage R2/S3 (ver Capa 3.4).
-2. **Dominio:** ¿dominio propio, o subdominios gratis de Railway/Vercel al inicio?
+1. ~~**Fotos de perfil (`/uploads`):**~~ ✅ RESUELTO → object storage (Supabase Storage, ver Capa 3.4).
+2. **Dominio:** ¿dominio propio, o los subdominios gratis de Render/Netlify al inicio?
 3. **Alembic:** ¿introducirlo ahora (capa 1.4) o dejar el patrón actual de migraciones?
+
+---
+
+## Límites del plan free de Supabase (a vigilar)
+
+- **500 MB de base** y **1 GB de Storage**. Holgados para un box, pero las fotos de perfil admiten hasta 5 MB c/u: conviene revisar el consumo cada tanto.
+- **5 GB de egress/mes.**
+- **Pausa tras 7 días sin actividad.** No aplica mientras el backend corra: `_job_reset_gym` consulta la DB cada 3 minutos. Sí aplicaría si el gimnasio cierra una semana y se apaga el servicio — se despausa a mano desde el dashboard.
 
 ---
 
 ## Notas de seguridad
 
-- Forzar **HTTPS** en backend y frontend (TLS automático en Railway/Vercel).
+- Forzar **HTTPS** en backend y frontend (TLS automático en Render/Netlify).
+- La conexión a Supabase va con `sslmode=require` (forzado en `database.py`).
 - `BRIDGE_SECRET` y `SECRET_KEY` solo en variables de entorno, nunca en el repo.
 - Revisar que CORS no quede en `*` en producción.
 - El bridge habla con el cloud por HTTPS para proteger `X-Bridge-Secret`.

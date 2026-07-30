@@ -1,5 +1,6 @@
-# Backend FastAPI para Railway. Dockerfile explícito para evitar que nixpacks
-# autodetecte el proyecto .NET (servicio_biometrico/) y corra `dotnet restore`.
+# Backend FastAPI para Render. Dockerfile explícito para evitar que el
+# autodetector de la plataforma vea el proyecto .NET (servicio_biometrico/) y
+# corra `dotnet restore`.
 
 FROM python:3.12-slim
 
@@ -17,7 +18,8 @@ COPY backend/ ./backend/
 
 WORKDIR /app/backend
 
-# Railway inyecta $PORT en runtime. 2 workers para repartir la carga concurrente
-# (~30 usuarios simultáneos). Nota: los jobs de APScheduler corren por worker; con
-# el reset de esta_en_gym siendo idempotente no hay problema de duplicación.
-CMD ["sh", "-c", "uvicorn main:app --host 0.0.0.0 --port ${PORT:-8000} --workers 2"]
+# Render inyecta $PORT en runtime. 1 worker: el plan Starter da 0.5 CPU / 512 MB,
+# y con un solo proceso el pool contra Supabase se mantiene chico y los jobs de
+# APScheduler no se duplican (el advisory lock de main.py queda como red de
+# seguridad por si en el futuro se sube el número de workers).
+CMD ["sh", "-c", "uvicorn main:app --host 0.0.0.0 --port ${PORT:-8000} --workers 1"]
