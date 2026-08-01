@@ -8,7 +8,19 @@ Despliegue de JainSportBox como **página web pública (PWA instalable)** con **
 - **Base de datos:** **Postgres en Supabase**, plan free (permite uso comercial).
 - **Fotos:** **Supabase Storage** vía protocolo S3.
 
-**Costo total: ~$7/mes (~28k COP).**
+**Costo total: ~$7/mes (~28k COP).** El workspace de Render va en plan **Hobby ($0)**; los $7 son el *instance type* **Starter** del servicio. Render separa plan de workspace y cómputo: con el workspace en Pro serían $25 más. El "spin down" a los 15 minutos es del instance type **Free**, no del plan Hobby — un servicio Starter en workspace Hobby no duerme.
+
+## Estado (2026-08-01)
+
+| Pieza | Estado |
+|---|---|
+| Supabase (Postgres + Storage) | ✅ operativo — esquema, seed y subida de fotos verificados |
+| Backend en Render | ✅ `https://jainsportbox-api.onrender.com` (región `virginia`, junto a Supabase `us-east-1`) |
+| Frontend en Netlify | ✅ `https://jainsportbox.netlify.app` con `VITE_API_URL` apuntando a Render |
+| Bridge + estación (PC del gym) | ⏳ pendiente (presencial) |
+| Alta de socios y huellas | ⏳ pendiente (presencial) |
+| Backups agendados | ⏳ pendiente (presencial) |
+
 
 ---
 

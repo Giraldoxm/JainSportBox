@@ -11,13 +11,15 @@ namespace HuelleroBridge
     {
         /// <summary>
         /// Backend al que el bridge manda asistencias y templates de huella.
-        /// Default: backend desplegado en Railway (producción). Para apuntar a un
+        /// Default: backend desplegado en Render (producción). Para apuntar a un
         /// backend local en desarrollo, definir JSB_API_BASE=http://localhost:8000.
         /// DEBE ser HTTPS en la nube para no exponer X-Bridge-Secret.
+        /// Se lee UNA sola vez al arrancar: tras cambiar la env var hay que
+        /// reiniciar el bridge y confirmar la línea [CONFIG] ApiBase del log.
         /// </summary>
         public static readonly string ApiBase =
             (Environment.GetEnvironmentVariable("JSB_API_BASE")
-                ?? "https://web-production-ca5df.up.railway.app").TrimEnd('/');
+                ?? "https://jainsportbox-api.onrender.com").TrimEnd('/');
 
         /// <summary>
         /// Clave compartida con el backend (header X-Bridge-Secret). Debe
