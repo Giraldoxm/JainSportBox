@@ -37,6 +37,16 @@ os.environ["ADMIN_PASSWORD"] = ADMIN_PASSWORD
 os.environ["ADMIN_TELEFONO"] = "3000000000"
 os.environ["ADMIN_DOCUMENTO"] = "99999999"
 
+# storage.py entra en modo S3 con la sola presencia de S3_BUCKET, y lee las seis
+# variables al importarse. Si backend/.env las tiene (entorno cloud configurado),
+# los tests de foto subirían archivos al bucket REAL. Se vacían para forzar el
+# fallback a filesystem, que es lo que afirman los tests ("/uploads/...").
+# Se asignan "" en vez de borrarlas: load_dotenv() no pisa lo ya presente, pero
+# sí rellenaría una variable ausente con el valor del .env.
+for _var in ("S3_BUCKET", "S3_PUBLIC_URL", "S3_ENDPOINT_URL",
+             "S3_ACCESS_KEY_ID", "S3_SECRET_ACCESS_KEY", "S3_REGION"):
+    os.environ[_var] = ""
+
 import database  # noqa: E402
 
 database.engine.echo = False  # el engine SQLite de dev viene con echo=True
