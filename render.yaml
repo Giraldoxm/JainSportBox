@@ -16,7 +16,10 @@ services:
     name: jainsportbox-api
     runtime: docker
     plan: starter
-    region: oregon
+    # Misma costa que el proyecto de Supabase (us-east-1): cada consulta a la
+    # base cruza la red, y oregon <-> us-east-1 agrega ~70 ms a cada una.
+    # La region NO se puede cambiar despues de crear el servicio.
+    region: virginia
     dockerfilePath: ./Dockerfile
     dockerContext: .
     healthCheckPath: /
