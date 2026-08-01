@@ -70,13 +70,17 @@ EJERCICIOS_DEFAULT = [
 
 
 def _admin_config() -> dict:
+    # El email se normaliza igual que en el resto de la app (login, registro,
+    # PATCH usuarios): sin normalizar, un ADMIN_EMAIL con mayusculas crea un
+    # admin que NUNCA puede loguearse, porque login busca por email en
+    # minusculas. Y al arrancar en limpio no hay otra cuenta para corregirlo.
     return {
-        "nombre":              os.environ["ADMIN_NOMBRE"],
-        "email":               os.environ["ADMIN_EMAIL"],
+        "nombre":              os.environ["ADMIN_NOMBRE"].strip(),
+        "email":               os.environ["ADMIN_EMAIL"].strip().lower(),
         "password":            os.environ["ADMIN_PASSWORD"],
         "rol":                 RolUsuario.ADMIN,
-        "telefono":            os.environ["ADMIN_TELEFONO"],
-        "documento_identidad": os.environ["ADMIN_DOCUMENTO"],
+        "telefono":            os.environ["ADMIN_TELEFONO"].strip(),
+        "documento_identidad": os.environ["ADMIN_DOCUMENTO"].strip(),
     }
 
 def seed_planes():
