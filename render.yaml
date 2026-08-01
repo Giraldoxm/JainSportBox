@@ -29,8 +29,10 @@ services:
         sync: false
 
       # ── Seguridad ──────────────────────────────────────────────
-      # Debe ser la MISMA que tenía Railway, o se invalidan los JWT vigentes
-      # y todos los socios quedan deslogueados.
+      # Generar una nueva al arrancar en limpio:
+      #   python -c "import secrets; print(secrets.token_urlsafe(48))"
+      # Una vez fijada NO tocarla: cambiarla invalida los JWT vigentes y deja
+      # deslogueados a todos los socios.
       - key: SECRET_KEY
         sync: false
       # Clave compartida con el bridge .NET (header X-Bridge-Secret).

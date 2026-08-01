@@ -112,8 +112,8 @@ Sale del `CMD` del `Dockerfile`: `uvicorn main:app --host 0.0.0.0 --port $PORT -
 | Variable | Origen |
 |---|---|
 | `DATABASE_URL` | URI del **session pooler** de Supabase |
-| `SECRET_KEY` | **la misma que tenía Railway**, o se invalidan los JWT vigentes y todos los socios quedan deslogueados |
-| `ADMIN_NOMBRE`, `ADMIN_EMAIL`, `ADMIN_PASSWORD`, `ADMIN_TELEFONO`, `ADMIN_DOCUMENTO` | seed admin |
+| `SECRET_KEY` | generar una nueva (`python -c "import secrets; print(secrets.token_urlsafe(48))"`). Cambiarla invalida los JWT vigentes y desloguea a todos — al arrancar en limpio no importa, después sí |
+| `ADMIN_NOMBRE`, `ADMIN_EMAIL`, `ADMIN_PASSWORD`, `ADMIN_TELEFONO`, `ADMIN_DOCUMENTO` | seed admin — con estas credenciales se entra la primera vez |
 | `BRIDGE_SECRET` | clave compartida con el bridge |
 | `CORS_ORIGINS` | dominios del frontend, sin barra final |
 | `S3_*` (6) | Supabase Storage, ver 3.4 |
@@ -138,24 +138,30 @@ Dos detalles que rompen si se pasan por alto:
 
 ---
 
-## Capa 3-bis — Migración Railway → Render + Supabase (una sola vez)
+## Capa 3-bis — Arranque en limpio (Railway → Render + Supabase)
+
+**Decisión (2026-07-30): los datos de Railway eran de prueba y se descartaron.** No se migró la base ni las fotos; Supabase arrancó vacío. Esto evitó la ventana de downtime que exige un `pg_dump` + cutover coordinado, y permitió generar una `SECRET_KEY` nueva (no había sesiones que preservar).
 
 1. **Crear el proyecto Supabase** (región más cercana a Colombia) y guardar la contraseña de la DB.
-2. **Volcar Railway** (conexión directa, no el pooler):
-   ```
-   pg_dump "<RAILWAY_URL>" --schema=public --no-owner --no-privileges --clean --if-exists -Fc -f jsb.dump
-   ```
-3. **Restaurar en Supabase**:
-   ```
-   pg_restore --no-owner --no-privileges -d "<SUPABASE_URL>" jsb.dump
-   ```
-   `--no-owner --no-privileges` es obligatorio: el rol `postgres` de Supabase no puede asignar ownership de Railway.
-4. **Verificar conteos** por tabla (`usuarios`, `pagos`, `asistencias`, `marcas_rm`, `movimientos_financieros`) contra el origen antes de seguir.
-5. **Archivos:** si las fotos estaban en R2, copiar los objetos a Supabase conservando el prefijo `uploads/` y reescribir las URLs guardadas — `UPDATE usuarios SET foto_url = replace(foto_url, '<viejo>', '<nuevo>')`, ídem `productos`. Son las dos únicas columnas de archivos.
-6. **Cutover:** `VITE_API_URL` en Netlify → URL de Render; `JSB_API_BASE` en la PC del gym → URL de Render (ver Capa 5.1); `start-estacion.ps1 -ApiUrl <URL>`.
+2. **Desactivar "Enable Data API"** al crear el proyecto — ver "Nota de seguridad: Data API" abajo.
+3. **Crear el bucket** `jainsportbox` como **público** + generar S3 access keys.
+4. **Crear el servicio en Render** desde `render.yaml` y cargar las variables (Capa 3.3).
+5. **Cutover:** `VITE_API_URL` en Netlify → URL de Render; `JSB_API_BASE` en la PC del gym → URL de Render (ver Capa 5.1); `start-estacion.ps1 -ApiUrl <URL>`.
+6. **Recargar los datos reales:** la base queda sin socios, sin planes propios, sin productos y **sin huellas**. Hay que dar de alta los miembros y **re-enrolar cada huella** desde `/usuarios`.
 7. **No apagar Railway todavía** — dejarlo vivo unos días como rollback.
 
-Las migraciones de arranque de `main.py` (`ADD COLUMN IF NOT EXISTS` + `CREATE INDEX IF NOT EXISTS`) son idempotentes y corren solas en el primer arranque. No hay nada que adaptar.
+Al primer arranque el backend crea todo solo: `create_all()` levanta el esquema y `backend/seed.py` siembra los planes por defecto y el admin desde las variables `ADMIN_*`. Las migraciones de arranque de `main.py` (`ADD COLUMN IF NOT EXISTS` + `CREATE INDEX IF NOT EXISTS`) son idempotentes y quedan como no-ops sobre un esquema fresco.
+
+> Si en el futuro hiciera falta mover datos entre dos Postgres, el procedimiento es
+> `pg_dump --schema=public --no-owner --no-privileges -Fc` seguido de `pg_restore --no-owner --no-privileges`. Los flags de owner/privilegios son obligatorios: el rol `postgres` de Supabase no puede asignar ownership de otro proveedor.
+
+### Nota de seguridad: el Data API va deshabilitado a propósito
+
+Supabase ofrece autogenerar una API REST (PostgREST) sobre el esquema `public`. **Está apagada, y debe seguir así.**
+
+El backend se conecta por el protocolo Postgres directo, no por esa API. Dejarla encendida expondría `usuarios`, `pagos` y `huella_template` a internet sin cerradura: la autorización de este sistema vive en los helpers de rol de FastAPI (`_require_admin_or_coach`), no en políticas RLS — no hay ninguna escrita. Con la opción "Automatically expose new tables", además, cada tabla futura se publicaría sola.
+
+Apagarla **no afecta a Storage**, que usa su propia API. Y no rompe el frontend: no hay dependencia de `supabase-js` en el proyecto (verificado en `frontend/package.json` y `frontend/src/`).
 
 ---
 

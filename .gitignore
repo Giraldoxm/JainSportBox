@@ -21,6 +21,11 @@ frontend/dev-dist/
 frontend/.env.local
 frontend/.env.production
 
+# Build Release del bridge (el Debug SÍ va trackeado: la PC del gym corre
+# bin/Debug/net48 sin compilar)
+servicio_biometrico/bin/Release/
+servicio_biometrico/obj/Release/
+
 # Logs en runtime (el bridge mantiene bridge.log abierto y bloqueaba los cambios de rama)
 *.log
 
