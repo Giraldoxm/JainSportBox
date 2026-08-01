@@ -282,10 +282,11 @@ from apscheduler.schedulers.background import BackgroundScheduler
 from apscheduler.triggers.cron import CronTrigger
 
 from routers import alertas, asistencia, auth, ejercicios, finanzas, marcas, metodos_pago, pagos, planes, productos, salud, usuarios, ventas, wods
-from seed import seed_planes, seed_admin
+from seed import seed_planes, seed_admin, seed_ejercicios
 
 seed_planes()
 seed_admin()
+seed_ejercicios()
 
 app = FastAPI(
     title="Jain Sport Box System",
