@@ -105,7 +105,9 @@ def test_registro_ok_sin_foto(client, db_session):
     assert _login(client, data["email"], data["password"]).status_code == 200
 
 
-def test_registro_con_foto(client, db_session):
+def test_registro_ignora_la_foto(client, db_session):
+    # El registro público ya no acepta foto: era el camino más barato para llenar
+    # el bucket de basura. Mandarla igual no rompe nada, pero no se guarda.
     data = _form_registro()
     r = client.post(
         "/registro",
@@ -114,7 +116,28 @@ def test_registro_con_foto(client, db_session):
     )
     assert r.status_code == 201
     u = db_session.query(models.Usuario).filter_by(email=data["email"]).first()
-    assert u.foto_url and u.foto_url.startswith("/uploads/")
+    assert u.foto_url is None
+
+
+def test_registro_honeypot_no_crea_la_cuenta(client, db_session):
+    # Responde el 201 de siempre para no enseñarle al bot cuál es el campo trampa.
+    data = _form_registro(sitio_web="http://spam.example")
+    r = client.post("/registro", data=data)
+    assert r.status_code == 201
+    assert db_session.query(models.Usuario).filter_by(email=data["email"]).first() is None
+
+
+def test_registro_tope_global(client, db_session, monkeypatch):
+    """El techo se cuenta contra la BD, así que no depende de la IP ni sobrevive
+    un reinicio del proceso — al revés que el límite en memoria."""
+    import routers.auth as auth
+
+    creados = db_session.query(models.Usuario).count()
+    monkeypatch.setattr(auth, "REGISTROS_MAX_HORA", creados + 1)
+
+    assert client.post("/registro", data=_form_registro()).status_code == 201
+    r = client.post("/registro", data=_form_registro())
+    assert r.status_code == 429
 
 
 def test_registro_email_duplicado_case_insensitive(client):
@@ -229,8 +252,8 @@ def test_pendientes_expone_datos_acudiente(client, db_session):
 
 
 def test_registro_rate_limit(client):
-    # bucket "registro": 5 por hora por IP
-    for _ in range(5):
+    # bucket "registro": 3 por hora por IP
+    for _ in range(3):
         assert client.post("/registro", data=_form_registro()).status_code == 201
     r = client.post("/registro", data=_form_registro())
     assert r.status_code == 429
@@ -325,6 +348,24 @@ def test_me_foto_reemplaza_anterior(client, cliente):
     url2 = r2.json()["foto_url"]
     assert url2 != url1
     assert not archivo1.exists()  # la anterior se eliminó del disco
+
+
+def test_me_foto_se_guarda_como_webp_redimensionado(client, cliente):
+    """El bucket de Supabase es de 1 GB: guardar los originales de cámara lo llena
+    en pocos cientos de subidas. Toda imagen entra normalizada."""
+    from PIL import Image
+
+    from storage import LADO_MAX_AVATAR, UPLOADS_DIR
+
+    r = client.post("/me/foto", files={"foto": ("a.png", PNG_BYTES, "image/png")}, headers=cliente.headers)
+    assert r.status_code == 200
+    url = r.json()["foto_url"]
+    assert url.endswith(".webp")
+
+    archivo = UPLOADS_DIR / url[len("/uploads/"):]
+    with Image.open(archivo) as img:
+        assert img.format == "WEBP"
+        assert max(img.size) <= LADO_MAX_AVATAR  # el original era de 900x600
 
 
 def test_me_foto_formato_invalido(client, cliente):

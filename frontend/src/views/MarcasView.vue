@@ -3,99 +3,181 @@
 
     <!-- Header -->
     <div class="mb-6">
-      <h2 class="text-3xl font-extrabold text-gray-900 tracking-tight">Mis Marcas</h2>
+      <h2 class="text-3xl font-black text-gray-900 tracking-tight">Mis Marcas</h2>
       <p class="text-gray-500 mt-1">Récords personales · Selecciona un ejercicio para ver y registrar tu marca</p>
     </div>
 
-    <!-- Skeletons -->
-    <div v-if="cargando" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
-      <div v-for="i in 12" :key="i" class="bg-gray-100 rounded-2xl h-28 animate-pulse"></div>
+    <!-- Buscador -->
+    <div class="mb-5 relative max-w-sm">
+      <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 absolute left-3 top-3 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+      </svg>
+      <input
+        v-model="busqueda"
+        type="text"
+        placeholder="Buscar ejercicio..."
+        class="w-full pl-9 pr-4 py-2.5 border border-gray-200 rounded-lg focus:ring-2 focus:ring-red-500 outline-none text-sm"
+      />
     </div>
 
-    <!-- Grid fijo de ejercicios -->
-    <div v-else class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
-      <RouterLink
-        v-for="ej in EJERCICIOS_MARCAS"
-        :key="ej.nombre"
-        :to="{ name: 'MarcasEjercicio', params: { ejercicio: ej.nombre } }"
-        class="bg-white rounded-2xl border border-gray-100 shadow-sm hover:shadow-md transition-shadow group overflow-hidden">
+    <!-- Loading: filas, para que no salte el layout al llegar la tabla -->
+    <div v-if="cargando" class="bg-white rounded-xl border border-gray-100 shadow-sm p-4 space-y-3">
+      <div v-for="i in 6" :key="i" class="h-12 bg-gray-100 rounded-lg animate-pulse" />
+    </div>
 
-        <!-- Valor del PR -->
-        <div class="px-5 pt-5 pb-3">
-          <div class="flex items-start justify-between gap-2">
-            <div class="min-w-0">
-              <p class="text-xs font-bold uppercase tracking-widest text-gray-400 mb-1">{{ etiquetaPR(ej.tipo) }}</p>
-              <template v-if="prDe(ej)">
-                <p class="text-3xl font-black text-gray-900 leading-none">
-                  {{ prDe(ej).valor }}<span class="text-base font-semibold text-gray-400 ml-1">{{ prDe(ej).unidad }}</span>
-                </p>
-                <p class="text-xs text-gray-400 mt-1">{{ conteo(ej.nombre) }} registro{{ conteo(ej.nombre) !== 1 ? 's' : '' }}</p>
-              </template>
-              <template v-else>
-                <p class="text-2xl font-black text-gray-300">Sin registros</p>
-                <p class="text-xs text-gray-400 mt-1">Toca para empezar</p>
-              </template>
+    <!-- Vacío: la lista base son 12 ejercicios fijos, así que esto solo pasa al buscar -->
+    <div
+      v-else-if="ejerciciosFiltrados.length === 0"
+      class="bg-gray-50 border-2 border-dashed border-gray-200 rounded-2xl p-14 text-center"
+    >
+      <svg xmlns="http://www.w3.org/2000/svg" class="h-14 w-14 mx-auto text-gray-300 mb-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M13 10V3L4 14h7v7l9-11h-7z" />
+      </svg>
+      <p class="text-gray-500 font-medium">No se encontraron ejercicios.</p>
+    </div>
+
+    <!-- Listado: cards en móvil, tabla en desktop (mismo patrón que Ejercicios) -->
+    <template v-else>
+
+      <!-- ── Cards (móvil) ── -->
+      <div class="sm:hidden space-y-3">
+        <RouterLink
+          v-for="ej in ejerciciosFiltrados"
+          :key="ej.nombre"
+          :to="{ name: 'MarcasEjercicio', params: { ejercicio: ej.nombre } }"
+          class="block bg-white rounded-xl border border-gray-100 shadow-sm p-4"
+        >
+          <div class="flex items-center justify-between gap-3">
+            <div class="min-w-0 flex-1">
+              <h3 class="font-semibold text-gray-900 truncate">{{ ej.nombre }}</h3>
+              <p v-if="resumen.get(ej.nombre)" class="text-xs text-gray-500 mt-0.5">
+                {{ resumen.get(ej.nombre).conteo }} registro{{ resumen.get(ej.nombre).conteo !== 1 ? 's' : '' }}
+                · última {{ formatFecha(resumen.get(ej.nombre).ultima) }}
+              </p>
+              <p v-else class="text-xs text-gray-400 mt-0.5">Sin registros · toca para empezar</p>
             </div>
-            <svg xmlns="http://www.w3.org/2000/svg"
-              class="h-5 w-5 text-gray-300 group-hover:text-gray-500 group-hover:translate-x-0.5 transition-all shrink-0 mt-1"
-              fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/>
-            </svg>
+            <p v-if="resumen.get(ej.nombre)" class="shrink-0 text-lg font-black text-gray-900 whitespace-nowrap">
+              {{ resumen.get(ej.nombre).valor }}<span class="text-xs font-semibold text-gray-400 ml-1">{{ resumen.get(ej.nombre).unidad }}</span>
+            </p>
+            <span v-else class="shrink-0 text-lg text-gray-300">—</span>
           </div>
-        </div>
+        </RouterLink>
+      </div>
 
-        <!-- Nombre del ejercicio -->
-        <div class="px-5 py-3 border-t border-gray-50 flex items-center justify-between gap-2">
-          <p class="font-bold text-gray-800 truncate">{{ ej.nombre }}</p>
-          <span v-if="sesion && sesion.ejercicio === ej.nombre"
-            class="shrink-0 text-xs font-bold px-2 py-0.5 rounded-full bg-red-100 text-red-600 whitespace-nowrap">
-            ⏱ {{ sesion.series.length }}s
-          </span>
+      <!-- ── Tabla (desktop) ── -->
+      <div class="hidden sm:block bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
+        <div class="overflow-x-auto">
+          <table class="min-w-full divide-y divide-gray-200">
+            <thead class="bg-gray-50">
+              <tr>
+                <th class="px-6 py-4 text-left text-xs font-bold text-gray-500 uppercase tracking-wider">Ejercicio</th>
+                <th class="px-6 py-4 text-left text-xs font-bold text-gray-500 uppercase tracking-wider">Mejor marca</th>
+                <th class="px-6 py-4 text-left text-xs font-bold text-gray-500 uppercase tracking-wider">Registros</th>
+                <th class="px-6 py-4 text-left text-xs font-bold text-gray-500 uppercase tracking-wider">Última</th>
+              </tr>
+            </thead>
+            <tbody class="bg-white divide-y divide-gray-100">
+              <!-- La fila entera es clicable, pero el nombre va como RouterLink real:
+                   así sigue siendo navegable por teclado y abrible en pestaña nueva. -->
+              <tr
+                v-for="ej in ejerciciosFiltrados"
+                :key="ej.nombre"
+                @click="irA(ej.nombre)"
+                class="hover:bg-gray-50 transition-colors group cursor-pointer"
+              >
+                <td class="px-6 py-4 whitespace-nowrap">
+                  <RouterLink
+                    :to="{ name: 'MarcasEjercicio', params: { ejercicio: ej.nombre } }"
+                    @click.stop
+                    class="text-sm font-semibold text-gray-900 group-hover:text-red-600 transition-colors"
+                  >{{ ej.nombre }}</RouterLink>
+                </td>
+                <td class="px-6 py-4 whitespace-nowrap">
+                  <span v-if="resumen.get(ej.nombre)" class="text-sm font-bold text-gray-900">
+                    {{ resumen.get(ej.nombre).valor }}<span class="font-semibold text-gray-400 ml-1">{{ resumen.get(ej.nombre).unidad }}</span>
+                  </span>
+                  <span v-else class="text-sm text-gray-300">—</span>
+                </td>
+                <td class="px-6 py-4 whitespace-nowrap">
+                  <span v-if="resumen.get(ej.nombre)" class="text-sm text-gray-600">{{ resumen.get(ej.nombre).conteo }}</span>
+                  <span v-else class="text-sm text-gray-300">—</span>
+                </td>
+                <td class="px-6 py-4 whitespace-nowrap">
+                  <span v-if="resumen.get(ej.nombre)" class="text-sm text-gray-600">{{ formatFecha(resumen.get(ej.nombre).ultima) }}</span>
+                  <span v-else class="text-sm text-gray-300">—</span>
+                </td>
+              </tr>
+            </tbody>
+          </table>
         </div>
+      </div>
 
-      </RouterLink>
-    </div>
+    </template>
 
   </div>
 </template>
 
 <script setup>
-import { ref, onMounted } from 'vue'
-import { RouterLink } from 'vue-router'
+import { ref, computed, onMounted } from 'vue'
+import { RouterLink, useRouter } from 'vue-router'
 import api from '../api'
 import { EJERCICIOS_MARCAS } from '../data/ejerciciosMarcas'
-import { useSessionMarca } from '../composables/useSessionMarca'
 
-const { sesion } = useSessionMarca()
+const router = useRouter()
 
 const marcas   = ref([])
+const busqueda = ref('')
 const cargando = ref(true)
 
 const KG_PER_LB = 2.20462
 const toKg = (v, u) => u === 'lbs' ? v / KG_PER_LB : v
 
-function etiquetaPR(tipo) {
-  if (tipo === 'reps')  return 'Mejor reps'
-  if (tipo === 'leger') return 'Mejor nivel'
-  return 'Mejor 1RM'
-}
+const formatFecha = (f) =>
+  new Date(f + 'T12:00:00').toLocaleDateString('es-CO', { day: '2-digit', month: 'short', year: 'numeric' })
 
-function prDe(ej) {
-  const lista = marcas.value.filter(m => m.ejercicio === ej.nombre)
-  if (!lista.length) return null
+const ejerciciosFiltrados = computed(() => {
+  const q = busqueda.value.trim().toLowerCase()
+  if (!q) return EJERCICIOS_MARCAS
+  return EJERCICIOS_MARCAS.filter(e => e.nombre.toLowerCase().includes(q))
+})
 
-  if (ej.tipo === 'reps') {
+/**
+ * Un solo recorrido de `marcas` → Map por ejercicio con { valor, unidad, conteo, ultima }.
+ * Los ejercicios sin registros no entran al Map (la fila muestra "—").
+ */
+const resumen = computed(() => {
+  const porEjercicio = new Map()
+  for (const m of marcas.value) {
+    if (!porEjercicio.has(m.ejercicio)) porEjercicio.set(m.ejercicio, [])
+    porEjercicio.get(m.ejercicio).push(m)
+  }
+
+  const out = new Map()
+  for (const ej of EJERCICIOS_MARCAS) {
+    const lista = porEjercicio.get(ej.nombre)
+    if (!lista?.length) continue
+    out.set(ej.nombre, {
+      ...mejorDe(ej.tipo, lista),
+      conteo: lista.length,
+      ultima: lista.reduce((a, b) => (b.fecha > a ? b.fecha : a), lista[0].fecha),
+    })
+  }
+  return out
+})
+
+function mejorDe(tipo, lista) {
+  if (tipo === 'reps') {
     const mejor = lista.reduce((a, b) => (b.repeticiones || 0) > (a.repeticiones || 0) ? b : a)
     return { valor: mejor.repeticiones, unidad: 'reps' }
   }
 
-  if (ej.tipo === 'leger') {
+  if (tipo === 'leger') {
     // PR = mayor nivel; desempata por palier
     const mejor = lista.reduce((a, b) => {
       if ((b.nivel || 0) !== (a.nivel || 0)) return (b.nivel || 0) > (a.nivel || 0) ? b : a
       return (b.palier || 0) > (a.palier || 0) ? b : a
     })
-    return { valor: `${mejor.nivel}.${mejor.palier}`, unidad: '' }
+    return { valor: `nivel ${mejor.nivel}.${mejor.palier}`, unidad: '' }
   }
 
   // barra / corporal_lastre → 1RM (normalizado para comparar entre kg y lbs)
@@ -103,9 +185,7 @@ function prDe(ej) {
   return { valor: mejor.rm_calculado, unidad: mejor.unidad }
 }
 
-function conteo(nombre) {
-  return marcas.value.filter(m => m.ejercicio === nombre).length
-}
+const irA = (ejercicio) => router.push({ name: 'MarcasEjercicio', params: { ejercicio } })
 
 async function cargar() {
   cargando.value = true

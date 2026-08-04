@@ -13,5 +13,9 @@ class AlertaResponse(BaseModel):
     enviada: bool
     fecha_creacion: datetime
     fecha_enviada: Optional[datetime]
+    # El panel los usa para los chips de canal y de falla de envío.
+    # `intentos` y `wa_message_id` NO se exponen: son diagnóstico de servidor.
+    canal: Optional[str] = None
+    error_envio: Optional[str] = None
 
     model_config = {"from_attributes": True}

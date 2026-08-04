@@ -156,7 +156,7 @@
           type="button"
           @click="form.activo = !form.activo"
           class="relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none flex-shrink-0"
-          :class="form.activo ? 'bg-green-500' : 'bg-gray-300'"
+          :class="form.activo ? 'bg-emerald-500' : 'bg-gray-300'"
         >
           <span
             class="inline-block h-4 w-4 transform rounded-full bg-white shadow transition-transform"

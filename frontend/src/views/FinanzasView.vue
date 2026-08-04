@@ -7,13 +7,24 @@
         <h2 class="text-3xl font-extrabold text-gray-900 tracking-tight">Módulo Financiero</h2>
         <p class="text-gray-500 mt-1">Flujo de caja · Ingresos y egresos del box</p>
       </div>
-      <button @click="abrirModal()"
-        class="flex items-center gap-2 bg-red-600 hover:bg-red-700 text-white font-bold py-2.5 px-5 rounded-lg shadow transition-colors">
-        <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
-        </svg>
-        Nuevo movimiento
-      </button>
+      <div class="flex flex-wrap gap-2">
+        <!-- Exporta el período seleccionado arriba, no todo el histórico. -->
+        <button @click="exportarExcel" :disabled="exportando"
+          class="flex items-center gap-2 bg-white border border-gray-300 hover:border-red-500 hover:text-red-700 disabled:opacity-60 text-gray-700 font-semibold py-2.5 px-4 rounded-lg shadow-sm transition-colors">
+          <span v-if="exportando" class="animate-spin rounded-full h-4 w-4 border-b-2 border-red-600"></span>
+          <svg v-else xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 text-red-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
+          </svg>
+          {{ exportando ? 'Exportando…' : 'Exportar Excel' }}
+        </button>
+        <button @click="abrirModal()"
+          class="flex items-center gap-2 bg-red-600 hover:bg-red-700 text-white font-bold py-2.5 px-5 rounded-lg shadow transition-colors">
+          <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
+          </svg>
+          Nuevo movimiento
+        </button>
+      </div>
     </div>
 
     <!-- ── Selector de período ── -->
@@ -65,20 +76,20 @@
         </div>
 
         <!-- Tienda -->
-        <div class="bg-white rounded-2xl p-5 border border-violet-100 shadow-sm">
+        <div class="bg-white rounded-2xl p-5 border border-gray-200 shadow-sm">
           <div class="flex items-center justify-between mb-2">
-            <span class="text-xs font-bold text-violet-600 uppercase tracking-widest">Tienda</span>
-            <div class="w-9 h-9 rounded-xl bg-violet-100 flex items-center justify-center">
-              <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 text-violet-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <span class="text-xs font-bold text-gray-600 uppercase tracking-widest">Tienda</span>
+            <div class="w-9 h-9 rounded-xl bg-gray-100 flex items-center justify-center">
+              <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 text-gray-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 11V7a4 4 0 00-8 0v4M5 9h14l1 12H4L5 9z"/>
               </svg>
             </div>
           </div>
           <p class="text-2xl font-black text-gray-900">{{ formatMoneda(balance.total_tienda) }}</p>
-          <p class="text-xs text-violet-400 mt-1">Ventas de productos del box</p>
-          <div class="mt-3 pt-3 border-t border-violet-50 flex items-center justify-between">
+          <p class="text-xs text-gray-400 mt-1">Ventas de productos del box</p>
+          <div class="mt-3 pt-3 border-t border-gray-100 flex items-center justify-between">
             <span class="text-xs text-gray-400">% del total ingresos</span>
-            <span class="text-xs font-bold text-violet-600">
+            <span class="text-xs font-bold text-gray-600">
               {{ balance.ingresos_total > 0 ? Math.round(balance.total_tienda / balance.ingresos_total * 100) : 0 }}%
             </span>
           </div>
@@ -99,12 +110,6 @@
             </div>
           </div>
           <p class="text-2xl font-black text-gray-900">{{ formatMoneda(balance.ingresos_total) }}</p>
-          <div class="flex flex-wrap gap-1.5 mt-3">
-            <span v-for="(val, cat) in balance.ingresos_por_categoria" :key="cat"
-              class="text-xs bg-emerald-50 text-emerald-700 px-2 py-0.5 rounded-full font-medium">
-              {{ labelCategoria(cat) }} · {{ formatMoneda(val) }}
-            </span>
-          </div>
         </div>
 
         <!-- Egresos -->
@@ -118,14 +123,6 @@
             </div>
           </div>
           <p class="text-2xl font-black text-gray-900">{{ formatMoneda(balance.egresos_total) }}</p>
-          <div class="flex flex-wrap gap-1.5 mt-3">
-            <span v-for="(val, cat) in balance.egresos_por_categoria" :key="cat"
-              class="text-xs bg-red-50 text-red-600 px-2 py-0.5 rounded-full font-medium">
-              {{ labelCategoria(cat) }} · {{ formatMoneda(val) }}
-            </span>
-            <span v-if="!Object.keys(balance.egresos_por_categoria || {}).length"
-              class="text-xs text-gray-400 italic">Sin egresos en este período</span>
-          </div>
         </div>
 
         <!-- Balance neto -->
@@ -190,7 +187,7 @@
             </button>
             <button @click="filtroMetodo = 'transferencia'"
               class="text-xs px-3 py-1 rounded-md font-semibold transition-colors flex items-center gap-1"
-              :class="filtroMetodo === 'transferencia' ? 'bg-white shadow text-blue-600' : 'text-gray-500 hover:text-gray-700'">
+              :class="filtroMetodo === 'transferencia' ? 'bg-white shadow text-gray-800' : 'text-gray-500 hover:text-gray-700'">
               <svg xmlns="http://www.w3.org/2000/svg" class="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 14v3m4-3v3m4-3v3M3 21h18M3 10h18M3 7l9-4 9 4M4 10h16v11H4V10z"/></svg>
               Transferencia
             </button>
@@ -223,7 +220,7 @@
             </tr>
           </thead>
           <tbody class="divide-y divide-gray-50">
-            <tr v-for="m in movimientosFiltrados" :key="m.id" class="hover:bg-gray-50 transition-colors group">
+            <tr v-for="m in movimientosPagina" :key="m.id" class="hover:bg-gray-50 transition-colors group">
               <td class="px-5 py-3.5 whitespace-nowrap text-sm text-gray-500">
                 {{ formatFecha(m.fecha) }}
               </td>
@@ -268,13 +265,44 @@
           </tbody>
         </table>
       </div>
+
+      <!-- ── Paginación ── -->
+      <div v-if="!cargandoMovimientos && movimientosFiltrados.length > POR_PAGINA"
+        class="px-5 py-4 border-t border-gray-100 flex flex-col sm:flex-row items-center justify-between gap-3">
+        <p class="text-xs text-gray-500 order-2 sm:order-1">
+          Mostrando <span class="font-bold text-gray-700">{{ filaDesde }}–{{ filaHasta }}</span>
+          de <span class="font-bold text-gray-700">{{ movimientosFiltrados.length }}</span>
+        </p>
+        <div class="flex items-center gap-1 order-1 sm:order-2">
+          <button @click="irAPagina(pagina - 1)" :disabled="pagina === 1"
+            class="px-2.5 py-1.5 rounded-lg border border-gray-200 text-gray-500 hover:border-gray-400 hover:text-gray-700 disabled:opacity-40 disabled:pointer-events-none transition-colors"
+            aria-label="Página anterior">
+            <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/></svg>
+          </button>
+          <template v-for="(p, i) in paginasVisibles" :key="`${p}-${i}`">
+            <span v-if="p === '…'" class="px-1.5 text-gray-400 text-sm select-none">…</span>
+            <button v-else @click="irAPagina(p)"
+              class="min-w-[2rem] px-2 py-1.5 rounded-lg text-sm font-bold border transition-colors"
+              :class="p === pagina
+                ? 'bg-gray-800 text-white border-gray-800'
+                : 'bg-white text-gray-500 border-gray-200 hover:border-gray-400 hover:text-gray-700'">
+              {{ p }}
+            </button>
+          </template>
+          <button @click="irAPagina(pagina + 1)" :disabled="pagina === totalPaginas"
+            class="px-2.5 py-1.5 rounded-lg border border-gray-200 text-gray-500 hover:border-gray-400 hover:text-gray-700 disabled:opacity-40 disabled:pointer-events-none transition-colors"
+            aria-label="Página siguiente">
+            <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
+          </button>
+        </div>
+      </div>
     </div>
 
     <!-- ── Modal nuevo movimiento ── -->
     <div v-if="mostrarModal" class="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
       <div class="bg-white rounded-2xl shadow-2xl w-full max-w-lg max-h-[90vh] overflow-y-auto">
         <div class="p-6 border-b border-gray-100 flex items-center justify-between">
-          <h3 class="text-lg font-bold text-gray-800">Registrar egreso</h3>
+          <h3 class="text-lg font-bold text-gray-800">Registrar movimiento</h3>
           <button @click="cerrarModal" class="p-2 rounded-lg hover:bg-gray-100 text-gray-400">
             <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
@@ -284,20 +312,35 @@
 
         <form @submit.prevent="guardarMovimiento" class="p-6 space-y-4">
 
-          <!-- Categoría -->
+          <!-- Tipo -->
+          <div>
+            <label class="block text-sm font-semibold text-gray-700 mb-1.5">Tipo de movimiento</label>
+            <div class="grid grid-cols-2 gap-2">
+              <label v-for="t in tipos" :key="t.value"
+                class="flex items-center justify-center gap-2 py-2.5 rounded-lg border-2 cursor-pointer transition-all text-sm font-bold"
+                :class="form.tipo === t.value
+                  ? (t.value === 'ingreso' ? 'border-emerald-500 bg-emerald-50 text-emerald-700' : 'border-red-500 bg-red-50 text-red-700')
+                  : 'border-gray-200 text-gray-500 hover:border-gray-300'">
+                <input type="radio" v-model="form.tipo" :value="t.value" class="sr-only">
+                <span class="w-1.5 h-1.5 rounded-full"
+                  :class="form.tipo === t.value ? (t.value === 'ingreso' ? 'bg-emerald-500' : 'bg-red-500') : 'bg-gray-300'"></span>
+                {{ t.label }}
+              </label>
+            </div>
+          </div>
+
+          <!-- Categoría — las opciones dependen del tipo -->
           <div>
             <label class="block text-sm font-semibold text-gray-700 mb-1.5">Categoría</label>
             <select v-model="form.categoria" required
               class="w-full px-4 py-2.5 rounded-lg border border-gray-300 focus:ring-2 focus:ring-red-500 outline-none">
               <option value="" disabled>Selecciona una categoría</option>
-              <option value="renta">Renta del local</option>
-              <option value="servicios">Servicios (luz, agua, internet)</option>
-              <option value="equipamiento">Equipamiento</option>
-              <option value="nomina">Nómina / Salarios</option>
-              <option value="marketing">Marketing y publicidad</option>
-              <option value="mantenimiento">Mantenimiento</option>
-              <option value="otros">Otros gastos</option>
+              <option v-for="c in categoriasDelTipo" :key="c.value" :value="c.value">{{ c.label }}</option>
             </select>
+            <p v-if="form.tipo === 'ingreso'" class="text-xs text-gray-400 mt-1.5">
+              Los pagos de membresía se registran desde el perfil del cliente y las ventas desde la Tienda;
+              acá van los ingresos que no pasan por esos flujos.
+            </p>
           </div>
 
           <!-- Concepto -->
@@ -358,9 +401,10 @@
               Cancelar
             </button>
             <button type="submit" :disabled="guardando"
-              class="flex-1 py-2.5 rounded-xl font-bold text-white transition-colors disabled:opacity-50 flex items-center justify-center gap-2 bg-red-500 hover:bg-red-600">
+              class="flex-1 py-2.5 rounded-xl font-bold text-white transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
+              :class="form.tipo === 'ingreso' ? 'bg-emerald-600 hover:bg-emerald-700' : 'bg-red-500 hover:bg-red-600'">
               <span v-if="guardando" class="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></span>
-              {{ guardando ? 'Guardando...' : 'Registrar egreso' }}
+              {{ guardando ? 'Guardando...' : (form.tipo === 'ingreso' ? 'Registrar ingreso' : 'Registrar egreso') }}
             </button>
           </div>
         </form>
@@ -373,6 +417,7 @@
 <script setup>
 import { ref, computed, onMounted, watch } from 'vue'
 import api from '../api'
+import { BADGE_NEUTRO } from '../data/paleta'
 
 // ── Estado ───────────────────────────────────────────────────
 const balance = ref({ ingresos_total: 0, total_membresias: 0, total_tienda: 0, egresos_total: 0, balance_neto: 0, ingresos_por_categoria: {}, egresos_por_categoria: {} })
@@ -479,9 +524,69 @@ const movimientosFiltrados = computed(() => {
   })
 })
 
+// ── Paginación (en cliente: cargarMovimientos ya trae hasta 200 del período) ──
+const POR_PAGINA = 15
+const pagina = ref(1)
+
+// Ojo con los nombres: rangoDesde/rangoHasta ya son las fechas del período "Rango".
+const totalPaginas = computed(() => Math.max(1, Math.ceil(movimientosFiltrados.value.length / POR_PAGINA)))
+const filaDesde = computed(() => (pagina.value - 1) * POR_PAGINA + 1)
+const filaHasta = computed(() => Math.min(pagina.value * POR_PAGINA, movimientosFiltrados.value.length))
+const movimientosPagina = computed(() => movimientosFiltrados.value.slice(filaDesde.value - 1, filaHasta.value))
+
+function irAPagina(p) {
+  pagina.value = Math.min(Math.max(1, p), totalPaginas.value)
+}
+
+// Cambiar de período o de filtro puede dejar la página actual fuera de rango.
+watch([periodoActivo, filtroTipo, filtroMetodo], () => { pagina.value = 1 })
+// Si la lista se achica por otra vía (borrar un movimiento), se reencuadra.
+watch(totalPaginas, (n) => { if (pagina.value > n) pagina.value = n })
+
+/** Números a mostrar, con elipsis: 1 … 4 [5] 6 … 12 */
+const paginasVisibles = computed(() => {
+  const total = totalPaginas.value
+  const act = pagina.value
+  if (total <= 7) return Array.from({ length: total }, (_, i) => i + 1)
+
+  const paginas = [1]
+  if (act > 3) paginas.push('…')
+  for (let p = Math.max(2, act - 1); p <= Math.min(total - 1, act + 1); p++) paginas.push(p)
+  if (act < total - 2) paginas.push('…')
+  paginas.push(total)
+  return paginas
+})
+
 function cargarTodo() {
   cargarBalance()
   cargarMovimientos()
+}
+
+// ── Exportar a Excel ──────────────────────────────────────────
+// Manda el mismo período que la pantalla; el backend arma resumen + movimientos.
+const exportando = ref(false)
+
+async function exportarExcel() {
+  exportando.value = true
+  const { desde, hasta } = calcularFechas()
+  const params = {}
+  if (desde) params.fecha_desde = desde
+  if (hasta) params.fecha_hasta = hasta
+  try {
+    const { data } = await api.get('/finanzas/exportar-excel', { params, responseType: 'blob' })
+    const url = URL.createObjectURL(data)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = `finanzas_jainsportbox_${new Date().toISOString().slice(0, 10)}.xlsx`
+    document.body.appendChild(a)
+    a.click()
+    a.remove()
+    URL.revokeObjectURL(url)
+  } catch (e) {
+    alert('Error al exportar: ' + (e.response?.data?.detail || e.message))
+  } finally {
+    exportando.value = false
+  }
 }
 
 // ── Formulario ────────────────────────────────────────────────
@@ -489,6 +594,31 @@ const metodos = [
   { value: 'efectivo', label: 'Efectivo' },
   { value: 'transferencia', label: 'Transferencia' },
 ]
+
+const tipos = [
+  { value: 'ingreso', label: 'Ingreso' },
+  { value: 'egreso', label: 'Egreso' },
+]
+
+// Las categorías no son intercambiables entre tipos: "Nómina" no es un ingreso ni
+// "Membresía" un egreso. `venta_tienda` no se ofrece a propósito — las ventas se
+// leen de la tabla `ventas`, y cargarlas también acá las contaría dos veces.
+const CATEGORIAS_POR_TIPO = {
+  ingreso: [
+    { value: 'mensualidad', label: 'Membresía' },
+    { value: 'ingreso_varios', label: 'Otros ingresos' },
+  ],
+  egreso: [
+    { value: 'renta', label: 'Renta del local' },
+    { value: 'servicios', label: 'Servicios (luz, agua, internet)' },
+    { value: 'equipamiento', label: 'Equipamiento' },
+    { value: 'nomina', label: 'Nómina / Salarios' },
+    { value: 'marketing', label: 'Marketing y publicidad' },
+    { value: 'mantenimiento', label: 'Mantenimiento' },
+    { value: 'otros', label: 'Otros gastos' },
+  ],
+}
+
 
 const formVacio = () => ({
   tipo: 'egreso',
@@ -501,6 +631,12 @@ const formVacio = () => ({
 })
 
 const form = ref(formVacio())
+
+const categoriasDelTipo = computed(() => CATEGORIAS_POR_TIPO[form.value.tipo] || [])
+
+// Al cambiar de tipo la categoría elegida deja de existir en la lista: se limpia
+// para no mandar al backend un egreso categorizado como "Membresía".
+watch(() => form.value.tipo, () => { form.value.categoria = '' })
 
 function abrirModal() {
   form.value = formVacio()
@@ -557,21 +693,10 @@ const LABELS_CATEGORIA = {
   otros: 'Otros',
 }
 
-const COLORES_CATEGORIA = {
-  mensualidad: 'bg-red-100 text-red-700',
-  venta_tienda: 'bg-blue-100 text-blue-700',
-  ingreso_varios: 'bg-teal-100 text-teal-700',
-  renta: 'bg-orange-100 text-orange-700',
-  servicios: 'bg-yellow-100 text-yellow-700',
-  equipamiento: 'bg-purple-100 text-purple-700',
-  nomina: 'bg-pink-100 text-pink-700',
-  marketing: 'bg-cyan-100 text-cyan-700',
-  mantenimiento: 'bg-amber-100 text-amber-700',
-  otros: 'bg-gray-100 text-gray-600',
-}
-
 const labelCategoria = (cat) => LABELS_CATEGORIA[cat] || cat
-const colorCategoria = (cat) => COLORES_CATEGORIA[cat] || 'bg-gray-100 text-gray-600'
+// Son 10 categorias: por encima de ~6 hues el color deja de distinguirse y estorba,
+// asi que el badge va neutro. El signo del movimiento ya se lee en el color del monto.
+const colorCategoria = () => BADGE_NEUTRO
 
 const formatMoneda = (v) =>
   new Intl.NumberFormat('es-CO', { style: 'currency', currency: 'COP', maximumFractionDigits: 0 }).format(v || 0)

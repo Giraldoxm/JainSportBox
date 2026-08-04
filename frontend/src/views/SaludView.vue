@@ -139,7 +139,7 @@ const imcActual    = computed(() => {
 })
 
 function imcInfo(imc) {
-  if (imc < 18.5) return { categoria: 'Bajo peso',  colorTexto: 'text-blue-700',    colorFondo: 'bg-blue-50 border-blue-100',       badge: 'bg-blue-100 text-blue-700',       colorBarra: 'bg-blue-400'    }
+  if (imc < 18.5) return { categoria: 'Bajo peso',  colorTexto: 'text-amber-700',   colorFondo: 'bg-amber-50 border-amber-100',     badge: 'bg-amber-100 text-amber-700',     colorBarra: 'bg-amber-400'   }
   if (imc < 25)   return { categoria: 'Normal',      colorTexto: 'text-emerald-700', colorFondo: 'bg-emerald-50 border-emerald-100', badge: 'bg-emerald-100 text-emerald-700', colorBarra: 'bg-emerald-400' }
   if (imc < 30)   return { categoria: 'Sobrepeso',   colorTexto: 'text-amber-700',   colorFondo: 'bg-amber-50 border-amber-100',     badge: 'bg-amber-100 text-amber-700',     colorBarra: 'bg-amber-400'   }
   return           { categoria: 'Obesidad',    colorTexto: 'text-red-700',     colorFondo: 'bg-red-50 border-red-100',         badge: 'bg-red-100 text-red-700',         colorBarra: 'bg-red-400'     }

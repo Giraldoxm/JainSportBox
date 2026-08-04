@@ -39,14 +39,14 @@
             <span
               v-if="ej.porcentaje_rm != null"
               class="inline-flex items-center gap-0.5 text-xs font-semibold px-2 py-0.5 rounded-full"
-              :class="dark ? 'bg-white/20 text-white' : 'bg-orange-50 text-orange-700'"
+              :class="dark ? 'bg-white/20 text-white' : 'bg-gray-100 text-gray-600'"
             >
               {{ ej.porcentaje_rm }}% 1RM
             </span>
             <span
               v-if="ej.tiempo_segundos"
               class="inline-flex items-center gap-0.5 text-xs font-semibold px-2 py-0.5 rounded-full"
-              :class="dark ? 'bg-white/20 text-white' : 'bg-blue-50 text-blue-700'"
+              :class="dark ? 'bg-white/20 text-white' : 'bg-gray-100 text-gray-600'"
             >
               {{ formatTiempo(ej.tiempo_segundos) }}
             </span>

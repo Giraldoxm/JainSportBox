@@ -17,6 +17,8 @@ def _payload_usuario(**overrides):
         "genero": "femenino",
         "rol": "cliente",
         "telefono": "3011112233",
+        "contacto_emergencia_nombre": "Contacto Emergencia",
+        "contacto_emergencia_telefono": "3111112233",
     }
     data.update(overrides)
     return data
@@ -35,6 +37,14 @@ def test_admin_crea_cliente(client, admin_headers):
     assert "huella_template" not in body
 
 
+def test_contacto_de_emergencia_es_obligatorio(client, admin_headers):
+    """Mismo criterio que el registro público: sin contacto de emergencia no se crea."""
+    payload = _payload_usuario()
+    del payload["contacto_emergencia_nombre"]
+    del payload["contacto_emergencia_telefono"]
+    assert client.post("/usuarios/", json=payload, headers=admin_headers).status_code == 422
+
+
 def test_coach_crea_cliente_pero_no_staff(client, coach):
     assert client.post("/usuarios/", json=_payload_usuario(), headers=coach.headers).status_code == 201
     assert client.post("/usuarios/", json=_payload_usuario(rol="coach"), headers=coach.headers).status_code == 403
@@ -44,6 +54,12 @@ def test_coach_crea_cliente_pero_no_staff(client, coach):
 def test_admin_crea_coach(client, admin_headers):
     r = client.post("/usuarios/", json=_payload_usuario(rol="coach"), headers=admin_headers)
     assert r.status_code == 201
+
+
+def test_nadie_puede_crear_otro_admin(client, admin_headers):
+    """El admin es único (lo siembra seed.py): ni el propio admin crea otro."""
+    r = client.post("/usuarios/", json=_payload_usuario(rol="admin"), headers=admin_headers)
+    assert r.status_code == 403
 
 
 def test_cliente_no_crea_usuarios(client, cliente):
@@ -83,7 +99,7 @@ def test_listado_cliente_403(client, cliente):
 def test_pendientes(client, admin_headers, pendiente, cliente, db_session):
     plan = db_session.query(models.Plan).first()
     db_session.query(models.Usuario).filter_by(id=pendiente.user.id).update(
-        {"plan_solicitado_id": plan.id}
+        {"plan_solicitado_id": plan.id, "foto_url": "fotos/pendiente.jpg"}
     )
     db_session.commit()
     r = client.get("/usuarios/pendientes", headers=admin_headers)
@@ -91,6 +107,8 @@ def test_pendientes(client, admin_headers, pendiente, cliente, db_session):
     body = r.json()
     assert [u["id"] for u in body] == [pendiente.user.id]
     assert body[0]["plan_solicitado"]["id"] == plan.id
+    # El listado muestra el avatar del pendiente, así que la foto viaja en el payload.
+    assert body[0]["foto_url"] == "fotos/pendiente.jpg"
 
 
 # ── GET /usuarios/exportar-excel ───────────────────────────────
@@ -118,6 +136,55 @@ def test_exportar_excel_admin(client, admin_headers, cliente):
 
 def test_exportar_excel_coach_ok(client, coach):
     assert client.get("/usuarios/exportar-excel", headers=coach.headers).status_code == 200
+
+
+def test_exportar_excel_solo_equipo(client, admin_headers, coach, cliente):
+    """equipo=true trae la hoja del staff, y el cliente no se cuela ahí."""
+    import io
+
+    from openpyxl import load_workbook
+
+    r = client.get(
+        "/usuarios/exportar-excel",
+        params={"clientes": "false", "equipo": "true"},
+        headers=admin_headers,
+    )
+    assert r.status_code == 200
+    assert "equipo_jainsportbox_" in r.headers["content-disposition"]
+
+    wb = load_workbook(io.BytesIO(r.content))
+    assert wb.sheetnames == ["Equipo del box"]
+    filas = list(wb["Equipo del box"].iter_rows(values_only=True))
+    assert "Rol" in filas[0]
+    nombres = [f[0] for f in filas[1:]]
+    assert coach.user.nombre in nombres
+    assert cliente.user.nombre not in nombres
+
+
+def test_exportar_excel_ambos_grupos(client, admin_headers, coach, cliente):
+    import io
+
+    from openpyxl import load_workbook
+
+    r = client.get(
+        "/usuarios/exportar-excel",
+        params={"clientes": "true", "equipo": "true"},
+        headers=admin_headers,
+    )
+    assert r.status_code == 200
+    assert "usuarios_jainsportbox_" in r.headers["content-disposition"]
+
+    wb = load_workbook(io.BytesIO(r.content))
+    assert wb.sheetnames == ["Clientes", "Equipo del box"]
+
+
+def test_exportar_excel_sin_grupos_400(client, admin_headers):
+    r = client.get(
+        "/usuarios/exportar-excel",
+        params={"clientes": "false", "equipo": "false"},
+        headers=admin_headers,
+    )
+    assert r.status_code == 400
 
 
 def test_exportar_excel_cliente_403(client, cliente):
@@ -267,6 +334,76 @@ def test_eliminar_usuario_cascada(client, admin_headers, cliente, db_session):
 
 def test_eliminar_usuario_inexistente(client, admin_headers):
     assert client.delete("/usuarios/999999", headers=admin_headers).status_code == 404
+
+
+def test_coach_no_puede_eliminar_admin(client, coach, crear_usuario):
+    otro_admin = crear_usuario("admin")
+    r = client.delete(f"/usuarios/{otro_admin.user.id}", headers=coach.headers)
+    assert r.status_code == 403
+
+
+def test_coach_no_puede_eliminar_otro_coach(client, coach, crear_usuario):
+    otro_coach = crear_usuario("coach")
+    r = client.delete(f"/usuarios/{otro_coach.user.id}", headers=coach.headers)
+    assert r.status_code == 403
+
+
+def test_coach_si_puede_eliminar_cliente(client, coach, cliente):
+    r = client.delete(f"/usuarios/{cliente.user.id}", headers=coach.headers)
+    assert r.status_code == 204
+
+
+# ── POST /usuarios/pendientes/eliminar ─────────────────────────
+
+
+def test_eliminar_pendientes_en_bloque(client, admin_headers, crear_usuario):
+    ids = [crear_usuario("pendiente").user.id for _ in range(3)]
+    r = client.post("/usuarios/pendientes/eliminar", json={"ids": ids}, headers=admin_headers)
+    assert r.status_code == 200
+    assert r.json()["eliminados"] == 3
+    assert client.get("/usuarios/pendientes", headers=admin_headers).json() == []
+
+
+def test_eliminar_pendientes_ignora_a_los_que_no_son_pendientes(
+    client, admin_headers, cliente, coach, pendiente
+):
+    # El filtro por rol es lo que impide que un id equivocado borre una cuenta real.
+    r = client.post(
+        "/usuarios/pendientes/eliminar",
+        json={"ids": [pendiente.user.id, cliente.user.id, coach.user.id]},
+        headers=admin_headers,
+    )
+    assert r.status_code == 200
+    assert r.json()["eliminados"] == 1
+    ids_vivos = [u["id"] for u in client.get("/usuarios/", headers=admin_headers).json()]
+    assert cliente.user.id in ids_vivos
+    assert coach.user.id in ids_vivos
+
+
+def test_eliminar_pendientes_coach_403(client, coach, pendiente):
+    r = client.post(
+        "/usuarios/pendientes/eliminar",
+        json={"ids": [pendiente.user.id]},
+        headers=coach.headers,
+    )
+    assert r.status_code == 403
+
+
+def test_staff_puede_eliminar_pendiente(client, coach, pendiente):
+    # Descartar la solicitud del que se registró y nunca apareció por el box.
+    r = client.delete(f"/usuarios/{pendiente.user.id}", headers=coach.headers)
+    assert r.status_code == 204
+    assert client.get("/usuarios/pendientes", headers=coach.headers).json() == []
+
+
+def test_admin_puede_eliminar_coach(client, admin_headers, coach):
+    r = client.delete(f"/usuarios/{coach.user.id}", headers=admin_headers)
+    assert r.status_code == 204
+
+
+def test_nadie_puede_eliminarse_a_si_mismo(client, coach):
+    # El guard aplica también al admin: si no, podría dejar el sistema sin administración.
+    assert client.delete(f"/usuarios/{coach.user.id}", headers=coach.headers).status_code == 400
 
 
 # ── Foto de perfil (admin) ─────────────────────────────────────

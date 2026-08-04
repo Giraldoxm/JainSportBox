@@ -8,19 +8,21 @@
     <!-- Input grande estilo recepción -->
     <form @submit.prevent="registrarAcceso" class="mb-6">
       <label class="block text-xs font-bold text-gray-500 uppercase tracking-wide mb-2">Cédula / TI</label>
-      <div class="flex gap-3">
+      <!-- En móvil el botón va debajo y a lo ancho: en fila, el ancho intrínseco del
+           input (con text-2xl) empujaba el botón fuera de la pantalla. -->
+      <div class="flex flex-col sm:flex-row gap-3">
         <input
           ref="inputDoc"
           v-model="documento"
           type="text"
           inputmode="numeric"
           autocomplete="off"
-          placeholder="Ej. 1020456789"
-          class="flex-1 px-5 py-4 rounded-2xl border-2 border-gray-200 text-2xl font-black tracking-wider text-gray-800 focus:outline-none focus:border-red-500 transition-colors"
+          placeholder="1020456789"
+          class="w-full sm:flex-1 min-w-0 px-5 py-4 rounded-2xl border-2 border-gray-200 text-2xl font-black tracking-wider text-gray-800 focus:outline-none focus:border-red-500 transition-colors placeholder:font-normal placeholder:tracking-normal placeholder:text-lg placeholder:text-gray-300"
           :disabled="procesando"
         />
         <button type="submit" :disabled="procesando || !documento.trim()"
-          class="px-6 rounded-2xl bg-red-600 hover:bg-red-700 disabled:bg-red-300 text-white font-black text-sm uppercase tracking-wide transition-colors flex items-center gap-2">
+          class="w-full sm:w-auto shrink-0 px-6 py-4 sm:py-0 rounded-2xl bg-red-600 hover:bg-red-700 disabled:bg-red-300 text-white font-black text-sm uppercase tracking-wide transition-colors flex items-center justify-center gap-2">
           <span v-if="procesando" class="animate-spin rounded-full h-5 w-5 border-b-2 border-white"></span>
           <template v-else>
             <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -59,7 +61,28 @@
       <p class="text-sm font-semibold text-red-600 mt-1">{{ error }}</p>
     </div>
 
-    <p class="text-xs text-gray-400 text-center">
+    <!-- Fallback: la persona no aparece o es un invitado. Secundario a propósito —
+         el camino correcto es el submit de arriba, que sí registra la asistencia. -->
+    <div class="border-t border-gray-100 pt-5 mt-8">
+      <p class="text-sm font-semibold text-gray-600 mb-1">¿No aparece o es un invitado?</p>
+      <p class="text-xs text-gray-400 mb-3">Abre la puerta sin registrar entrada.</p>
+      <div class="flex flex-wrap items-center gap-3">
+        <button @click="abrirManual" :disabled="abriendoManual"
+          class="px-4 py-2.5 rounded-xl border border-gray-300 hover:border-gray-500 disabled:opacity-50 text-gray-700 font-bold text-sm transition-colors flex items-center gap-2">
+          <span v-if="abriendoManual" class="animate-spin rounded-full h-4 w-4 border-b-2 border-gray-500"></span>
+          <svg v-else xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
+            <path fill-rule="evenodd" d="M5 9V7a5 5 0 019.9-1 1 1 0 11-1.98.32A3 3 0 007 7v2h6a2 2 0 012 2v5a2 2 0 01-2 2H5a2 2 0 01-2-2v-5a2 2 0 012-2zm5 3a1 1 0 00-1 1v2a1 1 0 102 0v-2a1 1 0 00-1-1z" clip-rule="evenodd" />
+          </svg>
+          {{ abriendoManual ? 'Abriendo…' : 'Abrir palanquera' }}
+        </button>
+        <p v-if="manualMsg" class="text-xs font-semibold"
+          :class="manualMsg.ok ? 'text-emerald-700' : 'text-red-600'">
+          {{ manualMsg.ok ? '✓' : '⚠' }} {{ manualMsg.texto }}
+        </p>
+      </div>
+    </div>
+
+    <p class="text-xs text-gray-400 text-center mt-6">
       La palanquera se abre desde la PC del gym (bridge en localhost:8001). En otros equipos solo se registra la entrada.
     </p>
   </div>
@@ -78,10 +101,40 @@ const resultado   = ref(null)
 const error       = ref('')
 const avisoBridge = ref('')
 
+// Apertura manual: estado propio. Si reusara resultado/error, abrir la puerta a un
+// invitado borraría de pantalla el resultado del cliente anterior.
+const abriendoManual = ref(false)
+const manualMsg      = ref(null)   // { ok: bool, texto: string }
+
 onMounted(() => inputDoc.value?.focus())
 
 const formatFecha = (f) =>
   new Date(f + 'T12:00:00').toLocaleDateString('es-CO', { day: '2-digit', month: 'short', year: 'numeric' })
+
+/** Abre la palanquera vía bridge local. Devuelve '' si abrió, o el motivo del fallo. */
+async function abrirPalanqueraBridge() {
+  try {
+    const r = await fetch(`${BRIDGE_URL}/palanquera/abrir`, { method: 'POST' })
+    if (!r.ok) return r.status === 503 ? 'relé no conectado' : `bridge respondió ${r.status}`
+    return ''
+  } catch {
+    return 'bridge no disponible en este equipo'
+  }
+}
+
+async function abrirManual() {
+  abriendoManual.value = true
+  manualMsg.value = null
+  try {
+    const fallo = await abrirPalanqueraBridge()
+    manualMsg.value = fallo
+      ? { ok: false, texto: `No se pudo abrir (${fallo}).` }
+      : { ok: true, texto: 'Palanquera abierta' }
+  } finally {
+    abriendoManual.value = false
+    setTimeout(() => { manualMsg.value = null }, 3500)
+  }
+}
 
 async function registrarAcceso() {
   const doc = documento.value.trim()
@@ -96,12 +149,7 @@ async function registrarAcceso() {
     resultado.value = data
 
     // 2) Bridge local: abre la palanquera (solo funciona en la PC del gym)
-    try {
-      const r = await fetch(`${BRIDGE_URL}/palanquera/abrir`, { method: 'POST' })
-      if (!r.ok) avisoBridge.value = r.status === 503 ? 'relé no conectado' : `bridge respondió ${r.status}`
-    } catch {
-      avisoBridge.value = 'bridge no disponible en este equipo'
-    }
+    avisoBridge.value = await abrirPalanqueraBridge()
   } catch (e) {
     const d = e.response?.data?.detail
     error.value = Array.isArray(d) ? d[0].msg : (d || 'Error al conectar con el servidor.')

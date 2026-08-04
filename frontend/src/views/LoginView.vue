@@ -73,29 +73,12 @@
 
         <template v-else>
 
-          <!-- Foto de perfil (opcional) -->
-          <div class="flex flex-col items-center gap-2">
-            <div
-              class="relative w-20 h-20 rounded-full bg-gray-100 border-2 border-dashed border-gray-300 overflow-hidden cursor-pointer hover:border-red-400 transition-colors group"
-              @click="$refs.inputFoto.click()"
-            >
-              <img v-if="fotoPreview" :src="fotoPreview" class="w-full h-full object-cover" alt="preview"/>
-              <div v-else class="w-full h-full flex flex-col items-center justify-center text-gray-400 group-hover:text-red-400 transition-colors">
-                <svg xmlns="http://www.w3.org/2000/svg" class="h-7 w-7" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z"/>
-                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M15 13a3 3 0 11-6 0 3 3 0 016 0z"/>
-                </svg>
-              </div>
-              <div v-if="fotoPreview"
-                class="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
-                <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z"/>
-                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 13a3 3 0 11-6 0 3 3 0 016 0z"/>
-                </svg>
-              </div>
-            </div>
-            <p class="text-xs text-gray-400">Foto de perfil <span class="text-gray-300">(opcional)</span></p>
-            <input ref="inputFoto" type="file" accept="image/jpeg,image/png,image/webp" class="hidden" @change="onFotoChange"/>
+          <!-- Honeypot: invisible para una persona, tentador para un bot que rellena
+               todos los inputs. Si viene con algo, el backend descarta el registro.
+               No usa v-show ni `hidden` para que el bot no lo detecte tan fácil. -->
+          <div aria-hidden="true" class="absolute w-px h-px -left-[9999px] overflow-hidden">
+            <label for="sitio-web">No completar</label>
+            <input id="sitio-web" v-model="regForm.sitio_web" type="text" tabindex="-1" autocomplete="off">
           </div>
 
           <div>
@@ -169,12 +152,12 @@
             <div class="grid grid-cols-2 gap-2">
               <button type="button" @click="regForm.genero = 'masculino'"
                 class="py-2.5 rounded-lg border text-sm font-semibold transition-colors"
-                :class="regForm.genero === 'masculino' ? 'border-blue-500 bg-blue-50 text-blue-700' : 'border-gray-300 text-gray-500 hover:border-gray-400'">
+                :class="regForm.genero === 'masculino' ? 'border-gray-800 bg-gray-800 text-white' : 'border-gray-300 text-gray-500 hover:border-gray-400'">
                 Masculino
               </button>
               <button type="button" @click="regForm.genero = 'femenino'"
                 class="py-2.5 rounded-lg border text-sm font-semibold transition-colors"
-                :class="regForm.genero === 'femenino' ? 'border-purple-500 bg-purple-50 text-purple-700' : 'border-gray-300 text-gray-500 hover:border-gray-400'">
+                :class="regForm.genero === 'femenino' ? 'border-gray-800 bg-gray-800 text-white' : 'border-gray-300 text-gray-500 hover:border-gray-400'">
                 Femenino
               </button>
             </div>
@@ -193,7 +176,7 @@
               <input v-model="regForm.es_menor" type="checkbox" required
                 class="mt-0.5 h-4 w-4 rounded border-gray-300 text-red-600 focus:ring-red-500">
               <span class="text-sm text-red-900">
-                <span class="font-bold">Confirmo que el usuario es menor de edad</span> y declaro, como padre, madre,
+                <span class="font-bold">Confirmo que la persona a registrar es menor de edad</span> y declaro, como padre, madre,
                 tutor legal o representante autorizado, que acepto este registro en su nombre (cláusula 7 del contrato).
               </span>
             </label>
@@ -301,13 +284,12 @@ const REG_FORM_VACIO = () => ({
   fecha_nacimiento: '', eps: '', barrio: '',
   contacto_emergencia_nombre: '', contacto_emergencia_telefono: '',
   acepta_terminos: false, es_menor: false, acudiente_nombre: '', acudiente_telefono: '', acudiente_documento: '',
+  sitio_web: '',  // honeypot: si llega con algo, el backend descarta el registro
 })
 const regForm = ref(REG_FORM_VACIO())
 const registroError = ref('')
 const registroLoading = ref(false)
 const registroExitoso = ref(false)
-const fotoArchivo = ref(null)
-const fotoPreview = ref('')
 const mostrarTerminos = ref(false)
 
 const hoyISO = new Date().toISOString().slice(0, 10)
@@ -332,13 +314,6 @@ watch(esMenor, (v) => {
     regForm.value.acudiente_documento = ''
   }
 })
-
-function onFotoChange(e) {
-  const file = e.target.files[0]
-  if (!file) return
-  fotoArchivo.value = file
-  fotoPreview.value = URL.createObjectURL(file)
-}
 
 const handleRegistro = async () => {
   registroError.value = ''
@@ -375,13 +350,11 @@ const handleRegistro = async () => {
       fd.append('acudiente_telefono', regForm.value.acudiente_telefono)
       fd.append('acudiente_documento', regForm.value.acudiente_documento)
     }
-    if (fotoArchivo.value) fd.append('foto', fotoArchivo.value)
+    fd.append('sitio_web', regForm.value.sitio_web)
 
     await api.post('/registro', fd, { headers: { 'Content-Type': 'multipart/form-data' } })
     registroExitoso.value = true
     regForm.value = REG_FORM_VACIO()
-    fotoArchivo.value = null
-    fotoPreview.value = ''
   } catch (e) {
     const d = e.response?.data?.detail
     registroError.value = Array.isArray(d) ? d[0].msg : (d || 'Error al registrar la cuenta.')

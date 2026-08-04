@@ -1,3 +1,4 @@
+import os
 from datetime import date, datetime, timedelta
 from typing import Optional
 
@@ -29,9 +30,17 @@ def _calcular_edad(fecha_nacimiento: date) -> int:
         (hoy.month, hoy.day) < (fecha_nacimiento.month, fecha_nacimiento.day)
     )
 
-# Límites por IP: mitigan fuerza bruta en login y spam de registros.
+# Límites por IP: mitigan fuerza bruta en login y spam de registros. Son la primera
+# barrera, no la que sostiene el esquema: viven en memoria (se resetean en cada
+# deploy) y una IP se rota con datos móviles o VPN. El techo que sí aguanta eso es
+# REGISTROS_MAX_HORA, contado contra la base.
 _limite_login = limitar("login", max_requests=10, window_seconds=300)     # 10 / 5 min
-_limite_registro = limitar("registro", max_requests=5, window_seconds=3600)  # 5 / hora
+_limite_registro = limitar("registro", max_requests=3, window_seconds=3600)  # 3 / hora
+
+# Techo global de registros por hora, para todo el sistema. Está muy por encima de
+# cualquier día real de inscripciones y muy por debajo de un flood; si alguna vez
+# hay una jornada de inscripción masiva, se sube temporalmente por env var.
+REGISTROS_MAX_HORA = int(os.getenv("REGISTROS_MAX_HORA", "20"))
 
 
 @router.post("/login")
@@ -80,10 +89,27 @@ def registro_publico(
     acudiente_nombre: Optional[str] = Form(None, max_length=120),
     acudiente_telefono: Optional[str] = Form(None, max_length=20),
     acudiente_documento: Optional[str] = Form(None, max_length=20),
-    foto: Optional[UploadFile] = File(None),
+    # Honeypot: el formulario lo esconde con CSS, así que un humano nunca lo llena.
+    # Un bot que completa todos los inputs, sí.
+    sitio_web: Optional[str] = Form(None),
     db: Session = Depends(get_db),
     _rl: None = Depends(_limite_registro),
 ):
+    # Se responde el mismo 201 de siempre y no se crea nada: un 422 le enseñaría al
+    # bot cuál es el campo que tiene que dejar vacío.
+    if (sitio_web or "").strip():
+        return {"message": "Registro exitoso. Tu cuenta está pendiente de aprobación por el administrador."}
+
+    # Techo global: sobrevive a los reinicios y es común a todos los workers, cosa
+    # que el límite por IP (en memoria) no puede dar.
+    hace_una_hora = datetime.utcnow() - timedelta(hours=1)
+    if db.query(Usuario).filter(Usuario.created_at >= hace_una_hora).count() >= REGISTROS_MAX_HORA:
+        raise HTTPException(
+            status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+            detail="Hay demasiados registros en curso. Intenta de nuevo más tarde.",
+            headers={"Retry-After": "3600"},
+        )
+
     if genero not in ("masculino", "femenino"):
         raise HTTPException(status_code=422, detail="Género inválido.")
     if not acepta_terminos:
@@ -141,11 +167,9 @@ def registro_publico(
         rol=RolUsuario.PENDIENTE,
     )
 
-    if foto and foto.filename:
-        if foto.content_type not in ALLOWED_TYPES:
-            raise HTTPException(status_code=400, detail="Formato de foto no permitido. Usa JPG, PNG o WEBP.")
-        nuevo.foto_url = guardar_archivo(foto)
-
+    # El registro público no acepta foto: era el camino más barato para llenar el
+    # bucket con basura. La carga la hace después el admin (UsuarioPerfilView) o el
+    # propio socio (MiPerfilView), ya con la cuenta activa.
     db.add(nuevo)
     db.commit()
     return {"message": "Registro exitoso. Tu cuenta está pendiente de aprobación por el administrador."}

@@ -14,11 +14,9 @@ const SaludView = () => import('../views/SaludView.vue')
 const SaludMedidaView = () => import('../views/SaludMedidaView.vue')
 const MarcasView = () => import('../views/MarcasView.vue')
 const MarcasEjercicioView = () => import('../views/MarcasEjercicioView.vue')
-const AlertasView = () => import('../views/AlertasView.vue')
 const WodsPersonalizadosView = () => import('../views/WodsPersonalizadosView.vue')
 const HomeView = () => import('../views/HomeView.vue')
 const UsuarioPerfilView = () => import('../views/UsuarioPerfilView.vue')
-const SesionesView = () => import('../views/SesionesView.vue')
 const AccesoView = () => import('../views/AccesoView.vue')
 const EjerciciosView = () => import('../views/EjerciciosView.vue')
 const WodFormView = () => import('../views/WodFormView.vue')
@@ -40,9 +38,15 @@ const routes = [
         redirect: () => {
           const rol = localStorage.getItem('userRol') || 'cliente'
           if (rol === 'pendiente') return '/planes'
-          if (rol === 'admin') return '/usuarios'
+          if (rol === 'admin') return '/dashboard'
           return '/home'
         }
+      },
+      {
+        path: 'dashboard',
+        name: 'Dashboard',
+        component: () => import('../views/DashboardView.vue'),
+        meta: { roles: ['admin', 'coach'] }
       },
       {
         path: 'usuarios',
@@ -128,12 +132,6 @@ const routes = [
         meta: { roles: ['coach', 'cliente'] },
       },
       {
-        path: 'alertas',
-        name: 'Alertas',
-        component: AlertasView,
-        meta: { roles: ['admin', 'coach'] },
-      },
-      {
         path: 'wods/personalizados',
         name: 'WodsPersonalizados',
         component: WodsPersonalizadosView,
@@ -144,12 +142,6 @@ const routes = [
         name: 'Home',
         component: HomeView,
         meta: { roles: ['cliente', 'coach'] },
-      },
-      {
-        path: 'sesiones',
-        name: 'Sesiones',
-        component: SesionesView,
-        meta: { roles: ['admin', 'coach'] },
       },
       {
         path: 'acceso',

@@ -34,7 +34,7 @@
     <!-- Filtro por categoría -->
     <div class="flex flex-wrap gap-2 mb-5">
       <button
-        v-for="cat in ['', 'Cardio', 'Fuerza', 'Gimnasia', 'Olímpico', 'Otro']"
+        v-for="cat in ['', ...CATEGORIAS_EJERCICIO]"
         :key="cat"
         @click="categoriaFiltro = cat"
         class="text-xs font-semibold px-3 py-1.5 rounded-full border transition-colors"
@@ -46,9 +46,9 @@
       </button>
     </div>
 
-    <!-- Loading -->
-    <div v-if="cargando" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-      <div v-for="i in 6" :key="i" class="bg-white rounded-2xl h-28 animate-pulse border border-gray-100" />
+    <!-- Loading: filas, para que no salte el layout al llegar la tabla -->
+    <div v-if="cargando" class="bg-white rounded-xl border border-gray-100 shadow-sm p-4 space-y-3">
+      <div v-for="i in 6" :key="i" class="h-12 bg-gray-100 rounded-lg animate-pulse" />
     </div>
 
     <!-- Vacío -->
@@ -67,59 +67,97 @@
       </button>
     </div>
 
-    <!-- Grid -->
-    <div v-else class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-      <div
-        v-for="ej in ejerciciosFiltrados"
-        :key="ej.id"
-        class="bg-white rounded-2xl border border-gray-100 p-5 hover:shadow-md transition-shadow flex flex-col"
-      >
-        <div class="flex items-start justify-between gap-3 mb-3">
-          <div class="flex-1 min-w-0">
-            <h3 class="font-black text-gray-800 truncate">{{ ej.nombre }}</h3>
-            <span v-if="ej.categoria" class="inline-block text-xs font-semibold px-2 py-0.5 rounded-full mt-1 mb-0.5" :class="categoriaCss(ej.categoria)">
-              {{ ej.categoria }}
-            </span>
-            <p v-if="ej.descripcion" class="text-xs text-gray-500 mt-1 line-clamp-2">{{ ej.descripcion }}</p>
-            <p v-if="ej.video_url" class="text-xs text-gray-400 truncate mt-0.5">{{ ej.video_url }}</p>
-            <p v-else class="text-xs text-gray-300 italic mt-0.5">Sin video</p>
+    <!-- Listado: cards en móvil, tabla en desktop (mismo patrón que Clientes) -->
+    <template v-else>
+      <!-- ── Cards (móvil) ── -->
+      <div class="sm:hidden space-y-3">
+        <div v-for="ej in ejerciciosFiltrados" :key="ej.id"
+          class="bg-white rounded-xl border border-gray-100 shadow-sm p-4">
+          <div class="flex items-start justify-between gap-3">
+            <div class="min-w-0 flex-1">
+              <h3 class="font-semibold text-gray-900 truncate">{{ ej.nombre }}</h3>
+              <p class="text-xs text-gray-500 mt-0.5">{{ ej.categoria || '—' }}</p>
+            </div>
+            <div v-if="puedeEditar" class="flex gap-1 flex-shrink-0">
+              <button @click="abrirFormulario(ej)" title="Editar"
+                class="p-2 rounded-lg text-gray-400 hover:bg-gray-100 hover:text-red-600 transition-colors">
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
+                </svg>
+              </button>
+              <button @click="eliminar(ej)" title="Eliminar"
+                class="p-2 rounded-lg text-gray-400 hover:bg-red-50 hover:text-red-600 transition-colors">
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                </svg>
+              </button>
+            </div>
           </div>
-          <div v-if="puedeEditar" class="flex gap-1 flex-shrink-0">
-            <button
-              @click="abrirFormulario(ej)"
-              class="p-1.5 rounded-lg text-gray-400 hover:bg-gray-100 hover:text-red-600 transition-colors"
-              title="Editar"
-            >
-              <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
-              </svg>
-            </button>
-            <button
-              @click="eliminar(ej)"
-              class="p-1.5 rounded-lg text-gray-400 hover:bg-red-50 hover:text-red-600 transition-colors"
-              title="Eliminar"
-            >
-              <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-              </svg>
-            </button>
-          </div>
+          <a v-if="ej.video_url" :href="ej.video_url" target="_blank" rel="noopener noreferrer"
+            class="mt-3 inline-flex items-center gap-1.5 text-sm font-semibold text-red-600 hover:text-red-700">
+            <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="currentColor" viewBox="0 0 24 24">
+              <path d="M8 5v14l11-7z" />
+            </svg>
+            Ver video
+          </a>
         </div>
-
-        <a
-          v-if="ej.video_url"
-          :href="ej.video_url"
-          target="_blank"
-          rel="noopener noreferrer"
-          class="mt-auto inline-flex items-center gap-2 text-sm font-semibold text-red-600 hover:text-red-700"
-        >
-          <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="currentColor" viewBox="0 0 24 24">
-            <path d="M8 5v14l11-7z" />
-          </svg>
-          Ver video
-        </a>
       </div>
-    </div>
+
+      <!-- ── Tabla (desktop) ── -->
+      <div class="hidden sm:block bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
+        <div class="overflow-x-auto">
+          <table class="min-w-full divide-y divide-gray-200">
+            <thead class="bg-gray-50">
+              <tr>
+                <th class="px-6 py-4 text-left text-xs font-bold text-gray-500 uppercase tracking-wider">Ejercicio</th>
+                <th class="px-6 py-4 text-left text-xs font-bold text-gray-500 uppercase tracking-wider">Categoría</th>
+                <th class="px-6 py-4 text-left text-xs font-bold text-gray-500 uppercase tracking-wider">Video</th>
+                <th v-if="puedeEditar" class="px-6 py-4 text-left text-xs font-bold text-gray-500 uppercase tracking-wider">Acciones</th>
+              </tr>
+            </thead>
+            <tbody class="bg-white divide-y divide-gray-100">
+              <tr v-for="ej in ejerciciosFiltrados" :key="ej.id" class="hover:bg-gray-50 transition-colors group">
+                <td class="px-6 py-4 whitespace-nowrap">
+                  <span class="text-sm font-semibold text-gray-900 group-hover:text-red-600 transition-colors">{{ ej.nombre }}</span>
+                </td>
+                <!-- Sin badge ni punto: la columna ya se llama Categoría y los chips
+                     de filtro están arriba, así que el color no desambigua nada. -->
+                <td class="px-6 py-4 whitespace-nowrap">
+                  <span v-if="ej.categoria" class="text-sm text-gray-600">{{ ej.categoria }}</span>
+                  <span v-else class="text-sm text-gray-300">—</span>
+                </td>
+                <td class="px-6 py-4 whitespace-nowrap">
+                  <a v-if="ej.video_url" :href="ej.video_url" target="_blank" rel="noopener noreferrer"
+                    class="inline-flex items-center gap-1.5 text-sm font-semibold text-red-600 hover:text-red-700">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="currentColor" viewBox="0 0 24 24">
+                      <path d="M8 5v14l11-7z" />
+                    </svg>
+                    Ver
+                  </a>
+                  <span v-else class="text-sm text-gray-300">—</span>
+                </td>
+                <td v-if="puedeEditar" class="px-6 py-4 whitespace-nowrap">
+                  <div class="flex items-center gap-2">
+                    <button @click="abrirFormulario(ej)" title="Editar"
+                      class="p-1.5 rounded-lg text-gray-400 hover:bg-gray-100 hover:text-red-600 transition-colors">
+                      <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
+                      </svg>
+                    </button>
+                    <button @click="eliminar(ej)" title="Eliminar"
+                      class="p-1.5 rounded-lg text-gray-400 hover:bg-red-50 hover:text-red-600 transition-colors">
+                      <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                      </svg>
+                    </button>
+                  </div>
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </template>
 
     <!-- Modal -->
     <div v-if="mostrarModal" class="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
@@ -168,11 +206,7 @@
               class="w-full px-4 py-2.5 rounded-lg border border-gray-300 focus:ring-2 focus:ring-red-500 focus:border-red-500 outline-none transition-all bg-white text-sm"
             >
               <option value="">Sin categoría</option>
-              <option value="Cardio">Cardio</option>
-              <option value="Fuerza">Fuerza</option>
-              <option value="Gimnasia">Gimnasia</option>
-              <option value="Olímpico">Olímpico</option>
-              <option value="Otro">Otro</option>
+              <option v-for="cat in CATEGORIAS_EJERCICIO" :key="cat" :value="cat">{{ cat }}</option>
             </select>
           </div>
           <div v-if="errorForm" class="bg-red-50 text-red-600 text-sm p-3 rounded-lg border border-red-100">
@@ -196,6 +230,7 @@
 <script setup>
 import { ref, computed, onMounted } from 'vue'
 import api from '../api'
+import { CATEGORIAS_EJERCICIO } from '../data/paleta'
 
 const ejercicios      = ref([])
 const cargando        = ref(true)
@@ -209,15 +244,6 @@ const form            = ref({ nombre: '', video_url: '', descripcion: '', catego
 
 const userRol     = computed(() => localStorage.getItem('userRol') || 'cliente')
 const puedeEditar = computed(() => ['admin', 'coach'].includes(userRol.value))
-
-const CATEGORIA_CSS = {
-  'Cardio':    'bg-red-100 text-red-700',
-  'Fuerza':    'bg-blue-100 text-blue-700',
-  'Gimnasia':  'bg-purple-100 text-purple-700',
-  'Olímpico':  'bg-amber-100 text-amber-700',
-  'Otro':      'bg-gray-100 text-gray-600',
-}
-function categoriaCss(cat) { return CATEGORIA_CSS[cat] || 'bg-gray-100 text-gray-600' }
 
 const ejerciciosFiltrados = computed(() => {
   let result = ejercicios.value

@@ -73,12 +73,12 @@
             <div class="grid grid-cols-2 gap-2">
               <button type="button" @click="form.genero = 'masculino'"
                 class="py-2.5 rounded-xl border text-sm font-semibold transition-colors"
-                :class="form.genero === 'masculino' ? 'border-blue-500 bg-blue-50 text-blue-700' : 'border-gray-200 text-gray-500 hover:border-gray-300'">
+                :class="form.genero === 'masculino' ? 'border-gray-800 bg-gray-800 text-white' : 'border-gray-200 text-gray-500 hover:border-gray-300'">
                 Masculino
               </button>
               <button type="button" @click="form.genero = 'femenino'"
                 class="py-2.5 rounded-xl border text-sm font-semibold transition-colors"
-                :class="form.genero === 'femenino' ? 'border-purple-500 bg-purple-50 text-purple-700' : 'border-gray-200 text-gray-500 hover:border-gray-300'">
+                :class="form.genero === 'femenino' ? 'border-gray-800 bg-gray-800 text-white' : 'border-gray-200 text-gray-500 hover:border-gray-300'">
                 Femenino
               </button>
             </div>
@@ -195,7 +195,8 @@
 
 <script setup>
 import { ref, computed, onMounted } from 'vue'
-import api, { mediaUrl } from '../api'
+import api from '../api'
+import { fotoSrc } from '../lib/avatar'
 
 const usuario = ref(null)
 const cargando = ref(true)
@@ -319,9 +320,6 @@ async function guardarEdicion() {
 }
 
 // ── Helpers ─────────────────────────────────────────────────
-const fotoSrc = (u) => u?.foto_url
-  ? mediaUrl(u.foto_url)
-  : `https://ui-avatars.com/api/?name=${encodeURIComponent(u?.nombre || 'U')}&background=dc2626&color=fff&size=128`
 
 const rolLabel = (rol) => ({ admin: 'Administrador', coach: 'Coach', cliente: 'Cliente', pendiente: 'Pendiente' }[rol] || rol)
 

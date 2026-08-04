@@ -11,52 +11,54 @@
       <div class="grid grid-cols-1 lg:grid-cols-2 gap-4 mb-8">
 
         <!-- Tarjeta membresía -->
-        <div class="rounded-2xl p-6 text-white shadow-lg" :class="cargandoPerfil ? 'bg-gradient-to-br from-gray-400 to-gray-600' : gradienteMembresia">
-          <p class="text-xs font-bold uppercase tracking-widest opacity-80 mb-3">Estado de membresía</p>
+        
+        <div class="rounded-2xl p-6 text-white shadow-lg flex items-center justify-between gap-4"
+          :class="cargandoPerfil ? 'bg-gradient-to-br from-gray-400 to-gray-600' : gradienteMembresia">
+          <div class="flex-1 min-w-0">
+            <p class="text-xs font-bold uppercase tracking-widest opacity-80 mb-3">Estado de membresía</p>
 
-          <!-- Cargando: spinner mientras llega /me -->
-          <div v-if="cargandoPerfil" class="flex items-center gap-3 py-6">
-            <svg class="animate-spin h-7 w-7 text-white/90" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-              <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4" />
-              <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
-            </svg>
-            <span class="text-sm font-semibold opacity-90">Cargando tu membresía…</span>
-          </div>
-
-          <template v-else>
-          <div class="flex items-end justify-between gap-4">
-            <div>
-              <p class="text-4xl font-black leading-none mb-1">
-                {{ Math.abs(diasRestantes) }}
-                <span class="text-lg font-semibold">{{ diasRestantes === 1 ? 'día' : 'días' }}</span>
-              </p>
-              <p class="text-sm font-semibold opacity-90 mt-1">{{ etiquetaMembresia }}</p>
-              <p v-if="userData.fecha_vencimiento" class="text-xs opacity-70 mt-1">
-                Vence el {{ formatFecha(userData.fecha_vencimiento) }}
-              </p>
-              <p v-if="userData.plan_actual" class="text-xs font-bold mt-2 opacity-90">
-                Plan: {{ userData.plan_actual.nombre }}
-              </p>
+            <!-- Cargando: spinner mientras llega /me -->
+            <div v-if="cargandoPerfil" class="flex items-center gap-3 py-6">
+              <svg class="animate-spin h-7 w-7 text-white/90" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4" />
+                <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+              </svg>
+              <span class="text-sm font-semibold opacity-90">Cargando tu membresía…</span>
             </div>
-            <div class="flex-shrink-0">
-              <div class="w-16 h-16 rounded-full flex items-center justify-center bg-white/20">
-                <svg v-if="diasRestantes > 7" xmlns="http://www.w3.org/2000/svg" class="h-8 w-8" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-                </svg>
-                <svg v-else-if="diasRestantes > 0" xmlns="http://www.w3.org/2000/svg" class="h-8 w-8" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
-                </svg>
-                <svg v-else xmlns="http://www.w3.org/2000/svg" class="h-8 w-8" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
-                </svg>
+
+            <template v-else>
+              <p class="text-4xl font-black leading-none">{{ estadoMembresia }}</p>
+
+              <div class="mt-4 space-y-1">
+                <p class="text-sm font-semibold opacity-90">{{ etiquetaMembresia }}</p>
+                <p v-if="userData.fecha_vencimiento" class="text-xs opacity-70">
+                  Vence el {{ formatFecha(userData.fecha_vencimiento) }}
+                </p>
+                <p v-if="userData.plan_actual" class="text-xs font-bold opacity-90 pt-1">
+                  Plan: {{ userData.plan_actual.nombre }}
+                </p>
               </div>
+
+              <router-link to="/planes"
+                class="inline-block mt-5 px-4 py-2 rounded-lg bg-white/20 hover:bg-white/30 text-white text-sm font-bold transition-colors">
+                {{ diasRestantes <= 7 ? 'Renovar membresía' : 'Ver planes' }} →
+              </router-link>
+            </template>
+          </div>
+
+          <div v-if="!cargandoPerfil" class="flex-shrink-0">
+            <div class="w-16 h-16 rounded-full flex items-center justify-center bg-white/20">
+              <svg v-if="diasRestantes > 7" xmlns="http://www.w3.org/2000/svg" class="h-8 w-8" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+              </svg>
+              <svg v-else-if="diasRestantes > 0" xmlns="http://www.w3.org/2000/svg" class="h-8 w-8" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+              </svg>
+              <svg v-else xmlns="http://www.w3.org/2000/svg" class="h-8 w-8" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+              </svg>
             </div>
           </div>
-          <router-link to="/planes"
-            class="inline-block mt-5 px-4 py-2 rounded-lg bg-white/20 hover:bg-white/30 text-white text-sm font-bold transition-colors">
-            {{ diasRestantes <= 7 ? 'Renovar membresía' : 'Ver planes' }} →
-          </router-link>
-          </template>
         </div>
 
         <!-- Tarjeta plan actual -->
@@ -231,11 +233,14 @@ const diasRestantes = computed(() => {
   return Math.ceil((vence - hoy) / 86400000)
 })
 
+// El día de vencimiento todavía cuenta como activo (mismo criterio que el backend).
+const estadoMembresia = computed(() => (diasRestantes.value >= 0 ? 'Activo' : 'Inactivo'))
+
 const gradienteMembresia = computed(() => {
   const d = diasRestantes.value
   if (d === -999) return 'bg-gradient-to-br from-gray-500 to-gray-700'
   if (d > 7) return 'bg-gradient-to-br from-emerald-600 to-emerald-800'
-  if (d > 0) return 'bg-gradient-to-br from-amber-500 to-orange-600'
+  if (d > 0) return 'bg-gradient-to-br from-amber-500 to-amber-600'
   return 'bg-gradient-to-br from-red-600 to-red-800'
 })
 

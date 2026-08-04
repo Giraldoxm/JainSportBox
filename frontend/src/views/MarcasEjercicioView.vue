@@ -359,7 +359,7 @@
                 <td class="px-2 py-2.5 sm:px-5 sm:py-3.5 text-right whitespace-nowrap">
                   <div class="flex items-center justify-end gap-1">
                     <button @click="abrirModalEditar(r)"
-                      class="p-1.5 text-gray-400 hover:text-blue-500 hover:bg-blue-50 rounded-lg transition-all">
+                      class="p-1.5 text-gray-400 hover:text-gray-700 hover:bg-gray-100 rounded-lg transition-all">
                       <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
                           d="M15.232 5.232l3.536 3.536M9 11l6-6 3 3-6 6H9v-3z"/>
@@ -757,7 +757,7 @@ async function renderChart() {
       return round1(chartUnit.value === 'lbs' ? fromKg(kg, 'lbs') : kg)
     })
     const maxVal = Math.max(...valores)
-    instanciaChart = _lineChart(chartCanvas.value, labels, valores, `Peso cargado (${chartUnit.value})`, suffix, '#60a5fa', valores.map(v => Math.abs(v - maxVal) < 0.01))
+    instanciaChart = _lineChart(chartCanvas.value, labels, valores, `Peso cargado (${chartUnit.value})`, suffix, '#0ea5e9', valores.map(v => Math.abs(v - maxVal) < 0.01))
 
   } else {
     // volumen: suma de (peso × reps) de TODAS las series de TODOS los registros del día

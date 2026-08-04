@@ -80,10 +80,11 @@ La suite (`backend/tests/`) cubre todos los routers; el plan completo y los hall
 - `frontend/src/router/index.js` — Route guards using `meta.requiresAuth` and `meta.roles`; clients default to `/home`, admin to `/usuarios`, coach to `/home`. `pendiente` → forzado a `/planes`. Clientes con membresía vencida (`membresiaVencidaFor`) solo acceden a `RUTAS_CLIENTE_VENCIDO = ['/home', '/planes', '/']`.
 - `frontend/src/composables/useAuth.js` — Reactive role helpers: `isAdmin`, `isCoach`, `isCliente`, `canManage`
 - `frontend/src/composables/useSessionMarca.js` — Composable de sesión de Marcas (legacy, ya no usado por `MarcasEjercicioView`). Se mantiene para que `Dashboard.vue` pueda limpiar el localStorage en logout (`cancelarSesion()`).
-- `frontend/src/views/` — One large SFC per page: `LoginView`, `UsuariosView`, `UsuarioPerfilView`, `HomeView`, `TiendaView`, `WodsView`, `WodsPersonalizadosView`, `FinanzasView`, `PlanesView`, `AlertasView`, `SaludView`, `SaludMedidaView`, `MarcasView`, `MarcasEjercicioView`, `SesionesView`, `MiPerfilView`. (`MonitorAccesoView.vue` exists but is not registered in the router.)
+- `frontend/src/views/` — One large SFC per page: `LoginView`, `DashboardView` (la página de resumen; no confundir con `components/Dashboard.vue`, que es el layout), `UsuariosView`, `UsuarioPerfilView`, `HomeView`, `TiendaView`, `WodsView`, `WodsPersonalizadosView`, `FinanzasView`, `PlanesView`, `SaludView`, `SaludMedidaView`, `MarcasView`, `MarcasEjercicioView`, `MiPerfilView`. (`MonitorAccesoView.vue` exists but is not registered in the router.)
 - `frontend/src/components/Dashboard.vue` — Main layout shell (sidebar + navigation). Does NOT show membership status in the sidebar — that info lives in `HomeView`. Sidebar organizado en tres secciones: **Gestión** (admin+coach), **Contenido** (todos), **Mi Box** (coach+cliente). Ver sección de sidebar más abajo.
-- `frontend/src/components/BloqueCard.vue` — Acordeón reutilizable de bloque horario (usado por `SesionesView`). Header clicable muestra hora del bloque + badge de personas; al expandir muestra la lista completa de asistentes con hora exacta de entrada.
+- `frontend/src/components/BloqueCard.vue` — Acordeón reutilizable de bloque horario (usado por `SesionesPanel`). Header clicable muestra hora del bloque + badge de personas; al expandir muestra la lista completa de asistentes con hora exacta de entrada.
 - `frontend/src/data/` — Shared config files: `saludTipos.js` (6 measurement configs), `ejerciciosMarcas.js` (12 fixed exercises)
+- `frontend/src/lib/avatar.js` — `fotoSrc(u)`: la foto del usuario, o `AVATAR_FALLBACK` si no tiene. El fallback es una silueta blanca sobre `#dc2626` como **data: URI de SVG inline**. Reemplazó a `ui-avatars.com` (iniciales), que exigía internet —la PC del gym no siempre lo tiene y el avatar quedaba roto— y le mandaba el nombre de cada socio a un tercero. No re-introducir un servicio externo de avatares. Lo usan `UsuariosView`, `UsuarioPerfilView`, `MiPerfilView` y `MonitorAccesoView`; `AccesoView` es la excepción a propósito: sin foto muestra el check verde de "acceso permitido", que ahí es la información que importa.
 
 ## Key Patterns
 
@@ -101,10 +102,39 @@ La suite (`backend/tests/`) cubre todos los routers; el plan completo y los hall
 - **Rutas lazy (frontend):** `router/index.js` importa las vistas con `() => import(...)` (solo Login y Dashboard son estáticos). Mantener el patrón al agregar vistas para no engordar el bundle inicial. `vite.config.js` separa `vendor` y `chart` en chunks propios.
 - **Chart.js:** NO usar `chart.js/auto`. Importar el helper `getChart()` de `src/lib/chart.js` (carga diferida + registro selectivo de los componentes de línea/barra). `renderChart` es `async` y hace `const Chart = await getChart()`.
 - **Rate limiting:** endpoints públicos sensibles (login, registro) usan `Depends(limitar(bucket, max, ventana))` de `backend/ratelimit.py` (en memoria, por-worker). El bridge (asistencia por huella) NO se limita para no interferir con la palanquera.
+
+## Defensas del registro público
+
+`POST /registro` es el único endpoint donde un desconocido escribe en la base. **El riesgo no es de acceso sino de volumen:** una cuenta falsa entra como `PENDIENTE` y con ese rol no puede ver ni tocar nada hasta que el admin la activa. Cuatro capas, y conviene entender qué cubre cada una porque ninguna alcanza sola:
+
+1. **Límite por IP** (`_limite_registro`, 3/hora). Primera barrera barata. **No es la que sostiene el esquema:** vive en memoria, así que se resetea en cada deploy de Render, y una IP se rota con datos móviles o VPN.
+2. **Techo global `REGISTROS_MAX_HORA`** (default 20, env var). Cuenta los `Usuario.created_at` de la última hora **contra la base**, así que es común a todos los workers y sobrevive a los reinicios. Es la capa que ataja un flood distribuido. Está muy por encima de un día real de inscripciones; si alguna vez hay una jornada masiva, se sube temporalmente.
+3. **Honeypot `sitio_web`.** Campo oculto por CSS en `LoginView`; si llega con contenido, el backend **responde el 201 de siempre y no crea nada** — un 422 le enseñaría al bot cuál es el campo a evitar. No se agregó la validación de "tiempo mínimo de formulario": el timestamp lo manda el cliente y falsificarlo es trivial.
+4. **El registro no acepta foto.** Era el camino más barato para llenar el bucket (5 MB × N). La carga la hace después el admin desde `UsuarioPerfilView` o el socio desde `MiPerfilView`.
+
+**Descartado por ahora, no por malo:** CAPTCHA (Turnstile), OTP por WhatsApp, bloqueo de dominios desechables. Si el spam llega igual, **Turnstile es el siguiente paso** y es el que más rinde por el trabajo que cuesta.
+
+**Almacenamiento de imágenes — todo se normaliza a WebP.** `guardar_archivo()` en `storage.py` es el embudo de las tres subidas que quedan (foto de perfil por admin, `/me/foto`, foto de producto): redimensiona (512 px avatares, 1024 px productos) y re-encodea a WebP. El ahorro grande **no lo da el formato sino los píxeles** — una foto de celular pesa MB en cualquier formato; a 512 px queda en decenas de KB. Con el bucket de Supabase en 1 GB, guardar los originales lo llenaba en pocos cientos de subidas y ahí fallarían también las fotos legítimas.
+
+Detalles que no son opcionales: `ImageOps.exif_transpose()` (sin eso las fotos verticales de celular salen acostadas, porque la orientación vive en el EXIF y al re-encodear se pierde) y el tope `Image.MAX_IMAGE_PIXELS` con captura de `DecompressionBombError` — al pasar a **decodificar** la imagen aparece un riesgo que antes no existía: un PNG de 200 KB puede expandirse a 30000×30000 y comerse la RAM del contenedor. Los magic bytes de `_detectar_imagen()` siguen como primer filtro barato. Las URLs viejas (`.jpg`/`.png`) se siguen sirviendo: la normalización aplica a lo que se sube de ahora en más.
+
+**En los tests, `PNG_BYTES` tiene que ser un PNG real** (lo genera Pillow en `conftest.py`): el header falso + ceros que había antes ahora se rechaza con 400, que es el comportamiento correcto.
 - **401 global:** `api.js` tiene un interceptor de respuesta que ante 401 limpia la sesión y redirige a `/login`.
 - **Scheduler con multi-worker:** el Dockerfile corre `--workers 2`; APScheduler se protege con un advisory lock de Postgres (`pg_try_advisory_lock`) en `main.py` para que el job de alertas corra en un solo worker.
 
-**Financial movements:** `finanzas.py` surfaces income from three sources: rows in `pagos` (membership payments, both plan-based and personalizado), rows in `ventas` (shop sales), and rows in `movimientos_financieros` (manual entries + legacy `pago_directo` records). Pagos and ventas are NOT mirrored into `movimientos_financieros` — the finanzas listing reads from each table directly to avoid double-counting.
+**Financial movements:** `FinanzasView` tiene **todo lo financiero**: el selector de período (Hoy / Esta semana / Este mes / Este año / Todo / Rango), las **5 tarjetas de balance** (Membresías, Tienda, Total ingresos, Egresos, Balance neto) atadas a ese selector, y el historial de movimientos con alta manual. El Resumen (`/dashboard`) **no** duplica nada de esto.
+
+El modal de alta registra **ingreso o egreso** (antes solo egresos). Las categorías salen de `CATEGORIAS_POR_TIPO` y cambian con el tipo; un `watch` limpia la categoría al alternar, para no mandar un egreso categorizado como "Membresía". **`venta_tienda` no se ofrece a propósito:** las ventas se leen de la tabla `ventas`, así que cargarlas también como movimiento manual las contaría dos veces (es el mismo motivo del `DELETE … WHERE fuente='venta_tienda'` de `main.py`).
+
+**Exportar Excel:** botón en el header → `GET /finanzas/exportar-excel?fecha_desde=&fecha_hasta=` (solo admin), con **el período seleccionado en pantalla**, no el histórico. Genera **tres hojas**: *Resumen* (período, membresías, tienda, ingresos, egresos, balance + desglose de egresos por categoría, que **se imprime siempre** — omitirlo cuando está vacío hace dudar de si no hubo gastos o si el export se rompió), *Ingresos* (pagos de membresía + ventas + ingresos manuales, con columna **Origen**) y *Egresos* (solo registros manuales, **sin** columna Origen porque diría lo mismo en todas las filas). Las dos hojas de movimientos traen **todas** las filas del período (**sin el tope de 200** del listado: un export recortado sería un export equivocado), montos **positivos** (el nombre de la hoja ya da el signo) y una fila **TOTAL** al pie. Las fechas se convierten de UTC a Bogotá para que coincidan con la pantalla.
+
+**La partición por tipo se hace en memoria sobre una sola recolección.** Llamar a `_recolectar_movimientos(tipo="ingreso")` y después con `"egreso"` sería más corto de escribir, pero correría dos veces las consultas de pagos, ventas y movimientos.
+
+**Datos de mentira para desarrollo:** `backend/scripts/seed_demo_finanzas.py` siembra ~57 movimientos (renta, nómina, servicios, mantenimiento, marketing, equipamiento, ingresos varios) repartidos en 12 meses, para poder mirar el módulo con algo adentro. **Aborta si la base no es SQLite** — mete plata inventada en el libro contable y en Supabase sería un desastre. Todos llevan `[demo]` en `notas`; `--limpiar` los borra sin tocar los reales, y sembrar de nuevo limpia primero (semilla fija, así dos corridas dan los mismos montos).
+
+El endpoint y el listado comparten `_recolectar_movimientos()`, que fusiona pagos + ventas + movimientos manuales. Si esa fusión se duplicara, el Excel y la pantalla podrían divergir.
+
+El historial pagina de a 15 en cliente sobre `movimientosFiltrados` (la petición ya trae hasta 200 del período). **Ojo con los nombres:** `rangoDesde`/`rangoHasta` son las fechas del período "Rango"; las filas visibles son `filaDesde`/`filaHasta`. `finanzas.py` surfaces income from three sources: rows in `pagos` (membership payments, both plan-based and personalizado), rows in `ventas` (shop sales), and rows in `movimientos_financieros` (manual entries + legacy `pago_directo` records). Pagos and ventas are NOT mirrored into `movimientos_financieros` — the finanzas listing reads from each table directly to avoid double-counting.
 
 **Pago model:** `plan_id` is nullable. Personalizado payments have `plan_id = NULL` and `duracion_dias` set to the days purchased. The historial endpoint shows them as `"Personalizado (N días)"`.
 
@@ -125,7 +155,87 @@ La suite (`backend/tests/`) cubre todos los routers; el plan completo y los hall
 
 **Public registration:** `POST /registro` accepts `multipart/form-data` (not JSON) because it supports an optional profile photo. Use `Form(...)` for all text fields and `File(None)` for the photo. The frontend sends a `FormData` object with `Content-Type: multipart/form-data`.
 
-**Términos y condiciones + datos de afiliación (registro):** el registro exige `acepta_terminos=true` (422 si falta) y campos obligatorios `fecha_nacimiento`, `eps`, `barrio`, `contacto_emergencia_nombre/telefono`. Al aceptar se guardan `acepto_terminos`, `terminos_fecha` (hora Bogotá) y `terminos_version` — la constante `TERMINOS_VERSION` vive en `routers/auth.py` y debe mantenerse en sincronía con `frontend/src/components/TerminosModal.vue` (modal con el texto completo del contrato de adhesión). **Menores de edad:** si la fecha de nacimiento da < 18 años, el backend exige `es_menor=true` + `acudiente_nombre/telefono/documento` (cláusula 7 del contrato: quien registra declara ser el acudiente); el frontend muestra la sección de acudiente automáticamente. `GET /usuarios/pendientes` expone `es_menor` y los datos del acudiente — la card de pendientes en `UsuariosView` marca a los menores con borde/badge ámbar y muestra el bloque del acudiente para que el admin confirme antes de activar. La **edad no se almacena** — se calcula de `fecha_nacimiento` (`_calcular_edad` en `auth.py`, computed `edad` en `LoginView`). Los usuarios existentes no se ven afectados (columnas nullable / default false); admin puede completar los datos desde el perfil.
+**Términos y condiciones + datos de afiliación (registro):** el registro exige `acepta_terminos=true` (422 si falta) y campos obligatorios `fecha_nacimiento`, `eps`, `barrio`, `contacto_emergencia_nombre/telefono`. Al aceptar se guardan `acepto_terminos`, `terminos_fecha` (hora Bogotá) y `terminos_version` — la constante `TERMINOS_VERSION` vive en `routers/auth.py` y debe mantenerse en sincronía con `frontend/src/components/TerminosModal.vue` (modal con el texto completo del contrato de adhesión). **Menores de edad:** si la fecha de nacimiento da < 18 años, el backend exige `es_menor=true` + `acudiente_nombre/telefono/documento` (cláusula 7 del contrato: quien registra declara ser el acudiente); el frontend muestra la sección de acudiente automáticamente. `GET /usuarios/pendientes` expone `es_menor` y los datos del acudiente — la fila de pendientes en `UsuariosView` marca a los menores con un badge ámbar y muestra el bloque del acudiente (también ámbar) dentro del detalle desplegable, para que el admin confirme antes de activar. La **edad no se almacena** — se calcula de `fecha_nacimiento` (`_calcular_edad` en `auth.py`, computed `edad` en `LoginView`). Los usuarios existentes no se ven afectados (columnas nullable / default false); admin puede completar los datos desde el perfil.
+
+## Paleta de colores
+
+La fuente única de los colores categóricos es `frontend/src/data/paleta.js`. No hay tokens custom en `tailwind.config.js` (se evaluó y se descartó: convivirían con 600 usos de `red-*` ya escritos, creando dos formas válidas de decir lo mismo). La paleta es una convención documentada, no una capa de indirección.
+
+**Núcleo semántico — 4 familias de Tailwind.** Son las que el proyecto ya usaba de facto; ninguna se usa para datos categóricos.
+
+| Rol | Familia | Dónde |
+|---|---|---|
+| Neutro | `gray` | 900/800 superficies oscuras · 700/600 texto · 400 muted · 200/100 bordes · 50 fondos |
+| Marca / acción primaria / destructivo | `red` | CTA, nav activo, focus ring, eliminar, **huella/enrolamiento** |
+| Éxito / vigente | `emerald` | membresía activa, en el box, ingresos, asistencia |
+| Alerta / por vencer | `amber` | vence pronto, menores de edad, PR destacado, IMC fuera de rango |
+
+`green` no se usa: es `emerald`. `red` cubre marca y destructivo (no hay una quinta familia para "peligro").
+
+**Escala categórica — 5 hues fríos, solo como punto.** Para datos sin semántica (categoría de ejercicio): `sky-500`, `slate-600`, `violet-500`, `fuchsia-500`, `gray-400`. Hoy su único consumidor es `WodEjerciciosEditor`, donde la categoría va inline junto al nombre y no hay columna que la rotule; `puntoRol()` se eliminó al quedar sin uso. Todos en la mitad fría del círculo, así nunca leen como éxito/alerta/peligro. Se aplican sobre un badge neutro:
+
+```html
+<span class="inline-flex items-center gap-1.5 ... rounded-full" :class="BADGE_NEUTRO">
+  <span class="w-1.5 h-1.5 rounded-full flex-shrink-0" :class="puntoCategoria(cat)"></span>
+  {{ cat }}
+</span>
+```
+
+**Regla de las 6 categorías:** puntos de color con ≤ 6 categorías. Por encima de eso el color deja de distinguirse y estorba — las 10 categorías de `FinanzasView` van con badge neutro y sin punto (`colorCategoria()` devuelve `BADGE_NEUTRO`); el signo del movimiento ya se lee en el color del monto.
+
+**Chips seleccionados** (filtros, selector de género): activo `bg-gray-800 text-white`, inactivo `border-gray-200 text-gray-500`. El género **no** usa azul/violeta.
+
+**Purge de Tailwind:** las clases en `paleta.js` van como strings completos (`'bg-sky-500'`), nunca interpoladas — el scanner de `content` no resuelve `` `bg-${hue}-500` `` y purgaría la clase. Si un punto aparece invisible en el build, es esto. Verificable con `grep -o "\.bg-sky-500" dist/assets/*.css` tras `npm run build`.
+
+**Excepción consciente:** los botones de WhatsApp del dashboard (felicitar cumpleaños y recordar vencimiento) van en `emerald` — es el color de marca de un tercero y `emerald-500` es prácticamente el verde de WhatsApp.
+
+**Gráficas (Chart.js):** serie principal `#f87171` (red-400), highlight de PR `#f59e0b` (amber-500), serie secundaria `#0ea5e9` (sky-500), grid `#f3f4f6` (gray-100).
+
+## DashboardView — resumen del box
+
+Ruta `/dashboard` (roles `admin`, `coach`), archivo `frontend/src/views/DashboardView.vue`. **Ojo con el nombre:** `components/Dashboard.vue` es el *layout* (sidebar + shell); `views/DashboardView.vue` es la *página*. Es el aterrizaje del admin tras el login (el redirect de `router/index.js`); el coach sigue cayendo en `/home`.
+
+**Dos pestañas y solo dos: Clientes y Asistencia** (`tab` en `DashboardView`, `v-show` y no `v-if` — `SesionesPanel` trae sus datos al montarse, y con `v-if` cada ida y vuelta dispararía otro refetch). **El Resumen no tiene bloque financiero.** Se probó meter acá las 5 tarjetas de balance + una gráfica de 12 meses, en una pestaña "Finanzas", y se revirtió: lo financiero vive entero en `/finanzas`, que tiene su propio selector de período (Hoy / Semana / Mes / Año / Todo / Rango) y por lo tanto contesta cosas que un bloque fijo al mes en curso no puede. **No volver a duplicarlo acá.**
+
+| Bloque | Contenido | Fuente |
+|---|---|---|
+| **Clientes** | activos (con delta contra el cierre del mes pasado), **pendientes de activación**, recuperables (vencidos <30 días), tasa de renovación, **gráfica de activos por mes**, **cumpleaños de hoy** y **membresías por vencer en 7 días** | `/dashboard/resumen` + `/dashboard/socios-mensuales` + `/alertas/` |
+| **Asistencia** | hoy, semana, promedio diario (30 días), **Participación** (% de socios activos que vino esta semana; la clave del API sigue siendo `engagement`) y el **panel de sesiones por bloque horario** (`SesionesPanel`) | `/dashboard/resumen` + `/asistencia/sesiones-por-bloque` |
+
+Cada bloque carga por separado con su propio skeleton: si un endpoint falla, el resto de la pantalla sigue viva.
+
+**Tarjetas navegables:** en el bloque Usuarios, *Activos* y *Pendientes* son `router-link` (a `/usuarios` y a `/usuarios?tab=pendientes`) y lo señalan con una flecha → en el encabezado que se acenta y se desplaza en hover. `UsuariosView` lee `route.query.tab` al montar y preselecciona esa pestaña si la clave existe en `tabs`; cualquier otro valor cae en el default `todos`. Las otras dos tarjetas (Recuperables, Renovación) no navegan y por eso no llevan flecha — la flecha es la señal de que la tarjeta es un enlace, no decoración.
+
+Las dos listas accionables (cumpleaños y por vencer) llevan botón de WhatsApp con mensaje pregenerado, vía el helper `_telefono()` que normaliza a `57` + últimos 10 dígitos. Las dos tienen la misma estructura: pestañas *pendientes* / *enviados* y tope de 4 filas visibles con scroll (`max-h-[12.5rem]` para cumpleaños, `max-h-[14rem]` para vencimientos — las filas de vencimiento llevan dos líneas y por eso son más altas).
+
+**Cumpleaños felicitados — se guardan en `localStorage`, no en la BD.** A diferencia de las alertas de vencimiento, los cumpleaños no tienen tabla propia: no hay dónde persistir "ya lo felicité". Se usa la clave `felicitados:YYYY-MM-DD`, que incluye la fecha para vaciarse sola al día siguiente; al montar se borran las claves de días anteriores para que no se acumulen. **Limitación conocida:** el registro es por dispositivo, así que felicitar desde el celular no se refleja en la PC del gym. Si eso llega a molestar, la solución es una tabla o una columna, no más localStorage.
+
+**El panel "Por vencer · 7 días" reemplazó por completo a la vista `AlertasView`,** que fue borrada junto con su ruta y su enlace del sidebar. Tiene dos pestañas internas: *pendientes* y *enviados de la última semana*. Ver la sección "Alertas de membresía".
+
+**Panel de sesiones** (`components/SesionesPanel.vue`): el contenido íntegro de la vista `/sesiones`, que se eliminó al moverla acá. Conserva los tres modos (esta semana / este mes / fecha específica), el buscador y el acordeón `BloqueCard`. Se extrajo a componente en vez de copiarlo dentro de `DashboardView` porque son ~500 líneas y la vista ya iba por 750. Trae sus propios datos al montarse, así que cambiar de pestaña y volver dispara un refetch — es barato y evita estado colgado.
+
+**Gráfica** (clientes activos por mes, en el bloque Clientes): `getChart()` de `lib/chart.js` (carga diferida), `destruirChart()` antes de crear, y `onUnmounted(destruirChart)`. **El render se dispara con un `watch` sobre `puedeGraficar`, no al terminar el fetch.** El canvas vive dentro del bloque que espera a `/resumen`, pero los datos vienen de `/socios-mensuales`: son dos peticiones en paralelo, y renderizar al terminar la segunda deja la gráfica en blanco para siempre cuando esa gana la carrera (el canvas todavía no existe y `renderChart` sale sin hacer nada). El `watch` espera a que las dos condiciones se cumplan, con `await nextTick()` antes de dibujar. Eje Y con `ticks: { precision: 0 }` — son personas, un eje con decimales no significa nada.
+
+### Router `/dashboard` — reglas de las agregaciones
+
+`backend/routers/dashboard.py`. Dos reglas que valen para todo el módulo y que son la fuente de bugs sutiles:
+
+1. **Zona horaria.** `Asistencia.fecha_hora`, `Pago.fecha_pago`, `Venta.fecha_venta` y `MovimientoFinanciero.fecha` se guardan como datetime **naive en UTC**. Todo agrupado por día, hora o mes convierte a Bogotá primero (helpers `_a_bogota`, `_inicio_dia_utc`, `_fin_dia_utc`); si no, lo ocurrido después de las 19:00 locales cae en el día o el mes siguiente. Para el "hoy" del negocio, `hoy_bogota()`. Hay un test explícito de esto (`test_afluencia_agrupa_en_hora_de_bogota`).
+2. **`/ingresos-mensuales` no usa `extract()` en SQL** justamente por lo anterior: agrupar por mes en UTC correría los movimientos de fin de mes. El bucketing se hace en Python sobre una ventana acotada.
+
+| Endpoint | Rol | Notas |
+|---|---|---|
+| `GET /resumen` | admin, coach | KPIs de socios y asistencia, renovación y cumpleañeros |
+| `GET /inactivos?dias=14&limite=20` | admin, coach | Socios vigentes que dejaron de venir. `MAX(fecha_hora)` por usuario en una subconsulta (sin N+1); `dias_sin_venir = null` significa que nunca marcó. **Hoy ninguna vista lo consume** — quedó disponible tras reemplazar ese panel por el de vencimientos |
+| `GET /afluencia?semanas=4` | admin, coach | Promedio de personas por hora, separando entre semana de sábado. **Hoy ninguna vista lo consume** — quedó disponible tras reemplazar la curva por el panel de sesiones |
+| `GET /socios-mensuales?meses=12` | admin, coach | Clientes con membresía vigente **al cierre de cada mes**, reconstruido desde `pagos`. Alimenta la gráfica del bloque Clientes |
+| `GET /ingresos-mensuales?meses=12` | **solo admin** | serie continua: los meses sin movimiento van en cero, no ausentes. **Hoy ninguna vista lo consume** — quedó disponible tras revertir el bloque de Finanzas del Resumen |
+
+**El delta de la tarjeta Activos compara activos, no altas.** Sale de los dos últimos puntos de `sociosMensuales` (`deltaActivos`), no de `altas_mes − altas_mes_anterior` como antes: debajo del número de activos, un delta de altas se leía como "perdí un socio" cuando en realidad decía "entró un cliente nuevo menos que el mes pasado". Es `null` con menos de dos meses de serie y la línea no se muestra — comparar contra un mes que no existe sería inventar crecimiento. Los campos `altas_mes`/`altas_mes_anterior` siguen viniendo en `/resumen`, sin consumidor por ahora.
+
+**Activos por mes — también es una inferencia.** Misma raíz que la renovación: no hay histórico de membresías. Cada pago define una ventana `[fecha_pago, fecha_pago + días)` y un cliente estaba activo en una fecha si alguna ventana la cubría. **El mes en curso no se infiere: se cuenta** contra `usuarios.fecha_vencimiento`, igual que la tarjeta Activos, así que los dos números coinciden siempre (test: `test_socios_mensuales_ultimo_punto_coincide_con_el_resumen`). Se intentó inferirlo también y se corrigió: cualquier cliente vigente **sin pago registrado** —activado a mano, o sembrado por un script de demo— desalineaba la gráfica con la tarjeta. El presente es un dato conocido; solo el pasado hay que reconstruirlo. Los meses anteriores usan como corte el último día del mes. **La serie arranca en el mes del primer pago**, no 12 meses fijos: dibujar en cero los meses previos a que el sistema existiera mostraría una rampa de crecimiento que nunca ocurrió. Limitación: solo ve lo que pasó por `pagos` — un vencimiento estirado a mano desde el perfil no aparece.
+
+**Tasa de renovación — es una inferencia, no un dato.** No hay histórico de membresías: `usuarios.fecha_vencimiento` se pisa en cada renovación, así que mirarla solo mostraría a los que **no** renovaron. Se reconstruye sobre `pagos`: el vencimiento implícito de un pago es `fecha_pago + días que cubre` (del plan, o `duracion_dias` si es personalizado), y cuenta como renovado si hay otro pago entre 7 días antes y 30 después de ese vencimiento. La ventana es móvil de 30 días, no "del mes": el día 1 el mes corriente sería una ventana de un día. Sesgo conocido: quien venció hace pocos días sigue dentro de su margen y cuenta como no renovado, así que el número queda algo pesimista — por eso la UI muestra el crudo ("18 de 25") junto al porcentaje.
 
 ## HomeView — client/coach home screen
 
@@ -169,7 +279,7 @@ El sidebar está dividido en secciones semánticas según el rol:
 **Usuario pendiente:** solo ve Planes.
 
 **Sección "Gestión"** (`canManage` = admin + coach):
-- Usuarios, Sesiones, Alertas WhatsApp, Ejercicios (admin + coach)
+- Resumen (`/dashboard`), Usuarios, Acceso Manual, Ejercicios (admin + coach). **Sesiones y Alertas WhatsApp ya no están**: los recordatorios se atienden desde el panel "Por vencer · 7 días" del Resumen, y `/alertas` queda solo para el historial, enlazada desde ahí.
 - Planes, Finanzas (solo admin)
 
 **Sección "Contenido"** (todos los roles no pendientes):
@@ -197,11 +307,40 @@ Es una **página** (no modal ni cards): encabezado con foto + identidad, secció
 - `PATCH /me` — edita el perfil propio (mismos campos y validación de email/documento duplicado y normalización que `PATCH /usuarios/{id}`, pero con `get_current_user` en vez de admin/coach). Acepta `UsuarioUpdate`.
 - `POST /me/foto` — sube/reemplaza la foto propia (multipart, campo `foto`). Borra la anterior con `eliminar_archivo`.
 
-## AlertasView — WhatsApp reminders
+## Alertas de membresía (sin vista propia)
 
-Route `/alertas` (admin/coach). Two tabs: **Pendientes** (grouped by `dias_anticipacion`) and **Historial** (flat list, only `enviada=true`, sorted by `fecha_enviada` desc). There is no manual "Actualizar" button — `POST /alertas/generar` runs on mount and on tab switch.
+**`AlertasView.vue` fue eliminada**, junto con su ruta `/alertas` y su enlace en el sidebar. Los recordatorios de vencimiento se atienden enteros desde el panel **"Por vencer · 7 días"** del Resumen (`/dashboard`), que tiene dos pestañas internas: *pendientes* y *enviados de la última semana*.
 
-**Dedup logic in `generar_alertas`:** before creating new alerts, the function deletes any pending (`enviada=False`) alert whose `fecha_vencimiento` no longer matches the user's current `fecha_vencimiento` (i.e., the user renewed) or that has fallen outside the 7-day window. Then it creates one alert per user inside the window only if no pending alert exists for that user. This prevents accumulating duplicate pending alerts when the admin extends a membership.
+El router `backend/routers/alertas.py` sigue igual y es lo que alimenta ese panel:
+- `POST /alertas/generar` — reconcilia antes de listar: crea las que faltan y borra las pendientes obsoletas (el usuario renovó, o salió de la ventana de 7 días). Corre también por APScheduler a las 9 AM Bogotá y al arrancar.
+- `GET /alertas/?solo_pendientes=false&enviadas_ultimos_dias=7` — **una sola llamada** trae pendientes + historial de la semana; el frontend los separa con los computed `pendientes` y `enviadas`. El parámetro `enviadas_ultimos_dias` existe porque sin cota `solo_pendientes=false` devuelve el histórico completo, que crece sin techo.
+- `POST /alertas/{id}/marcar-enviada` — se dispara al abrir el link de WhatsApp. El frontend no saca la fila de la lista: le pone `enviada = true`, así pasa sola de una pestaña a la otra.
+
+- `POST /alertas/enviar-whatsapp` — dispara la tanda de envío a demanda. **No se expone como botón**: ver abajo.
+
+**Dedup en `generar_alertas`:** antes de crear alertas nuevas, borra las pendientes (`enviada=False`) cuya `fecha_vencimiento` ya no coincide con la del usuario (o sea, renovó) o que quedaron fuera de la ventana de 7 días. Después crea una por usuario dentro de la ventana solo si no hay ya una pendiente. Esto evita acumular duplicados cuando el admin extiende una membresía.
+
+### Envío automático por WhatsApp Cloud API
+
+**Dos ventanas distintas, a propósito:** `VENTANA_DIAS = 7` es la del **panel** (a partir de ahí el vencimiento aparece en el Resumen); `DIAS_ENVIO_AUTOMATICO = 3` es la del **envío** (recién ahí se le escribe al socio). El admin ve la semana completa, el socio recibe un solo mensaje y cerca de la fecha. No unificarlas.
+
+**El filtro de envío va contra `Usuario.fecha_vencimiento`, nunca contra `AlertaMembresia.dias_anticipacion`.** Esa columna se congela al crear la alerta y `generar_alertas` no la actualiza nunca, así que a los dos días ya miente. (El texto del panel sí la lee — `textoVence(a.dias_anticipacion)` — y por eso se desactualiza; bug preexistente, conocido.)
+
+**`backend/whatsapp.py`** — sigue el patrón de `storage.py`: env vars a nivel de módulo, flag `HABILITADO`, cliente `httpx` perezoso y **degradación segura**. Si faltan `WA_PHONE_NUMBER_ID`/`WA_ACCESS_TOKEN` o `WA_ENVIO_AUTOMATICO=0`, todo sigue funcionando en modo manual. **Ninguna función levanta excepciones**: todo error vuelve en `Resultado`, porque el llamador recorre una lista de socios y reventar a la mitad dejaría media tanda sin enviar y sin registro. `normalizar_telefono()` espeja a `_telefono()` de `DashboardView.vue` — **mantener las dos en sincronía**, si no el link manual y el automático escriben a números distintos.
+
+**La ventana de 24 h de WhatsApp:** solo se puede mandar texto libre si el cliente le escribió al negocio en las últimas 24 h. Los socios nunca escriben primero, así que **el único mensaje enviable es una plantilla aprobada por Meta** (texto libre → error 131047). El cuerpo aprobado vive en los servidores de Meta y el fallback manual en `whatsappAlerta()` del `.vue`: **cambiar uno obliga a revisar el otro**, y editar la plantilla en Meta la manda de nuevo a aprobación. Los tres parámetros son posicionales (`{{1}}` nombre, `{{2}}` cuándo, `{{3}}` fecha); cruzarlos no da error, solo manda el mensaje mal.
+
+**Job separado, sin trigger de arranque.** `_job_envio_whatsapp` corre a las **9:10** (10 min después de `_job_alertas`, para que las alertas del día existan). **No se engancha al trigger `"date"`**: `_job_alertas` sí corre en cada arranque, y Render redespliega varias veces al día — meter el envío ahí sería un WhatsApp a cada socio por cada push. Separarlos además aísla las fallas: si Meta responde 500, la generación de alertas (de la que depende el panel) no se ve afectada. **No mover el envío dentro de `_job_alertas` ni de `POST /alertas/generar`** — ese endpoint lo llama el frontend en cada montaje del dashboard.
+
+**Idempotencia, tres capas:** (1) la fuerte ya existía — `generar_alertas` no recrea una alerta para un `(usuario, vencimiento)` que ya tiene registro aunque esté enviada, respaldado por `uq_alerta`, así que **un socio recibe un solo mensaje por ciclo** corra el job las veces que corra; (2) `enviar_pendientes` solo toca `enviada=False` y **commitea por mensaje** (con commit final, un crash en el mensaje 18 de 20 reenviaría los 20); (3) `MAX_INTENTOS = 3` frena el reintento infinito de un número que Meta rechaza permanentemente. Sin teléfono utilizable **no consume intento** — el admin puede cargar el número y el job lo toma al día siguiente.
+
+**Columnas de `AlertaMembresia`:** `canal` (`"whatsapp_api"` | `"manual"`), `wa_message_id`, `error_envio`, `intentos`. **No hay columna de estado** porque es derivable (`enviada=True` → enviado; `enviada=False` + `error_envio` → falló; ambos nulos → no intentado). `wa_message_id` no lo lee nadie hoy: es para buscar el mensaje en el WhatsApp Manager cuando el socio dice "no me llegó".
+
+**Panel (`DashboardView.vue`):** el botón verde "Recordar" pasó a ser **fallback** — `mostrarBotonManual()` lo muestra solo si el automático no está configurado o si esa fila falló; con el automático andando y sin errores, mostrarlo invitaría a mandar dos veces. Chips: ámbar `Envío automático falló` (con el error en el `title`), gris `Sin teléfono`, y en la pestaña Enviados `Automático`/`Manual`. Las alertas anteriores a esto tienen `canal = null` y no muestran chip, que es lo correcto: no se sabe.
+
+**`POST /alertas/enviar-whatsapp` no va como botón en el Resumen.** Es la salida cuando el cron no corrió (`_debo_correr_scheduler()` se evalúa una sola vez al importar `main`, así que en un rolling deploy el proceso nuevo puede quedarse sin scheduler si el viejo sostiene el advisory lock). Exponerlo en la pantalla que el admin abre diez veces al día invita al doble envío.
+
+**En los tests, `conftest.py` vacía `WA_PHONE_NUMBER_ID`/`WA_ACCESS_TOKEN`** — mismo motivo que con las `S3_*`, pero peor: con credenciales reales en `backend/.env`, un test le mandaría un WhatsApp de verdad a un socio. Los tests de envío usan `httpx.MockTransport`, **no** monkeypatch de `enviar_recordatorio` (mockear la función bajo prueba no probaría nada).
 
 ## Asistencia routers
 
@@ -210,7 +349,7 @@ Route `/alertas` (admin/coach). Two tabs: **Pendientes** (grouped by `dias_antic
 `backend/routers/asistencia.py` endpoints:
 - `POST /asistencia/` — registra entrada por `huella_id` (bridge); valida membresía vigente (helper `_validar_membresia`)
 - `POST /asistencia/por-usuario/{usuario_id}` — registra entrada por ID (bridge con `X-Bridge-Secret` o admin/coach JWT); valida membresía vigente en cada marcación
-- `POST /asistencia/por-documento/{documento}` — acceso manual desde recepción: busca por cédula/TI, valida membresía y registra entrada; devuelve nombre, foto, `dias_restantes`. Usado por la vista `/acceso` (`AccesoView.vue`, admin/coach, enlace "Acceso Manual" en el sidebar): tras el 201 el frontend abre la palanquera vía bridge (`POST localhost:8001/palanquera/abrir`), así que la apertura física solo funciona en la PC del gym; en otros equipos igual queda registrada la entrada
+- `POST /asistencia/por-documento/{documento}` — acceso manual desde recepción: busca por cédula/TI, valida membresía y registra entrada; devuelve nombre, foto, `dias_restantes`. Usado por la vista `/acceso` (`AccesoView.vue`, admin/coach, enlace "Acceso Manual" en el sidebar): tras el 201 el frontend abre la palanquera vía bridge (`POST localhost:8001/palanquera/abrir`), así que la apertura física solo funciona en la PC del gym; en otros equipos igual queda registrada la entrada. La vista incluye además la **apertura manual** como fallback al pie (ver "Apertura manual de palanquera"); el helper `abrirPalanqueraBridge()` es compartido por los dos caminos
 - `GET /asistencia/mi-historial?meses=N` — historial propio (cualquier rol autenticado)
 - `GET /asistencia/historial/{usuario_id}?meses=N` — historial de cualquier usuario (admin/coach)
 - `GET /asistencia/en-gym` — usuarios con `esta_en_gym=True`, con `entrada_desde`, `minutos_transcurridos`, `minutos_restantes` y `minutos_sesion` (admin/coach)
@@ -222,46 +361,91 @@ Route `/alertas` (admin/coach). Two tabs: **Pendientes** (grouped by `dias_antic
 
 **Deduplicación en sesiones-por-bloque:** los registros se ordenan por `fecha_hora` antes de agrupar. Si un usuario entró más de una vez en el mismo bloque (salió y volvió), solo aparece la primera entrada. Esto evita duplicados causados por re-entradas dentro del mismo bloque.
 
-## SesionesView — consulta de sesiones por bloque horario
+## SesionesPanel — consulta de sesiones por bloque horario
 
-Ruta `/sesiones` (roles: `admin`, `coach`). Tres modos:
+`frontend/src/components/SesionesPanel.vue`. **Ya no es una vista**: la ruta `/sesiones` y su enlace en el sidebar se eliminaron, y el panel se renderiza dentro del bloque Asistencia del Resumen (`/dashboard`).
 
-**Modo "Esta semana"** (carga automático al entrar):
-- Tabs de los 7 días (Lun–Dom) con badge del total de asistentes por día
-- Día de hoy resaltado en negro; día seleccionado en rojo; días sin asistencias con opacidad reducida
-- Grid de `BloqueCard` del día seleccionado (cards lado a lado)
-- Buscador por nombre en tiempo real
+**Layout de dos columnas** (`grid lg:grid-cols-5`, calendario `col-span-2` + sesiones `col-span-3`; apilado en móvil). **Los tres modos anteriores (esta semana / este mes / fecha específica) se eliminaron** — el calendario mensual los cubre a todos y evita tres caminos para la misma consulta. No re-introducir el selector de modo.
 
-**Modo "Este mes":**
-- Calendario mensual centrado (`max-w-md mx-auto`) con navegación ← → por mes (`mesOffset` ref, 0 = mes actual, no permite ir al futuro)
+**Columna izquierda — calendario** (`lg:sticky lg:top-4`, sigue visible al scrollear las sesiones):
+- Navegación ← → por mes (`mesOffset` ref, 0 = mes actual, no permite ir al futuro)
 - Cada celda muestra número de día + badge rojo con total de asistentes (suma de `b.total` por fecha)
 - Colores: hoy en negro, día seleccionado en rojo, días con datos en rojo suave, días sin datos en gris
-- Clic en celda → selecciona día y muestra grid de `BloqueCard` debajo con buscador
-- Clic en día ya seleccionado → lo deselecciona
-- Estado: `bloquesMes`, `diaSeleccionadoMes`, `cargandoMes`, `semanaMes` (computed que construye filas de 7 celdas con nulls para relleno)
+- Pie con el total de asistencias del mes (`totalMes`)
+- Estado: `bloquesMes`, `diaSeleccionado`, `cargandoMes`, `semanaMes` (computed que construye filas de 7 celdas con nulls para relleno)
 - Helper `getMesInfo(offset)` devuelve `{ year, month }` para cualquier offset
 
-**Modo "Fecha específica":**
-- Selector de fecha + botón "Ver sesiones"
-- Grid de bloques del día elegido + buscador
+**Columna derecha — sesiones del día:** grid de `BloqueCard` del día seleccionado + buscador por nombre. Si el día no tiene datos, muestra el empty state ahí mismo.
+
+**El clic en un día siempre selecciona, nunca deselecciona** (antes alternaba): en dos columnas, deseleccionar dejaría media pantalla vacía sin ganar nada.
+
+**Preselección al cargar un mes:** hoy si el mes visible es el actual; si no, el último día con datos. Una sola petición a `/asistencia/sesiones-por-bloque` por mes — cambiar de día filtra en cliente.
 
 **`BloqueCard`** (`frontend/src/components/BloqueCard.vue`) — acordeón:
 - Header clicable: bloque horario + badge de personas + chevron que rota al expandir
 - Body (expandido): lista completa de asistentes con nombre y hora exacta (HH:MM)
 - Inicia colapsado; sin límite de asistentes visibles (todos se muestran al expandir)
 
-## UsuariosView — paneles superiores
+## UsuariosView — dos listados y paneles superiores
 
-### Panel "Cumpleaños hoy"
+**Vocabulario de la UI: "cliente".** En texto visible no se dice ni "usuario" ni "socio" — el sidebar dice **Clientes**, el título de la vista también, y el bloque del Resumen igual. Rutas (`/usuarios`), endpoints, nombres de variables y de archivos siguen diciendo `usuario`: es la capa técnica y renombrarla sería un refactor sin beneficio. Al escribir copy nueva, "cliente". Dos excepciones deliberadas: los modales de **huella** dicen "persona" (se enrola también al staff, que no es cliente), y el **texto del contrato** en `TerminosModal.vue` no se toca sin bumpear `TERMINOS_VERSION`.
 
-`UsuariosView.vue` muestra un panel colapsable justo debajo del header cuando algún miembro activo cumple años ese día:
-- Se llama `GET /usuarios/cumpleanos-hoy` al montar (`fetchCumpleaneros`)
-- Solo aparece si `cumpleaneros.length > 0`
-- El panel es colapsable: `cumpleanosExpandido` ref (inicia en `true`); al colapsar queda solo la barra con emoji 🎂, título y badge rojo con el count
-- Cada fila muestra nombre + botón verde "Felicitar" (abre WhatsApp con mensaje pregenerado) + botón "Ver perfil"
-- Helper `whatsappCumpleanos(u)`: formatea el teléfono como `57` + dígitos y genera el link `https://wa.me/...?text=...` con mensaje de felicitación y batido gratis
-- El endpoint backend filtra por `strftime("%m-%d", fecha_nacimiento) == hoy` **y** `fecha_vencimiento >= hoy` — usuarios con membresía vencida no aparecen
-- El endpoint `GET /usuarios/cumpleanos-hoy` debe declararse **antes** de `GET /{usuario_id}` en el router para que FastAPI no lo capture como ID
+### Switch Clientes / Equipo del box
+
+La vista tiene un `vista = ref('clientes')` que alterna dos listados sobre el mismo `GET /usuarios/` (una sola petición; el filtrado es en cliente vía los computed `clientes` y `equipo`). Son dos poblaciones con datos distintos: **al staff no le aplican membresía ni "en el box"** — `_validar_membresia` en `asistencia.py` no exime al staff, así que un coach sin `fecha_vencimiento` recibe 403 al marcar huella y esas columnas serían siempre "Sin membresía / Fuera".
+
+| | Clientes | Equipo del box |
+|---|---|---|
+| Filtra | `rol === 'cliente'` | `rol` admin o coach (admin primero, coaches por nombre) |
+| Columnas | Usuario · Membresía · Estado · Acciones | Miembro · Contacto · Acciones |
+| Buscador, filtros, orden, paginación | sí | no (son 2–5 filas) |
+| Panel de cumpleaños | sí | no |
+| Exportar Excel | sí | no — el endpoint exporta solo `rol == cliente` |
+
+**Equipo no muestra Huella ni Desde.** "Desde" (`created_at`) era dato de archivo. "Huella" informaba un estado que para el staff **no habilita nada**: `_validar_membresia` en `asistencia.py` no exime al staff, así que un coach sin `fecha_vencimiento` recibe 403 al marcar por más que tenga template enrolado. El enrolamiento de staff se hace desde `UsuarioPerfilView` (card "Huella digital"), que es el mismo camino que para un cliente — no hay atajo en el listado.
+
+**Columna Membresía — el color vive en el punto, no en el texto.** `colorTextoDias()` devuelve `text-gray-900` mientras quede algún día y `text-red-600` solo cuando está vencida; el estado (verde/ámbar/rojo) lo da `colorPuntoDias()`. Colorear también el texto era doble codificación y convertía la columna en un tablero de alarmas con 15 filas en pantalla. Los dos helpers comparten el mismo umbral para que punto y texto nunca discrepen. La card móvil lleva el punto por la misma razón: sin él, con el texto neutro se quedaba sin señal de estado.
+
+**Ningún listado muestra el rol.** En Clientes el listado ya está filtrado a `rol === 'cliente'`; en Equipo, como el admin es uno solo y todo lo demás son coaches, la columna tampoco discriminaba. `puntoRol()` de `paleta.js` quedó sin consumidores y se eliminó.
+
+**Un solo admin — invariante del sistema.** El admin lo siembra `seed.py` desde las env vars `ADMIN_*` y es el único que existe: `POST /usuarios/` responde **403 si `rol == admin`**, sin importar quién pida (ni el propio admin). `PATCH /usuarios/{id}` no toca `rol`, así que tampoco hay ruta de promoción; la única escritura de rol fuera de la creación es `activar_pendiente`, que pone `CLIENTE`. Por eso el modal de creación **no tiene selector de rol**: el rol sale del contexto (Clientes → `cliente`, Equipo → `coach`, vía `abrirFormulario(staff)`). Cubierto por `test_nadie_puede_crear_otro_admin`.
+
+**Tabs de Clientes:** Todos · **Activos** (membresía vigente) · **Inactivos** (vencida o sin membresía) · En el box ahora · Pendientes. Un pendiente es un cliente sin activar, por eso su tab vive acá.
+
+**Pendientes usa el mismo patrón que el resto: tabla en desktop, cards en móvil.** Fue una grilla de tarjetas grandes con los seis datos de afiliación a la vista; con 20 o 40 registros era una pared de scroll. Ahora la fila muestra solo lo que decide (cliente, contacto, plan solicitado, fecha de registro) y el botón **Datos** despliega el resto —género, nacimiento, EPS, barrio, emergencia y, en menores, el bloque del acudiente— en `components/PendienteDetalle.vue`, compartido por la fila expandida y la card móvil. **No devolverlo a grilla de cards.**
+
+**Descartar un pendiente:** la fila trae un botón de basurero que hace `DELETE /usuarios/{id}` — el mismo endpoint de siempre, sin ruta nueva: un pendiente no es staff, así que pasa los guards y admin y coach pueden borrarlo. Es para el registro que nunca se presentó, por eso la columna Registrado muestra también la antigüedad ("hace 42 días"), en gris hasta la semana, **ámbar** desde `PENDIENTE_AVISO_DIAS = 7` y **rojo** desde `PENDIENTE_VIEJO_DIAS = 15` (`colorAntiguedad()`): sin eso el admin tendría que restar fechas para decidir. Es la misma escala neutro → ámbar → rojo de la columna Membresía. En la card móvil el color va solo en la antigüedad, no en toda la línea. Borrar no bloquea nada — la persona puede registrarse de nuevo.
+
+**Descartar varios de una:** `POST /usuarios/pendientes/eliminar` con `{"ids": [...]}`, **solo admin**. Filtra por `id.in_(ids)` **y** `rol == PENDIENTE`: ese `AND` es la propiedad de seguridad del endpoint — si entre los ids llega el de un cliente activo o el de un coach, se ignora en vez de borrarse, así un id equivocado no puede tumbar una cuenta real (cubierto por `test_eliminar_pendientes_ignora_a_los_que_no_son_pendientes`). En la UI: checkbox por fila, "seleccionar todo" de la página, y la acción rápida **"Seleccionar los de más de 15 días"**, que usa el mismo `PENDIENTE_VIEJO_DIAS` del color — lo que se ve en rojo es exactamente lo que se preselecciona. La selección es un `Set` en un `ref` (hay que **reasignarlo**, no mutarlo, para que Vue reaccione) y sobrevive al cambio de página. El modal de confirmación lista **todos** los seleccionados con scroll: confirmar un borrado masivo mirando solo un contador es justo donde se cuela el error.
+
+**La confirmación de borrado es un modal, no el `confirm()` nativo** (que es lo que había): la acción es irreversible y el modal muestra foto, nombre y email de quien se va a borrar. `confirmarEliminar(user, esPendiente)` lo abre; el segundo parámetro existe porque el payload de `/usuarios/pendientes` no trae `rol` y al terminar hay que refrescar `fetchPendientes()` y no `fetchUsuarios()`. Lo usan los tres listados de la vista.
+
+**Una sola paginación para las dos listas de la vista Clientes.** `listaFiltrada` elige entre `usuariosFiltrados` y `pendientesFiltrados` según el tab, y `paginaItems` (antes `usuariosPagina`) la rebana; el bloque de paginación vive fuera de los dos listados. Solo se renderiza uno a la vez y el `watch` de `filtroActivo` resetea a la página 1, así que no hace falta un segundo estado. El buscador ahora sí filtra pendientes (nombre y documento); el orden en ese tab es fijo —el más reciente primero— y por eso el selector "Ordenar por" sigue oculto ahí.
+
+Ojo con las claves, porque "activo" significa dos cosas distintas en esta pantalla: `key: 'activos'` filtra por **membresía vigente** (`tieneMembresia`), mientras que el que está físicamente en el gym es `key: 'en_box'` (`esta_en_gym`). La clave `'activos'` antes era la del box y `'membresia'` la de vigencia — se intercambiaron para que el nombre del tab y el del dashboard coincidan. La columna Estado de la tabla sigue rotulando `esta_en_gym` como "Activo/Fuera", que es otro eje.
+
+**Permisos (frontend espejando al backend):** el admin gestiona el equipo, el coach solo lo consulta. El botón "Nuevo miembro del equipo" y el de eliminar staff se muestran solo con `isAdmin`. El helper `puedeEliminarStaff(u)` refleja los guards del router.
+
+**Modal de creación contextual:** es el mismo modal para ambos casos. Desde Clientes precarga `rol: 'cliente'` y muestra el bloque de plan; desde Equipo (`creandoStaff`) precarga `rol: 'coach'`, saca "Cliente" del select y **oculta el bloque de Plan de Membresía**. Abrirlo siempre pasa por `abrirFormulario(staff)`, nunca por `showForm = true` suelto.
+
+**`miId`:** el id propio no está en `localStorage`, así que la vista lo pide a `GET /me` al montar. Se usa para no ofrecer el botón de eliminar en la fila propia (y para el sufijo "(vos)").
+
+### Guards de `DELETE /usuarios/{id}`
+
+Tres capas, en este orden (el orden importa: el de auto-borrado va primero para que un coach borrándose a sí mismo reciba 400 y no 403):
+1. 404 si no existe.
+2. **400 si es tu propia cuenta** — aplica también al admin, que si no podría dejar el sistema sin administración.
+3. **403 si el objetivo es staff y quien pide no es admin** (`_ROLES_PRIVILEGIADOS`), mismo criterio que POST y PATCH.
+
+Cubierto por `test_coach_no_puede_eliminar_admin`, `test_coach_no_puede_eliminar_otro_coach`, `test_coach_si_puede_eliminar_cliente`, `test_admin_puede_eliminar_coach` y `test_nadie_puede_eliminarse_a_si_mismo` en `tests/test_usuarios.py`.
+
+### Paginación y orden (solo vista Clientes)
+
+`POR_PAGINA = 15`, paginación en cliente sobre `usuariosFiltrados`. El control solo aparece con más de 15 resultados y colapsa con elipsis pasadas las 7 páginas. Buscar, cambiar de tab o cambiar el orden resetea a la página 1; un `watch` sobre `totalPaginas` reencuadra si la lista se achica (p. ej. al eliminar). El selector "Ordenar por" ofrece nombre A–Z/Z–A, vencimiento (primero/último) y fecha de registro (reciente/antiguo); los usuarios sin fecha van siempre al final vía el helper `_sinFechaAlFinal`. `usuariosFiltrados` hace `slice()` antes de `sort()` porque sin filtros la lista **es** `usuarios.value` y `sort` muta en sitio.
+
+### Cumpleaños
+
+El panel de cumpleaños **ya no vive acá**: se movió al dashboard (`/dashboard`). El endpoint `GET /usuarios/cumpleanos-hoy` sigue existiendo, pero su lógica está en el helper `query_cumpleaneros_hoy(db)` de `routers/usuarios.py`, que consumen tanto ese endpoint como `GET /dashboard/resumen` — el criterio (cumple hoy **y** `fecha_vencimiento >= hoy`) no se duplica. El endpoint debe seguir declarado **antes** de `GET /{usuario_id}` para que FastAPI no lo capture como ID.
 
 ### Exportar Excel
 
@@ -327,10 +511,16 @@ No todo se mide igual. La lista en `frontend/src/data/ejerciciosMarcas.js` etiqu
 
 ### Frontend
 
-**`MarcasView.vue`** — grid de los 12 ejercicios. Cada card muestra:
-- `barra`/`corporal_lastre`: "Mejor 1RM" + valor + unidad (normalizado a kg para comparar entre kg/lbs)
-- `reps`: "Mejor reps" + número
-- `leger`: "Mejor nivel" + `nivel.palier`
+**`MarcasView.vue`** — listado de los 12 ejercicios: **tabla en desktop, cards en móvil** (`sm:hidden` / `hidden sm:block`), mismo patrón que `EjerciciosView` y el listado de Clientes. Era un grid de cards grandes; con 12 filas fijas que nunca cambian eran tres pantallas de scroll para lo que entra en una. **No devolverlo a grid.** Columnas: Ejercicio · Mejor marca · Registros · Última. La fila entera es clicable (`@click` → `irA()`), pero el nombre va como `RouterLink` con `@click.stop` — así sigue siendo un enlace real (teclado, abrir en pestaña nueva) y el `.stop` evita la navegación duplicada.
+
+Buscador por nombre, **sin chips de filtro por tipo**: con 12 ejercicios los chips solo esconderían filas. Los ejercicios sin registros muestran `—` en las tres columnas de datos.
+
+El "Mejor marca" sale del computed `resumen`, **un solo recorrido de `/marcas/`** que arma un `Map` por ejercicio con `{ valor, unidad, conteo, ultima }` (antes eran funciones que filtraban la lista entera 3 veces por card):
+- `barra`/`corporal_lastre`: 1RM + unidad (normalizado a kg para comparar entre kg/lbs, pero se muestra en la unidad del registro)
+- `reps`: número + "reps"
+- `leger`: `nivel N.P`
+
+La vista **ya no usa `useSessionMarca`**: el badge `⏱ Ns` de sesión en curso no podía aparecer nunca desde que el registro pasó a ser directo por serie. El composable sigue existiendo solo para el `cancelarSesion()` del logout en `Dashboard.vue`.
 
 **`MarcasEjercicioView.vue`** — UI condicional según `tipo`:
 - Resumen: muestra "Último vs PR" según tipo (1RM, max reps, o nivel.palier). "Último 1RM" refleja el mejor del día más reciente (via `registrosPorDia`).
@@ -424,9 +614,16 @@ Campos del form: `titulo`, `fecha`, **`tipo`** (select con 6 opciones, opcional)
 **`GET /ejercicios/`** acepta `categoria: Optional[str]` para filtrar por categoría en el backend.
 
 **`EjerciciosView.vue`** (admin/coach):
-- Chips de filtro por categoría encima del grid (se combinan con el buscador)
-- Badge de color en cada card: Cardio → rojo, Fuerza → azul, Gimnasia → púrpura, Olímpico → ámbar, Otro → gris
+- **Tabla** (desktop) + cards (móvil), mismo patrón responsive que el listado de Clientes. Columnas: Ejercicio · Categoría · Video · Acciones. Era un grid de cards de 3 columnas; con el catálogo pasando de 27 ejercicios se volvió scroll inútil, y esta pantalla se usa para *buscar* uno y editarlo, no para explorar.
+- **Sin paginación ni selector de orden**: el buscador y los chips ya acotan, y `GET /ejercicios/` devuelve ordenado por nombre (alfabético es el orden correcto para buscar). No replicar acá el `ORDENES`/paginación de `UsuariosView`.
+- La **descripción no está en la tabla** — se trunca igual y estorba en una fila; se ve completa al abrir el modal de edición.
+- Chips de filtro por categoría encima de la tabla (se combinan con el buscador)
+- La **categoría va como texto gris plano**, sin badge ni punto de color: la columna ya está rotulada y los chips de filtro están arriba, así que el color no desambiguaba nada. No "arreglarlo" devolviéndole el badge. Sin categoría o sin video, la celda muestra `—`
 - Campo select de categoría en el modal de crear/editar
+
+**Videos del catálogo sembrado:** `EJERCICIOS_DEFAULT` en `seed.py` son tuplas de 4 (`nombre, categoria, descripcion, video_url`) con demos del canal oficial de CrossFit. **Las URLs se obtienen buscando en la web y verificando cada una** (que la página cargue y el título corresponda al movimiento); nunca de memoria — los IDs de YouTube son el caso típico de dato que se alucina y termina en link muerto o en otro ejercicio.
+
+Para las bases **ya sembradas** hay que correr `backend/scripts/backfill_videos.py`: `seed_ejercicios()` se corta apenas la tabla tiene filas, así que no las alcanza. El script es idempotente (solo toca `video_url` vacío, matchea por nombre) y usa el `DATABASE_URL` del entorno — **confirmar contra qué base se está corriendo antes de ejecutarlo**. No se puso como bloque de arranque en `main.py` a pesar de que ahí viven otras limpiezas de datos: correría en cada boot y le devolvería el video a un ejercicio al que el coach se lo borró a propósito (el form guarda el vacío como `NULL`).
 
 **`WodEjerciciosEditor.vue`** (componente de selección al crear/editar un WOD):
 - Chips de filtro por categoría encima del select de ejercicios — facilita encontrar el ejercicio al armar el WOD
@@ -548,7 +745,7 @@ Ruta: `C:\Program Files\DigitalPersona\One Touch SDK\.NET\Bin\`
 | `POST` | `/access/reload` | Recarga el cache de templates del modo acceso |
 | `POST` | `/palanquera/abrir` | Apertura manual de la palanquera (dispara `RelayController.Abrir()`). No registra asistencia. Responde `503` si no hay relé. |
 
-**Apertura manual de palanquera:** botón verde "Abrir palanquera" en `UsuariosView` (admin/coach) que hace `POST http://localhost:8001/palanquera/abrir`. Pensado para cuando la huella no se reconoce o entra un invitado. El `HttpApi` recibe el `RelayController` vía `BridgeForm.Relay` (expuesto en `Program.cs`). Como llama a `localhost:8001`, **solo funciona desde la PC del gym** donde corre el bridge — no desde un celular remoto.
+**Apertura manual de palanquera:** botón "Abrir palanquera" al pie de `AccesoView` (`/acceso`, admin/coach), que hace `POST http://localhost:8001/palanquera/abrir`. Es el **fallback** de esa pantalla: la persona no aparece por cédula, la huella no se reconoce, o entra un invitado. **No registra asistencia** — por eso va como botón secundario (borde gris) y con la leyenda explícita, para no competir con el submit rojo, que es el camino correcto porque sí deja el registro. Vivía en el header de `UsuariosView`, donde no tenía relación con la tabla que lo rodeaba. El `HttpApi` recibe el `RelayController` vía `BridgeForm.Relay` (expuesto en `Program.cs`). Como llama a `localhost:8001`, **solo funciona desde la PC del gym** donde corre el bridge — no desde un celular remoto.
 
 ### Flujo de enrolamiento
 

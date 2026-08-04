@@ -361,7 +361,7 @@
         <div class="flex justify-between items-center px-6 pt-6 pb-4 border-b border-gray-100 flex-shrink-0">
           <div>
             <h3 class="text-2xl font-bold text-gray-900">Métodos de Pago</h3>
-            <p class="text-xs text-gray-500 mt-0.5">Aparecen en el orden de la lista a los usuarios al adquirir un plan.</p>
+            <p class="text-xs text-gray-500 mt-0.5">Aparecen en el orden de la lista a los clientes al adquirir un plan.</p>
           </div>
           <button @click="showMetodosModal = false" class="text-gray-400 hover:text-gray-600">
             <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">

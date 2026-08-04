@@ -35,6 +35,7 @@ backend/tests/
   test_salud.py
   test_finanzas_ventas.py
   test_alertas.py
+  test_whatsapp.py
   test_productos_tienda.py
   test_metodos_pago.py
 ```
@@ -205,6 +206,41 @@ Unitario `_calcular_1rm`:
 | 10.4 | Usuario fuera de la ventana de 7 días | alerta pendiente eliminada |
 | 10.5 | `POST /{id}/marcar-enviada` | `enviada=True`, `fecha_enviada` seteada; aparece en historial, no en pendientes |
 | 10.6 | `GET /alertas/` y `/contar` como cliente | 403 |
+
+### Envío automático por WhatsApp
+
+La ventana del panel (`VENTANA_DIAS = 7`) y la del envío (`DIAS_ENVIO_AUTOMATICO = 3`) son distintas: los casos 10.1–10.6 no se tocaron y son el chequeo de que la primera no se movió.
+
+| # | Caso | Esperado |
+|---|---|---|
+| 10.7 | `POST /alertas/enviar-whatsapp` sin credenciales | ceros; ninguna alerta cambia (degradación segura) |
+| 10.8 | Vence en 3 días, mock 200 | `enviada=True`, `canal="whatsapp_api"`, `wa_message_id`, `intentos=1` |
+| 10.9 | Vence en 6 días | la alerta existe (panel) pero **no** se envía |
+| 10.10 | Segunda corrida inmediata | 0 enviadas, un solo request al mock |
+| 10.11 | Generar + enviar dos ciclos completos | 1 sola alerta y 1 solo mensaje (idempotencia fuerte de `uq_alerta`) |
+| 10.12 | Mock 400 (error 131026) | `enviada=False`, `error_envio` con el código; a los 3 intentos deja de salir a la red |
+| 10.13 | Usuario sin teléfono | omitida, `error_envio="Sin teléfono utilizable"`, `intentos=0`, mock no llamado |
+| 10.14 | `WA_MAX_POR_CORRIDA=2` con 5 pendientes | exactamente 2 requests |
+| 10.15 | `marcar-enviada` | `canal="manual"`; no pisa un `whatsapp_api` previo |
+| 10.16 | `GET /alertas/` | expone `canal` y `error_envio` |
+| 10.17 | `POST /alertas/enviar-whatsapp` como cliente | 403 |
+| 10.18 | `POST /alertas/generar` | devuelve `whatsapp_automatico` según haya credenciales |
+
+## 10b. Módulo WhatsApp (`whatsapp.py`) — `test_whatsapp.py`
+
+Contra `httpx.MockTransport`, **no** monkeypatcheando `enviar_recordatorio`: mockear la función bajo prueba no probaría nada, y con el transporte falso cualquier intento de salir a internet falla ruidoso.
+
+| # | Caso | Esperado |
+|---|---|---|
+| 10b.1 | `normalizar_telefono` con `"300 123 4567"`, `"+57 300 1234567"`, `"(300) 123-4567"`… | todas → `"573001234567"` |
+| 10b.2 | `normalizar_telefono` con `None`, `""`, `"123"` | `None` |
+| 10b.3 | Payload | `messaging_product`, `type=template`, nombre e idioma de la plantilla, 3 parámetros **en orden**, header `Authorization`, phone id en la URL |
+| 10b.4 | 200 con `messages[0].id` | `ok=True` + `message_id` |
+| 10b.5 | 400 de Meta | `ok=False`, error con el código, **no lanza** |
+| 10b.6 | `httpx.ConnectTimeout` | `ok=False`, **no lanza** |
+| 10b.7 | Error larguísimo | truncado a `MAX_ERROR` (cabe en `error_envio`) |
+| 10b.8 | `HABILITADO=False` | `ok=False` y el cliente HTTP **nunca se construye** |
+| 10b.9 | `WA_DRY_RUN=1` | `ok=True`, `message_id="dry-run"`, cero requests |
 
 ## 11. Métodos de pago (`metodos_pago.py`)
 

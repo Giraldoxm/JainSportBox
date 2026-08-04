@@ -22,7 +22,7 @@
       <!-- Cuerpo scrollable -->
       <div class="px-6 py-5 overflow-y-auto text-sm text-gray-700 space-y-5 leading-relaxed">
 
-        <div class="bg-blue-50 border-l-4 border-blue-500 rounded-r-lg p-4 text-blue-900">
+        <div class="bg-gray-50 border-l-4 border-red-500 rounded-r-lg p-4 text-gray-800">
           <p class="font-bold mb-1">Información importante para el usuario:</p>
           <p>Al marcar la casilla electrónica de aceptación <strong>"Acepto los Términos, Condiciones y el Consentimiento
           Informado"</strong> en la plataforma o aplicación de <strong>Jain Sport Box</strong>, usted manifiesta de manera libre,

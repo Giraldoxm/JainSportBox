@@ -52,6 +52,10 @@ if engine.url.get_backend_name() == "sqlite":
         "ALTER TABLE usuarios ADD COLUMN acepto_terminos BOOLEAN NOT NULL DEFAULT 0",
         "ALTER TABLE usuarios ADD COLUMN terminos_fecha DATETIME",
         "ALTER TABLE usuarios ADD COLUMN terminos_version VARCHAR(20)",
+        "ALTER TABLE alertas_membresia ADD COLUMN canal VARCHAR(20)",
+        "ALTER TABLE alertas_membresia ADD COLUMN wa_message_id VARCHAR(80)",
+        "ALTER TABLE alertas_membresia ADD COLUMN error_envio VARCHAR(300)",
+        "ALTER TABLE alertas_membresia ADD COLUMN intentos INTEGER NOT NULL DEFAULT 0",
     ]
     with engine.connect() as _conn:
         for _sql in _migraciones:
@@ -216,6 +220,10 @@ if engine.url.get_backend_name() != "sqlite":
         "ALTER TABLE usuarios ADD COLUMN IF NOT EXISTS acepto_terminos BOOLEAN NOT NULL DEFAULT FALSE",
         "ALTER TABLE usuarios ADD COLUMN IF NOT EXISTS terminos_fecha TIMESTAMP",
         "ALTER TABLE usuarios ADD COLUMN IF NOT EXISTS terminos_version VARCHAR(20)",
+        "ALTER TABLE alertas_membresia ADD COLUMN IF NOT EXISTS canal VARCHAR(20)",
+        "ALTER TABLE alertas_membresia ADD COLUMN IF NOT EXISTS wa_message_id VARCHAR(80)",
+        "ALTER TABLE alertas_membresia ADD COLUMN IF NOT EXISTS error_envio VARCHAR(300)",
+        "ALTER TABLE alertas_membresia ADD COLUMN IF NOT EXISTS intentos INTEGER NOT NULL DEFAULT 0",
     ]
     with engine.connect() as _conn:
         for _sql in _cols_pg:
@@ -281,7 +289,7 @@ from fastapi.staticfiles import StaticFiles
 from apscheduler.schedulers.background import BackgroundScheduler
 from apscheduler.triggers.cron import CronTrigger
 
-from routers import alertas, asistencia, auth, ejercicios, finanzas, marcas, metodos_pago, pagos, planes, productos, salud, usuarios, ventas, wods
+from routers import alertas, asistencia, auth, dashboard, ejercicios, finanzas, marcas, metodos_pago, pagos, planes, productos, salud, usuarios, ventas, wods
 from seed import seed_planes, seed_admin, seed_ejercicios
 
 seed_planes()
@@ -324,6 +332,30 @@ def _job_alertas():
         creadas = generar_alertas(db)
         if creadas:
             print(f"[Scheduler] {creadas} alerta(s) de membresía generada(s).")
+    finally:
+        db.close()
+
+
+# ── Scheduler: envío de recordatorios por WhatsApp ────────────
+def _job_envio_whatsapp():
+    """Manda por la Cloud API las alertas a las que ya les faltan pocos días.
+
+    Va como job aparte de _job_alertas, y NO se registra con el trigger "date":
+    _job_alertas sí corre en cada arranque, y Render redespliega varias veces al
+    día — enganchar el envío ahí sería un WhatsApp a cada socio por cada push.
+    Separarlos además aísla las fallas: si Meta responde 500, la generación de
+    alertas (de la que depende el panel del admin) no se ve afectada.
+    """
+    from whatsapp import HABILITADO
+    if not HABILITADO:
+        return
+    db = SessionLocal()
+    try:
+        from routers.alertas import enviar_pendientes
+        r = enviar_pendientes(db)
+        if r["enviadas"] or r["fallidas"]:
+            print(f"[Scheduler] WhatsApp: {r['enviadas']} enviada(s), "
+                  f"{r['fallidas']} fallida(s), {r['omitidas']} omitida(s).")
     finally:
         db.close()
 
@@ -405,6 +437,9 @@ elif _debo_correr_scheduler():
     _scheduler.add_job(_job_alertas, CronTrigger(hour=9, minute=0))
     # También al arrancar para no perder el día actual
     _scheduler.add_job(_job_alertas, "date")
+    # El envío va 10 min después, para que las alertas del día ya existan.
+    # Sin trigger "date": ver el docstring de _job_envio_whatsapp.
+    _scheduler.add_job(_job_envio_whatsapp, CronTrigger(hour=9, minute=10))
     # Reset de esta_en_gym cada 3 minutos
     _scheduler.add_job(_job_reset_gym, "interval", minutes=3)
     _scheduler.start()
@@ -437,3 +472,4 @@ app.include_router(marcas.router)
 app.include_router(alertas.router)
 app.include_router(metodos_pago.router)
 app.include_router(ejercicios.router)
+app.include_router(dashboard.router)

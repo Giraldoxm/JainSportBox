@@ -4,7 +4,7 @@ from datetime import date, datetime, timedelta
 from typing import List, Optional
 from zoneinfo import ZoneInfo
 
-from fastapi import APIRouter, Depends, File, HTTPException, Request, UploadFile, status
+from fastapi import APIRouter, Depends, File, HTTPException, Query, Request, UploadFile, status
 from pydantic import BaseModel, Field
 from sqlalchemy import func
 from sqlalchemy.orm import Session, defer
@@ -27,6 +27,12 @@ def _require_admin_or_coach(current_user: Usuario = Depends(get_current_user)):
     return current_user
 
 
+def _require_admin(current_user: Usuario = Depends(get_current_user)):
+    if current_user.rol != RolUsuario.ADMIN:
+        raise HTTPException(status_code=403, detail="Solo un admin puede realizar esta acción.")
+    return current_user
+
+
 # Roles con privilegio de staff: solo un admin puede crear/tocar estas cuentas.
 _ROLES_PRIVILEGIADOS = (RolUsuario.ADMIN, RolUsuario.COACH)
 
@@ -37,9 +43,15 @@ def crear_usuario(
     db: Session = Depends(get_db),
     current_user: Usuario = Depends(_require_admin_or_coach),
 ):
-    # Un coach no puede crear cuentas de staff (admin/coach); solo el admin.
+    # El admin es único y lo siembra seed.py: no se crea otro por API, ni siquiera
+    # siendo admin. Sin esto, cualquier admin podría fabricarse un segundo dueño del
+    # box (y el guard de auto-borrado dejaría de garantizar que siempre haya uno solo).
+    if payload.rol == RolUsuario.ADMIN:
+        raise HTTPException(status_code=403, detail="No se pueden crear cuentas de administrador.")
+
+    # Un coach no puede crear cuentas de staff; solo el admin.
     if payload.rol in _ROLES_PRIVILEGIADOS and current_user.rol != RolUsuario.ADMIN:
-        raise HTTPException(status_code=403, detail="Solo el administrador puede crear cuentas de admin o coach.")
+        raise HTTPException(status_code=403, detail="Solo el administrador puede crear cuentas de coach.")
 
     email_norm = (payload.email or "").strip().lower()
     doc_norm = (payload.documento_identidad or "").strip()
@@ -185,6 +197,16 @@ def eliminar_usuario(
     usuario = db.query(Usuario).filter(Usuario.id == usuario_id).first()
     if not usuario:
         raise HTTPException(status_code=404, detail="Usuario no encontrado.")
+    # Va primero que el guard de rol: es absoluto y aplica también al admin, que si
+    # no podría dejar el sistema sin ninguna cuenta de administración.
+    if usuario.id == current_user.id:
+        raise HTTPException(status_code=400, detail="No podés eliminar tu propia cuenta.")
+    # Mismo criterio que crear/editar: las cuentas de staff solo las toca un admin.
+    if usuario.rol in _ROLES_PRIVILEGIADOS and current_user.rol != RolUsuario.ADMIN:
+        raise HTTPException(
+            status_code=403,
+            detail="Solo un admin puede eliminar cuentas de staff.",
+        )
     if usuario.foto_url:
         eliminar_archivo(usuario.foto_url)
     db.delete(usuario)
@@ -227,6 +249,7 @@ def listar_pendientes(
             "email": u.email,
             "telefono": u.telefono,
             "documento_identidad": u.documento_identidad,
+            "foto_url": u.foto_url,
             "genero": u.genero,
             "fecha_nacimiento": u.fecha_nacimiento,
             "eps": u.eps,
@@ -245,18 +268,57 @@ def listar_pendientes(
     return result
 
 
+class EliminarPendientesRequest(BaseModel):
+    ids: List[int] = Field(..., min_length=1, max_length=500)
+
+
+@router.post("/pendientes/eliminar")
+def eliminar_pendientes(
+    payload: EliminarPendientesRequest,
+    db: Session = Depends(get_db),
+    _: Usuario = Depends(_require_admin),
+):
+    """Descarta en bloque solicitudes de registro que nunca se activaron.
+
+    El filtro por `rol == PENDIENTE` es la propiedad de seguridad del endpoint: si
+    entre los ids llega el de un cliente activo o el de un coach, se ignora en vez
+    de borrarse. Así un id equivocado (o manipulado) no puede tumbar una cuenta real.
+    """
+    pendientes = (
+        db.query(Usuario)
+        .filter(Usuario.id.in_(payload.ids), Usuario.rol == RolUsuario.PENDIENTE)
+        .all()
+    )
+    for u in pendientes:
+        if u.foto_url:
+            eliminar_archivo(u.foto_url)
+        db.delete(u)
+    db.commit()
+    return {"eliminados": len(pendientes)}
+
+
 @router.get("/exportar-excel")
 def exportar_excel(
+    clientes: bool = Query(True, description="Incluir la hoja de clientes."),
+    equipo: bool = Query(False, description="Incluir la hoja del equipo del box (admin y coaches)."),
     db: Session = Depends(get_db),
     _: Usuario = Depends(_require_admin_or_coach),
 ):
-    """Exporta todos los clientes (rol cliente) con sus datos completos a un .xlsx."""
+    """Exporta a .xlsx los grupos pedidos, una hoja por grupo.
+
+    Las dos poblaciones no comparten columnas: al staff no le aplican membresía,
+    acudiente ni términos, así que cada hoja lleva su propio encabezado en vez de
+    una tabla común llena de celdas vacías.
+    """
     import io
 
     from fastapi.responses import Response
     from openpyxl import Workbook
     from openpyxl.styles import Alignment, Font, PatternFill
     from openpyxl.utils import get_column_letter
+
+    if not clientes and not equipo:
+        raise HTTPException(status_code=400, detail="Selecciona al menos un grupo para exportar.")
 
     hoy = hoy_bogota()
 
@@ -265,78 +327,108 @@ def exportar_excel(
             return None
         return hoy.year - fn.year - ((hoy.month, hoy.day) < (fn.month, fn.day))
 
-    clientes = (
-        db.query(Usuario)
-        .options(defer(Usuario.huella_template))
-        .filter(Usuario.rol == RolUsuario.CLIENTE)
-        .order_by(Usuario.nombre.asc())
-        .all()
-    )
-
-    wb = Workbook()
-    ws = wb.active
-    ws.title = "Clientes"
-
-    columnas = [
-        "Nombre", "Documento", "Email", "Teléfono", "Género",
-        "Fecha nacimiento", "Edad", "EPS", "Barrio",
-        "Emergencia: nombre", "Emergencia: teléfono",
-        "Menor de edad", "Acudiente: nombre", "Acudiente: cédula", "Acudiente: teléfono",
-        "Membresía", "Vence", "Días restantes",
-        "Huella", "Términos aceptados", "Fecha aceptación", "Versión términos",
-        "Registrado",
-    ]
-    ws.append(columnas)
+    def _consultar(*filtros):
+        return (
+            db.query(Usuario)
+            .options(defer(Usuario.huella_template))
+            .filter(*filtros)
+            .order_by(Usuario.nombre.asc())
+            .all()
+        )
 
     encabezado_fill = PatternFill(start_color="DC2626", end_color="DC2626", fill_type="solid")
-    for celda in ws[1]:
-        celda.font = Font(bold=True, color="FFFFFF")
-        celda.fill = encabezado_fill
-        celda.alignment = Alignment(horizontal="center")
-    ws.freeze_panes = "A2"
 
-    for u in clientes:
-        if u.fecha_vencimiento:
-            dias = (u.fecha_vencimiento - hoy).days
-            membresia = "Activa" if dias >= 0 else "Vencida"
-        else:
-            dias = None
-            membresia = "Sin plan"
+    def _formatear(ws):
+        """Encabezado rojo, panel congelado y ancho de columna según contenido."""
+        for celda in ws[1]:
+            celda.font = Font(bold=True, color="FFFFFF")
+            celda.fill = encabezado_fill
+            celda.alignment = Alignment(horizontal="center")
+        ws.freeze_panes = "A2"
+        for idx, col in enumerate(ws.columns, start=1):
+            ancho = max((len(str(c.value)) for c in col if c.value is not None), default=10)
+            ws.column_dimensions[get_column_letter(idx)].width = min(max(ancho + 2, 10), 40)
+
+    wb = Workbook()
+    wb.remove(wb.active)  # las hojas se crean según lo pedido
+
+    if clientes:
+        ws = wb.create_sheet("Clientes")
         ws.append([
-            u.nombre,
-            u.documento_identidad,
-            u.email,
-            u.telefono,
-            u.genero,
-            u.fecha_nacimiento.isoformat() if u.fecha_nacimiento else None,
-            _edad(u.fecha_nacimiento),
-            u.eps,
-            u.barrio,
-            u.contacto_emergencia_nombre,
-            u.contacto_emergencia_telefono,
-            "Sí" if u.es_menor else "No",
-            u.acudiente_nombre,
-            u.acudiente_documento,
-            u.acudiente_telefono,
-            membresia,
-            u.fecha_vencimiento.isoformat() if u.fecha_vencimiento else None,
-            dias,
-            "Registrada" if u.huella_id else "No",
-            "Sí" if u.acepto_terminos else "No",
-            u.terminos_fecha.strftime("%Y-%m-%d %H:%M") if u.terminos_fecha else None,
-            u.terminos_version,
-            u.created_at.strftime("%Y-%m-%d") if u.created_at else None,
+            "Nombre", "Documento", "Email", "Teléfono", "Género",
+            "Fecha nacimiento", "Edad", "EPS", "Barrio",
+            "Emergencia: nombre", "Emergencia: teléfono",
+            "Menor de edad", "Acudiente: nombre", "Acudiente: cédula", "Acudiente: teléfono",
+            "Membresía", "Vence", "Días restantes",
+            "Huella", "Términos aceptados", "Fecha aceptación", "Versión términos",
+            "Registrado",
         ])
+        for u in _consultar(Usuario.rol == RolUsuario.CLIENTE):
+            if u.fecha_vencimiento:
+                dias = (u.fecha_vencimiento - hoy).days
+                membresia = "Activa" if dias >= 0 else "Vencida"
+            else:
+                dias = None
+                membresia = "Sin plan"
+            ws.append([
+                u.nombre,
+                u.documento_identidad,
+                u.email,
+                u.telefono,
+                u.genero,
+                u.fecha_nacimiento.isoformat() if u.fecha_nacimiento else None,
+                _edad(u.fecha_nacimiento),
+                u.eps,
+                u.barrio,
+                u.contacto_emergencia_nombre,
+                u.contacto_emergencia_telefono,
+                "Sí" if u.es_menor else "No",
+                u.acudiente_nombre,
+                u.acudiente_documento,
+                u.acudiente_telefono,
+                membresia,
+                u.fecha_vencimiento.isoformat() if u.fecha_vencimiento else None,
+                dias,
+                "Registrada" if u.huella_id else "No",
+                "Sí" if u.acepto_terminos else "No",
+                u.terminos_fecha.strftime("%Y-%m-%d %H:%M") if u.terminos_fecha else None,
+                u.terminos_version,
+                u.created_at.strftime("%Y-%m-%d") if u.created_at else None,
+            ])
+        _formatear(ws)
 
-    # Ancho de columna según el contenido (con tope para no desbordar)
-    for idx, col in enumerate(ws.columns, start=1):
-        ancho = max((len(str(c.value)) for c in col if c.value is not None), default=10)
-        ws.column_dimensions[get_column_letter(idx)].width = min(max(ancho + 2, 10), 40)
+    if equipo:
+        ws = wb.create_sheet("Equipo del box")
+        ws.append([
+            "Nombre", "Rol", "Documento", "Email", "Teléfono", "Género",
+            "Fecha nacimiento", "Edad", "EPS", "Barrio",
+            "Emergencia: nombre", "Emergencia: teléfono",
+            "Huella", "Registrado",
+        ])
+        for u in _consultar(Usuario.rol.in_(_ROLES_PRIVILEGIADOS)):
+            ws.append([
+                u.nombre,
+                u.rol.value,
+                u.documento_identidad,
+                u.email,
+                u.telefono,
+                u.genero,
+                u.fecha_nacimiento.isoformat() if u.fecha_nacimiento else None,
+                _edad(u.fecha_nacimiento),
+                u.eps,
+                u.barrio,
+                u.contacto_emergencia_nombre,
+                u.contacto_emergencia_telefono,
+                "Registrada" if u.huella_id else "No",
+                u.created_at.strftime("%Y-%m-%d") if u.created_at else None,
+            ])
+        _formatear(ws)
 
     buffer = io.BytesIO()
     wb.save(buffer)
 
-    nombre_archivo = f"clientes_jainsportbox_{hoy.isoformat()}.xlsx"
+    grupo = "clientes" if clientes and not equipo else "equipo" if equipo and not clientes else "usuarios"
+    nombre_archivo = f"{grupo}_jainsportbox_{hoy.isoformat()}.xlsx"
     return Response(
         content=buffer.getvalue(),
         media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
@@ -344,11 +436,12 @@ def exportar_excel(
     )
 
 
-@router.get("/cumpleanos-hoy", response_model=List[UsuarioResponse])
-def cumpleanos_hoy(
-    db: Session = Depends(get_db),
-    _: Usuario = Depends(_require_admin_or_coach),
-):
+def query_cumpleaneros_hoy(db: Session) -> List[Usuario]:
+    """Socios con membresía vigente que cumplen años hoy (hora Bogotá).
+
+    Vive acá y lo consume también el router de dashboard, para que el criterio
+    (incluida la exclusión de membresías vencidas) no se duplique.
+    """
     hoy = hoy_bogota()
     # extract() es portable (SQLite y Postgres); strftime es solo de SQLite.
     return (
@@ -361,6 +454,14 @@ def cumpleanos_hoy(
         )
         .all()
     )
+
+
+@router.get("/cumpleanos-hoy", response_model=List[UsuarioResponse])
+def cumpleanos_hoy(
+    db: Session = Depends(get_db),
+    _: Usuario = Depends(_require_admin_or_coach),
+):
+    return query_cumpleaneros_hoy(db)
 
 
 @router.get("/{usuario_id}", response_model=UsuarioResponse)

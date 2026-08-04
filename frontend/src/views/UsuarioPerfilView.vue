@@ -19,18 +19,26 @@
       <div class="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden mb-6">
         <!-- Header rojo -->
         <div class="bg-gradient-to-r from-red-600 to-red-700 px-6 pt-8 pb-6 flex flex-col items-center text-center">
-          <img
-            class="h-24 w-24 rounded-full object-cover border-4 border-white shadow-lg mb-4"
-            :src="fotoSrc(usuario)"
-            alt=""
-          />
+          <!-- Solo se amplía si hay foto real: agrandar la silueta de fallback no
+               ayudaría a identificar a nadie, y un clic que no hace nada confunde. -->
+          <button v-if="usuario.foto_url" type="button" @click="fotoAmpliada = true"
+            class="group relative mb-4 rounded-full focus:outline-none focus:ring-4 focus:ring-white/40"
+            title="Ver la foto en grande">
+            <img class="h-24 w-24 rounded-full object-cover border-4 border-white shadow-lg" :src="fotoSrc(usuario)" alt="" />
+            <span class="absolute inset-0 rounded-full bg-gray-950/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+              <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M21 21l-4.35-4.35M17 11a6 6 0 11-12 0 6 6 0 0112 0zM11 8v6M8 11h6" />
+              </svg>
+            </span>
+          </button>
+          <img v-else class="h-24 w-24 rounded-full object-cover border-4 border-white shadow-lg mb-4" :src="fotoSrc(usuario)" alt="" />
           <h2 class="text-2xl font-black text-white leading-tight">{{ usuario.nombre }}</h2>
           <div class="flex items-center gap-2 mt-2 flex-wrap justify-center">
             <span class="text-xs font-bold px-3 py-1 rounded-full bg-white/20 text-white">
               {{ rolLabel(usuario.rol) }}
             </span>
             <span class="flex items-center gap-1.5 text-xs font-semibold text-white/80">
-              <span class="w-2 h-2 rounded-full" :class="usuario.esta_en_gym ? 'bg-green-400' : 'bg-white/40'"></span>
+              <span class="w-2 h-2 rounded-full" :class="usuario.esta_en_gym ? 'bg-emerald-400' : 'bg-white/40'"></span>
               {{ usuario.esta_en_gym ? 'Activo' : 'Fuera' }}
             </span>
           </div>
@@ -64,7 +72,7 @@
             <span
               v-if="usuario.genero"
               class="inline-block text-xs font-bold px-2.5 py-1 rounded-full"
-              :class="usuario.genero === 'masculino' ? 'bg-blue-100 text-blue-700' : 'bg-purple-100 text-purple-700'"
+              :class="BADGE_NEUTRO"
             >
               {{ usuario.genero === 'masculino' ? 'Masculino' : 'Femenino' }}
             </span>
@@ -115,7 +123,7 @@
                 {{ usuario.huella_id ? 'Registrada' : 'No registrada' }}
               </p>
             </div>
-            <button @click="abrirEnrolamiento" class="flex-shrink-0 px-3 py-1.5 rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-semibold transition-colors">
+            <button @click="abrirEnrolamiento" class="flex-shrink-0 px-3 py-1.5 rounded-lg bg-red-600 hover:bg-red-700 text-white text-xs font-semibold transition-colors">
               {{ usuario.huella_id ? 'Reemplazar' : 'Registrar' }}
             </button>
           </div>
@@ -226,14 +234,14 @@
                 <td class="px-5 py-3.5 text-right font-bold text-gray-800">${{ p.monto.toLocaleString('es-CO') }}</td>
                 <td class="px-5 py-3.5 hidden sm:table-cell">
                   <span class="inline-block px-2.5 py-0.5 rounded-full text-xs font-semibold"
-                    :class="p.metodo_pago === 'efectivo' ? 'bg-emerald-100 text-emerald-700' : 'bg-blue-100 text-blue-700'">
+                    :class="p.metodo_pago === 'efectivo' ? 'bg-emerald-100 text-emerald-700' : 'bg-gray-100 text-gray-600'">
                     {{ p.metodo_pago === 'efectivo' ? 'Efectivo' : 'Transferencia' }}
                   </span>
                 </td>
                 <td class="px-5 py-3.5 text-right">
                   <div class="inline-flex items-center gap-1">
                     <button @click="abrirEditarPago(p)" title="Editar monto / método"
-                      class="p-1.5 rounded-lg text-gray-400 hover:text-blue-600 hover:bg-blue-50 transition-colors">
+                      class="p-1.5 rounded-lg text-gray-400 hover:text-gray-700 hover:bg-gray-100 transition-colors">
                       <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/>
                       </svg>
@@ -310,12 +318,12 @@
             <div class="grid grid-cols-2 gap-2">
               <button type="button" @click="form.genero = 'masculino'"
                 class="py-2.5 rounded-xl border text-sm font-semibold transition-colors"
-                :class="form.genero === 'masculino' ? 'border-blue-500 bg-blue-50 text-blue-700' : 'border-gray-200 text-gray-500 hover:border-gray-300'">
+                :class="form.genero === 'masculino' ? 'border-gray-800 bg-gray-800 text-white' : 'border-gray-200 text-gray-500 hover:border-gray-400'">
                 Masculino
               </button>
               <button type="button" @click="form.genero = 'femenino'"
                 class="py-2.5 rounded-xl border text-sm font-semibold transition-colors"
-                :class="form.genero === 'femenino' ? 'border-purple-500 bg-purple-50 text-purple-700' : 'border-gray-200 text-gray-500 hover:border-gray-300'">
+                :class="form.genero === 'femenino' ? 'border-gray-800 bg-gray-800 text-white' : 'border-gray-200 text-gray-500 hover:border-gray-400'">
                 Femenino
               </button>
             </div>
@@ -586,14 +594,14 @@
   <!-- ── Modal: Enrolamiento de Huella ── -->
   <div v-if="showEnrolModal" class="fixed inset-0 flex items-center justify-center bg-gray-900/70 backdrop-blur-sm z-50 p-4">
     <div class="bg-white rounded-2xl w-full max-w-sm shadow-2xl overflow-hidden">
-      <div class="bg-gradient-to-r from-indigo-600 to-indigo-700 px-6 py-5 flex items-center gap-3">
+      <div class="bg-gradient-to-r from-red-600 to-red-700 px-6 py-5 flex items-center gap-3">
         <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 text-white flex-shrink-0" viewBox="0 0 20 20" fill="currentColor">
           <path fill-rule="evenodd" d="M6.625 2.655A9 9 0 0119 11a1 1 0 11-2 0 7 7 0 00-9.625-6.492 1 1 0 11-.75-1.853zM4.662 4.959A1 1 0 014.75 6.37 6.97 6.97 0 003 11a1 1 0 11-2 0 8.97 8.97 0 012.25-5.953 1 1 0 011.412-.088z" clip-rule="evenodd"/>
           <path fill-rule="evenodd" d="M5 11a5 5 0 1110 0 1 1 0 11-2 0 3 3 0 10-6 0c0 1.677-.345 3.276-.968 4.729a1 1 0 11-1.838-.789A9.964 9.964 0 005 11z" clip-rule="evenodd"/>
         </svg>
         <div>
           <h3 class="text-lg font-bold text-white">Registrar Huella</h3>
-          <p class="text-indigo-200 text-sm">{{ usuario?.nombre }}</p>
+          <p class="text-red-200 text-sm">{{ usuario?.nombre }}</p>
         </div>
         <button v-if="!enrolStatus?.activo" @click="cerrarEnrolModal" class="ml-auto text-white/70 hover:text-white">
           <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
@@ -624,16 +632,16 @@
           <p class="text-gray-500 text-sm">{{ enrolStatus.mensaje }}</p>
           <div class="flex gap-3 w-full mt-2">
             <button @click="cerrarEnrolModal" class="flex-1 py-2.5 rounded-xl border border-gray-200 text-gray-600 font-semibold hover:bg-gray-50 transition-colors">Cancelar</button>
-            <button @click="iniciarEnrolamiento" class="flex-1 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-bold transition-colors">Reintentar</button>
+            <button @click="iniciarEnrolamiento" class="flex-1 py-2.5 rounded-xl bg-red-600 hover:bg-red-700 text-white font-bold transition-colors">Reintentar</button>
           </div>
         </div>
 
         <!-- En progreso -->
         <div v-else-if="enrolStatus?.activo" class="flex flex-col items-center gap-4">
           <div class="relative w-20 h-20">
-            <div class="absolute inset-0 rounded-full bg-indigo-100 animate-ping opacity-40"></div>
-            <div class="relative w-20 h-20 bg-indigo-50 rounded-full flex items-center justify-center border-2 border-indigo-300">
-              <svg xmlns="http://www.w3.org/2000/svg" class="h-10 w-10 text-indigo-600" viewBox="0 0 20 20" fill="currentColor">
+            <div class="absolute inset-0 rounded-full bg-red-100 animate-ping opacity-40"></div>
+            <div class="relative w-20 h-20 bg-red-50 rounded-full flex items-center justify-center border-2 border-red-300">
+              <svg xmlns="http://www.w3.org/2000/svg" class="h-10 w-10 text-red-600" viewBox="0 0 20 20" fill="currentColor">
                 <path fill-rule="evenodd" d="M6.625 2.655A9 9 0 0119 11a1 1 0 11-2 0 7 7 0 00-9.625-6.492 1 1 0 11-.75-1.853zM4.662 4.959A1 1 0 014.75 6.37 6.97 6.97 0 003 11a1 1 0 11-2 0 8.97 8.97 0 012.25-5.953 1 1 0 011.412-.088z" clip-rule="evenodd"/>
                 <path fill-rule="evenodd" d="M5 11a5 5 0 1110 0 1 1 0 11-2 0 3 3 0 10-6 0c0 1.677-.345 3.276-.968 4.729a1 1 0 11-1.838-.789A9.964 9.964 0 005 11z" clip-rule="evenodd"/>
               </svg>
@@ -643,7 +651,7 @@
             <div v-for="i in enrolStatus.total" :key="i"
               class="w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold transition-all"
               :class="i < enrolStatus.paso ? 'bg-emerald-500 text-white' :
-                      i === enrolStatus.paso ? 'bg-indigo-600 text-white ring-4 ring-indigo-200' :
+                      i === enrolStatus.paso ? 'bg-red-600 text-white ring-4 ring-red-200' :
                       'bg-gray-100 text-gray-400'">
               {{ i < enrolStatus.paso ? '✓' : i }}
             </div>
@@ -662,8 +670,8 @@
             </p>
           </div>
           <div v-else>
-            <p class="text-gray-500 text-sm mb-4">Se capturarán <strong>4 muestras</strong> del dedo del usuario.<br>Asegúrate de que el lector esté conectado.</p>
-            <button @click="iniciarEnrolamiento" class="w-full py-3 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-lg transition-colors flex items-center justify-center gap-2">
+            <p class="text-gray-500 text-sm mb-4">Se capturarán <strong>4 muestras</strong> del dedo de la persona.<br>Asegúrate de que el lector esté conectado.</p>
+            <button @click="iniciarEnrolamiento" class="w-full py-3 rounded-xl bg-red-600 hover:bg-red-700 text-white font-bold text-lg transition-colors flex items-center justify-center gap-2">
               <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
                 <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-8.707l-3-3a1 1 0 00-1.414 1.414L10.586 9H7a1 1 0 100 2h3.586l-1.293 1.293a1 1 0 101.414 1.414l3-3a1 1 0 000-1.414z" clip-rule="evenodd"/>
               </svg>
@@ -675,17 +683,28 @@
     </div>
   </div>
 
+  <!-- OJO: este template tiene varios elementos raíz. El visor va acá, como raíz
+       propio — adentro del modal de huella solo se renderizaba con ese modal abierto.
+       v-if y no v-show: al montarse/desmontarse instala y limpia solo el listener de
+       Escape y el bloqueo de scroll del body. -->
+  <FotoAmpliada v-if="fotoAmpliada && usuario" :src="fotoSrc(usuario)" :nombre="usuario.nombre"
+    @cerrar="fotoAmpliada = false" />
+
 </template>
 
 <script setup>
 import { ref, computed, onMounted, onUnmounted } from 'vue'
 import { useRoute } from 'vue-router'
-import api, { mediaUrl } from '../api'
+import api from '../api'
+import { fotoSrc } from '../lib/avatar'
+import { BADGE_NEUTRO } from '../data/paleta'
+import FotoAmpliada from '../components/FotoAmpliada.vue'
 
 const route = useRoute()
 const id = route.params.id
 
 const usuario = ref(null)
+const fotoAmpliada = ref(false)
 const cargando = ref(true)
 const fechasAsistencia = ref([])
 const cargandoAsistencias = ref(true)
@@ -944,9 +963,6 @@ const _iniciarPollEnrol = () => {
 }
 
 // ── Helpers de perfil ───────────────────────────────────────
-const fotoSrc = (u) => u?.foto_url
-  ? mediaUrl(u.foto_url)
-  : `https://ui-avatars.com/api/?name=${encodeURIComponent(u?.nombre || 'U')}&background=dc2626&color=fff&size=128`
 
 const rolLabel = (rol) => ({ admin: 'Administrador', coach: 'Coach', cliente: 'Cliente', pendiente: 'Pendiente' }[rol] || rol)
 

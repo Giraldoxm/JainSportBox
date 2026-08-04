@@ -5,7 +5,7 @@
     <!-- Filtro de categoría -->
     <div class="flex flex-wrap gap-1.5 mb-2">
       <button
-        v-for="cat in ['', 'Cardio', 'Fuerza', 'Gimnasia', 'Olímpico', 'Otro']"
+        v-for="cat in ['', ...CATEGORIAS_EJERCICIO]"
         :key="cat"
         type="button"
         @click="categoriaFiltro = cat"
@@ -61,7 +61,10 @@
           <div class="flex items-center gap-2 min-w-0">
             <span class="text-xs font-bold text-gray-400 w-5 flex-shrink-0">{{ idx + 1 }}.</span>
             <span class="font-semibold text-gray-800 text-sm truncate">{{ it.nombre }}</span>
-            <span v-if="it.categoria" class="text-xs font-semibold px-1.5 py-0.5 rounded-full bg-gray-200 text-gray-500 flex-shrink-0">{{ it.categoria }}</span>
+            <span v-if="it.categoria" class="inline-flex items-center gap-1 text-xs font-semibold px-1.5 py-0.5 rounded-full flex-shrink-0" :class="BADGE_NEUTRO">
+              <span class="w-1.5 h-1.5 rounded-full flex-shrink-0" :class="puntoCategoria(it.categoria)"></span>
+              {{ it.categoria }}
+            </span>
             <span v-if="it.descripcion" class="text-xs text-gray-400 truncate hidden sm:block">{{ it.descripcion }}</span>
             <span v-if="it.video_url" class="flex-shrink-0 inline-flex items-center text-red-500" title="Tiene video">
               <svg xmlns="http://www.w3.org/2000/svg" class="h-3.5 w-3.5" fill="currentColor" viewBox="0 0 24 24"><path d="M8 5v14l11-7z" /></svg>
@@ -177,6 +180,7 @@
 
 <script setup>
 import { ref, computed, watch } from 'vue'
+import { BADGE_NEUTRO, CATEGORIAS_EJERCICIO, puntoCategoria } from '../data/paleta'
 
 const props = defineProps({
   modelValue: { type: Array, default: () => [] },

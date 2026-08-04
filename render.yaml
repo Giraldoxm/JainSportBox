@@ -74,3 +74,22 @@ services:
         sync: false
       - key: S3_PUBLIC_URL
         sync: false
+
+      # ── WhatsApp Cloud API (recordatorios automáticos) ─────────
+      # Si estas dos quedan vacías el envío automático no arranca y los
+      # recordatorios siguen siendo manuales — el resto del backend anda igual.
+      # WA_ACCESS_TOKEN tiene que ser un system user token PERMANENTE: el del
+      # panel de "Getting Started" de Meta vence a las 24 h.
+      - key: WA_PHONE_NUMBER_ID
+        sync: false
+      - key: WA_ACCESS_TOKEN
+        sync: false
+      # Deben coincidir exacto con la plantilla aprobada en WhatsApp Manager.
+      - key: WA_TEMPLATE_VENCIMIENTO
+        sync: false
+      - key: WA_TEMPLATE_LANG
+        sync: false
+      # Estrenar con WA_DRY_RUN=1 un día, revisar los payloads en los logs, y
+      # recién ahí ponerlo en 0.
+      - key: WA_DRY_RUN
+        sync: false

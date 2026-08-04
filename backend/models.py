@@ -405,10 +405,24 @@ class AlertaMembresia(Base):
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
     usuario_id: Mapped[int] = mapped_column(Integer, ForeignKey("usuarios.id"), nullable=False)
     fecha_vencimiento: Mapped[date] = mapped_column(Date, nullable=False)
-    dias_anticipacion: Mapped[int] = mapped_column(Integer, nullable=False)  # 7, 3 o 1
+    # Días que faltaban al CREAR la alerta. No se actualiza después, así que a
+    # los dos días ya no refleja los días restantes reales: para cualquier
+    # decisión (p. ej. si toca enviar) hay que recalcular contra
+    # usuario.fecha_vencimiento, no leer esta columna.
+    dias_anticipacion: Mapped[int] = mapped_column(Integer, nullable=False)
     enviada: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
     fecha_creacion: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
     fecha_enviada: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True)
+
+    # ── Envío por WhatsApp Cloud API ──
+    # No hay columna de "estado": es derivable de lo que ya está acá.
+    #   enviada=True                        → enviado
+    #   enviada=False y error_envio no nulo → falló
+    #   enviada=False y error_envio nulo    → todavía no se intentó
+    canal: Mapped[Optional[str]] = mapped_column(String(20), nullable=True)  # "whatsapp_api" | "manual"
+    wa_message_id: Mapped[Optional[str]] = mapped_column(String(80), nullable=True)
+    error_envio: Mapped[Optional[str]] = mapped_column(String(300), nullable=True)
+    intentos: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
 
     usuario: Mapped["Usuario"] = relationship("Usuario")
 

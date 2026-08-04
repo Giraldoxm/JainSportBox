@@ -18,8 +18,8 @@ class UsuarioCreate(BaseModel):
     fecha_nacimiento: Optional[date] = None
     eps: Optional[str] = Field(None, max_length=100)
     barrio: Optional[str] = Field(None, max_length=100)
-    contacto_emergencia_nombre: Optional[str] = Field(None, max_length=120)
-    contacto_emergencia_telefono: Optional[str] = Field(None, max_length=20)
+    contacto_emergencia_nombre: str = Field(..., min_length=2, max_length=120)
+    contacto_emergencia_telefono: str = Field(..., min_length=7, max_length=20)
     es_menor: bool = False
     acudiente_nombre: Optional[str] = Field(None, max_length=120)
     acudiente_telefono: Optional[str] = Field(None, max_length=20)

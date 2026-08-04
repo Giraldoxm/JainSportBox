@@ -3,23 +3,58 @@
     <!-- Header -->
     <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-8 gap-4">
       <div>
-        <h2 class="text-3xl font-extrabold text-gray-900 tracking-tight">Usuarios</h2>
-        <p class="text-gray-500 mt-1">Gestiona los usuarios y sus membresías</p>
+        <h2 class="text-3xl font-extrabold text-gray-900 tracking-tight">Clientes</h2>
+        <p class="text-gray-500 mt-1">Gestiona los clientes y sus membresías</p>
       </div>
       <div class="flex flex-wrap gap-2">
-        <button @click="exportarExcel" :disabled="exportando" class="bg-white border border-gray-300 hover:border-emerald-500 hover:text-emerald-700 disabled:opacity-60 text-gray-700 px-4 py-2.5 rounded-lg shadow-sm hover:shadow transition-all font-semibold flex items-center gap-2 transform active:scale-95">
-          <span v-if="exportando" class="animate-spin rounded-full h-4 w-4 border-b-2 border-emerald-600"></span>
-          <svg v-else xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 text-emerald-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
-          </svg>
-          {{ exportando ? 'Exportando…' : 'Exportar Excel' }}
-        </button>
-        <button @click="abrirPalanquera" :disabled="palanqueraAbriendo" class="bg-emerald-600 hover:bg-emerald-700 disabled:opacity-60 text-white px-4 py-2.5 rounded-lg shadow-md hover:shadow-lg transition-all font-semibold flex items-center gap-2 transform active:scale-95">
-          <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
-            <path fill-rule="evenodd" d="M5 9V7a5 5 0 019.9-1 1 1 0 11-1.98.32A3 3 0 007 7v2h6a2 2 0 012 2v5a2 2 0 01-2 2H5a2 2 0 01-2-2v-5a2 2 0 012-2zm5 3a1 1 0 00-1 1v2a1 1 0 102 0v-2a1 1 0 00-1-1z" clip-rule="evenodd" />
-          </svg>
-          {{ palanqueraAbriendo ? 'Abriendo…' : 'Abrir palanquera' }}
-        </button>
+        <!-- El endpoint exporta una hoja por grupo: el panel de abajo elige cuáles. -->
+        <div class="relative">
+          <button @click="toggleExportar" :disabled="exportando" class="bg-white border border-gray-300 hover:border-red-500 hover:text-red-700 disabled:opacity-60 text-gray-700 px-4 py-2.5 rounded-lg shadow-sm hover:shadow transition-all font-semibold flex items-center gap-2 transform active:scale-95">
+            <span v-if="exportando" class="animate-spin rounded-full h-4 w-4 border-b-2 border-red-600"></span>
+            <svg v-else xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 text-red-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
+            </svg>
+            {{ exportando ? 'Exportando…' : 'Exportar Excel' }}
+            <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 text-gray-400 transition-transform" :class="showExportar ? 'rotate-180' : ''" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7" />
+            </svg>
+          </button>
+
+          <!-- Capa transparente: un clic afuera cierra el panel. -->
+          <div v-if="showExportar" class="fixed inset-0 z-30" @click="showExportar = false"></div>
+
+          <div v-if="showExportar"
+            class="absolute right-0 mt-2 w-72 bg-white rounded-xl border border-gray-200 shadow-xl z-40 p-3">
+            <p class="text-xs font-bold text-gray-400 uppercase tracking-widest mb-2 px-1">Qué exportar</p>
+
+            <label class="flex items-center gap-3 p-2.5 rounded-lg cursor-pointer transition-colors"
+              :class="expClientes ? 'bg-red-50' : 'hover:bg-gray-50'">
+              <input type="checkbox" v-model="expClientes" class="w-4 h-4 accent-red-600 rounded flex-shrink-0">
+              <span class="min-w-0">
+                <span class="block text-sm font-semibold text-gray-800">Clientes</span>
+                <span class="block text-xs text-gray-500">{{ clientes.length }} registros</span>
+              </span>
+            </label>
+
+            <label class="flex items-center gap-3 p-2.5 rounded-lg cursor-pointer transition-colors"
+              :class="expEquipo ? 'bg-red-50' : 'hover:bg-gray-50'">
+              <input type="checkbox" v-model="expEquipo" class="w-4 h-4 accent-red-600 rounded flex-shrink-0">
+              <span class="min-w-0">
+                <span class="block text-sm font-semibold text-gray-800">Equipo del box</span>
+                <span class="block text-xs text-gray-500">{{ equipo.length }} registros</span>
+              </span>
+            </label>
+
+            <p class="text-xs text-gray-400 px-1 mt-2">Cada grupo va en su propia hoja.</p>
+
+            <button @click="exportarExcel" :disabled="exportando || (!expClientes && !expEquipo)"
+              class="mt-3 w-full py-2.5 rounded-lg bg-red-600 hover:bg-red-700 disabled:opacity-40 disabled:cursor-not-allowed text-white font-bold text-sm transition-colors inline-flex items-center justify-center gap-2">
+              <span v-if="exportando" class="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></span>
+              {{ exportando ? 'Exportando…' : 'Descargar' }}
+            </button>
+          </div>
+        </div>
+        <!-- "Abrir palanquera" se mudó a /acceso: es el fallback de recepción. -->
         <button @click="abrirBuscarHuella" class="bg-gray-700 hover:bg-gray-800 text-white px-4 py-2.5 rounded-lg shadow-md hover:shadow-lg transition-all font-semibold flex items-center gap-2 transform active:scale-95">
           <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
             <path fill-rule="evenodd" d="M6.625 2.655A9 9 0 0119 11a1 1 0 11-2 0 7 7 0 00-9.625-6.492 1 1 0 11-.75-1.853zM4.662 4.959A1 1 0 014.75 6.37 6.97 6.97 0 003 11a1 1 0 11-2 0 8.97 8.97 0 012.25-5.953 1 1 0 011.412-.088z" clip-rule="evenodd"/>
@@ -27,62 +62,36 @@
           </svg>
           Buscar por Huella
         </button>
-        <button @click="showForm = true" class="bg-red-600 hover:bg-red-700 text-white px-5 py-2.5 rounded-lg shadow-md hover:shadow-lg transition-all font-semibold flex items-center gap-2 transform active:scale-95">
+        <!-- Staff solo lo crea un admin (el backend ya lo exige en POST). -->
+        <button v-if="vista === 'clientes' || isAdmin" @click="abrirFormulario(vista === 'equipo')"
+          class="bg-red-600 hover:bg-red-700 text-white px-5 py-2.5 rounded-lg shadow-md hover:shadow-lg transition-all font-semibold flex items-center gap-2 transform active:scale-95">
           <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
             <path fill-rule="evenodd" d="M10 3a1 1 0 011 1v5h5a1 1 0 110 2h-5v5a1 1 0 11-2 0v-5H4a1 1 0 110-2h5V4a1 1 0 011-1z" clip-rule="evenodd" />
           </svg>
-          Nuevo Usuario
+          {{ vista === 'equipo' ? 'Nuevo miembro' : 'Nuevo Cliente' }}
         </button>
       </div>
     </div>
 
-    <!-- Panel: cumpleaños hoy -->
-    <div v-if="cumpleaneros.length > 0" class="mb-5 border border-gray-300/60 rounded-2xl overflow-hidden">
-      <!-- Header clicable -->
-      <button
-        @click="cumpleanosExpandido = !cumpleanosExpandido"
-        class="w-full flex items-center justify-between px-4 py-3 hover:bg-gray-50/60 transition-colors">
-        <div class="flex items-center gap-2">
-          <span>🎂</span>
-          <span class="text-xs font-bold text-gray-600 uppercase tracking-widest">Cumpleaños hoy</span>
-          <span class="text-[10px] font-black bg-red-600 text-white w-4 h-4 flex items-center justify-center rounded-full">{{ cumpleaneros.length }}</span>
-        </div>
-        <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 text-gray-400 transition-transform"
-          :class="cumpleanosExpandido ? 'rotate-180' : ''"
-          fill="none" viewBox="0 0 24 24" stroke="currentColor">
-          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/>
-        </svg>
+    <!-- Switch de listado -->
+    <div class="flex gap-2 mb-4 border-b border-gray-200">
+      <button v-for="v in [{ key: 'clientes', label: 'Clientes', count: clientes.length },
+                           { key: 'equipo',   label: 'Equipo del box', count: equipo.length }]"
+        :key="v.key" @click="vista = v.key"
+        class="flex items-center gap-2 px-1 pb-3 -mb-px text-sm font-bold border-b-2 transition-colors"
+        :class="vista === v.key
+          ? 'border-red-600 text-red-600'
+          : 'border-transparent text-gray-400 hover:text-gray-600'">
+        {{ v.label }}
+        <span class="text-xs font-black px-1.5 py-0.5 rounded-full"
+          :class="vista === v.key ? 'bg-red-100 text-red-700' : 'bg-gray-100 text-gray-500'">
+          {{ v.count }}
+        </span>
       </button>
-      <!-- Filas colapsables -->
-      <div v-if="cumpleanosExpandido" class="flex flex-col divide-y divide-gray-100">
-        <div
-          v-for="u in cumpleaneros" :key="u.id"
-          class="flex items-center justify-between gap-3 px-4 py-2.5 bg-transparent">
-          <span class="text-sm font-semibold text-gray-800 truncate">{{ u.nombre }}</span>
-          <div class="flex items-center gap-2 flex-shrink-0">
-            <a
-              v-if="u.telefono"
-              :href="whatsappCumpleanos(u)"
-              target="_blank"
-              class="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold transition-colors">
-              <svg xmlns="http://www.w3.org/2000/svg" class="h-3.5 w-3.5" viewBox="0 0 24 24" fill="currentColor">
-                <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347z"/>
-                <path d="M12 0C5.373 0 0 5.373 0 12c0 2.126.553 4.116 1.522 5.85L0 24l6.335-1.48A11.945 11.945 0 0012 24c6.627 0 12-5.373 12-12S18.627 0 12 0zm0 21.818a9.818 9.818 0 01-5.006-1.371l-.36-.214-3.73.871.938-3.63-.234-.373A9.817 9.817 0 012.182 12C2.182 6.57 6.57 2.182 12 2.182c5.43 0 9.818 4.388 9.818 9.818 0 5.43-4.388 9.818-9.818 9.818z"/>
-              </svg>
-              Felicitar
-            </a>
-            <button
-              @click="router.push(`/usuarios/${u.id}`)"
-              class="px-3 py-1.5 rounded-lg bg-white border border-gray-200 hover:border-gray-300 text-gray-600 hover:text-gray-800 text-xs font-semibold transition-colors">
-              Ver perfil
-            </button>
-          </div>
-        </div>
-      </div>
     </div>
 
     <!-- Buscador -->
-    <div class="relative mb-4">
+    <div v-if="vista === 'clientes'" class="relative mb-4">
       <svg xmlns="http://www.w3.org/2000/svg" class="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-4.35-4.35M17 11A6 6 0 1 1 5 11a6 6 0 0 1 12 0z"/>
       </svg>
@@ -97,8 +106,8 @@
       </button>
     </div>
 
-    <!-- Filtros -->
-    <div class="flex flex-wrap gap-2 mb-5">
+    <!-- Filtros + orden -->
+    <div v-if="vista === 'clientes'" class="flex flex-wrap items-center gap-2 mb-5">
       <button v-for="tab in tabs" :key="tab.key" @click="filtroActivo = tab.key"
         class="flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold transition-all border"
         :class="filtroActivo === tab.key
@@ -110,7 +119,24 @@
           {{ tab.count }}
         </span>
       </button>
+
+      <!-- Ordenar por -->
+      <div v-if="filtroActivo !== 'pendientes'" class="flex items-center gap-2 ml-auto">
+        <label for="orden-usuarios" class="text-xs font-semibold text-gray-400 uppercase tracking-widest hidden sm:block">
+          Ordenar por
+        </label>
+        <select
+          id="orden-usuarios"
+          v-model="orden"
+          class="px-3 py-2 rounded-xl border border-gray-200 bg-white text-sm font-semibold text-gray-600 focus:ring-2 focus:ring-red-500 focus:border-red-500 outline-none transition-all cursor-pointer"
+        >
+          <option v-for="o in ORDENES" :key="o.key" :value="o.key">{{ o.label }}</option>
+        </select>
+      </div>
     </div>
+
+    <!-- ══════════ LISTADO: CLIENTES ══════════ -->
+    <template v-if="vista === 'clientes'">
 
     <!-- Loading -->
     <div v-if="loading && filtroActivo !== 'pendientes'" class="flex justify-center py-16">
@@ -120,13 +146,13 @@
     <!-- Empty -->
     <div v-else-if="filtroActivo !== 'pendientes' && usuariosFiltrados.length === 0" class="bg-white rounded-xl border border-gray-100 px-6 py-12 text-center text-gray-400">
       <svg xmlns="http://www.w3.org/2000/svg" class="h-12 w-12 mx-auto text-gray-300 mb-3" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z"/></svg>
-      {{ tabs.find(t => t.key === filtroActivo)?.emptyMsg || 'No hay usuarios.' }}
+      {{ tabs.find(t => t.key === filtroActivo)?.emptyMsg || 'No hay clientes.' }}
     </div>
 
     <template v-else-if="filtroActivo !== 'pendientes'">
       <!-- ── Cards (móvil) ── -->
       <div class="sm:hidden space-y-3">
-        <div v-for="user in usuariosFiltrados" :key="user.id"
+        <div v-for="user in paginaItems" :key="user.id"
           class="bg-white rounded-xl border border-gray-100 shadow-sm p-4">
           <div class="flex items-center gap-3 mb-3">
             <img loading="lazy" class="h-11 w-11 rounded-full object-cover bg-gray-100 flex-shrink-0" :src="fotoSrc(user)" alt="" />
@@ -134,27 +160,24 @@
               <p class="font-semibold text-gray-900 truncate">{{ user.nombre }}</p>
               <p class="text-xs text-gray-500 truncate">{{ user.email }}</p>
             </div>
-            <span class="px-2 py-0.5 text-xs font-semibold rounded-full flex-shrink-0"
-              :class="{
-                'bg-purple-100 text-purple-800': user.rol === 'admin',
-                'bg-blue-100 text-blue-800': user.rol === 'coach',
-                'bg-gray-100 text-gray-700': user.rol === 'cliente',
-              }">{{ user.rol }}</span>
           </div>
           <div class="flex items-center justify-between">
             <div>
               <template v-if="user.fecha_vencimiento">
-                <p class="text-sm font-semibold" :class="colorTextoDias(diasRestantes(user.fecha_vencimiento))">
+                <!-- El punto va también acá: sin él, al neutralizar el texto la card
+                     móvil se quedaba sin ninguna señal de estado. -->
+                <p class="text-sm font-semibold flex items-center gap-2" :class="colorTextoDias(diasRestantes(user.fecha_vencimiento))">
+                  <span class="w-2 h-2 rounded-full flex-shrink-0" :class="colorPuntoDias(diasRestantes(user.fecha_vencimiento))"></span>
                   {{ etiquetaDias(diasRestantes(user.fecha_vencimiento)) }}
                 </p>
-                <p class="text-xs text-gray-400">Vence {{ formatFecha(user.fecha_vencimiento) }}</p>
+                <p class="text-xs text-gray-400 ml-4">Vence {{ formatFecha(user.fecha_vencimiento) }}</p>
               </template>
               <span v-else class="text-sm text-gray-400 italic">Sin membresía</span>
             </div>
             <div class="flex items-center gap-2">
               <span class="flex items-center gap-1 text-xs font-semibold px-2 py-1 rounded-full border"
-                :class="user.esta_en_gym ? 'bg-green-100 text-green-800 border-green-200' : 'bg-gray-100 text-gray-600 border-gray-200'">
-                <span class="w-1.5 h-1.5 rounded-full" :class="user.esta_en_gym ? 'bg-green-500' : 'bg-gray-400'"></span>
+                :class="user.esta_en_gym ? 'bg-emerald-100 text-emerald-800 border-emerald-200' : 'bg-gray-100 text-gray-600 border-gray-200'">
+                <span class="w-1.5 h-1.5 rounded-full" :class="user.esta_en_gym ? 'bg-emerald-500' : 'bg-gray-400'"></span>
                 {{ user.esta_en_gym ? 'Activo' : 'Fuera' }}
               </span>
               <button @click="verUsuario(user)" class="p-2 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors">
@@ -174,15 +197,14 @@
           <table class="min-w-full divide-y divide-gray-200">
             <thead class="bg-gray-50">
               <tr>
-                <th class="px-6 py-4 text-left text-xs font-bold text-gray-500 uppercase tracking-wider">Usuario</th>
-                <th class="px-6 py-4 text-left text-xs font-bold text-gray-500 uppercase tracking-wider">Rol</th>
+                <th class="px-6 py-4 text-left text-xs font-bold text-gray-500 uppercase tracking-wider">Cliente</th>
                 <th class="px-6 py-4 text-left text-xs font-bold text-gray-500 uppercase tracking-wider">Membresía</th>
                 <th class="px-6 py-4 text-left text-xs font-bold text-gray-500 uppercase tracking-wider">Estado</th>
                 <th class="px-6 py-4 text-left text-xs font-bold text-gray-500 uppercase tracking-wider">Acciones</th>
               </tr>
             </thead>
             <tbody class="bg-white divide-y divide-gray-100">
-              <tr v-for="user in usuariosFiltrados" :key="user.id" class="hover:bg-gray-50 transition-colors group">
+              <tr v-for="user in paginaItems" :key="user.id" class="hover:bg-gray-50 transition-colors group">
                 <td class="px-6 py-4 whitespace-nowrap">
                   <div class="flex items-center gap-3">
                     <img loading="lazy" class="h-10 w-10 rounded-full object-cover bg-gray-100 flex-shrink-0" :src="fotoSrc(user)" alt="" />
@@ -191,14 +213,6 @@
                       <div class="text-xs text-gray-500">{{ user.email }}</div>
                     </div>
                   </div>
-                </td>
-                <td class="px-6 py-4 whitespace-nowrap">
-                  <span class="px-3 py-1 inline-flex text-xs leading-5 font-semibold rounded-full"
-                    :class="{
-                      'bg-purple-100 text-purple-800': user.rol === 'admin',
-                      'bg-blue-100 text-blue-800': user.rol === 'coach',
-                      'bg-gray-100 text-gray-700': user.rol === 'cliente',
-                    }">{{ user.rol }}</span>
                 </td>
                 <td class="px-6 py-4 whitespace-nowrap">
                   <template v-if="user.fecha_vencimiento">
@@ -214,8 +228,8 @@
                 </td>
                 <td class="px-6 py-4 whitespace-nowrap">
                   <span class="px-3 py-1 inline-flex items-center gap-1.5 text-xs font-semibold rounded-full border shadow-sm"
-                    :class="user.esta_en_gym ? 'bg-green-100 text-green-800 border-green-200' : 'bg-gray-100 text-gray-600 border-gray-200'">
-                    <span class="w-2 h-2 rounded-full" :class="user.esta_en_gym ? 'bg-green-500' : 'bg-gray-400'"></span>
+                    :class="user.esta_en_gym ? 'bg-emerald-100 text-emerald-800 border-emerald-200' : 'bg-gray-100 text-gray-600 border-gray-200'">
+                    <span class="w-2 h-2 rounded-full" :class="user.esta_en_gym ? 'bg-emerald-500' : 'bg-gray-400'"></span>
                     {{ user.esta_en_gym ? 'Activo' : 'Fuera' }}
                   </span>
                 </td>
@@ -234,6 +248,7 @@
           </table>
         </div>
       </div>
+
     </template>
 
     <!-- ── Tab: Pendientes ── -->
@@ -245,91 +260,339 @@
         <svg xmlns="http://www.w3.org/2000/svg" class="h-12 w-12 mx-auto text-gray-300 mb-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
           <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/>
         </svg>
-        No hay usuarios pendientes de aprobación.
+        No hay clientes pendientes de aprobación.
       </div>
-      <div v-else class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-        <div v-for="p in pendientes" :key="p.id"
-          class="bg-white rounded-xl shadow-sm p-5 flex flex-col gap-3 border"
-          :class="p.es_menor ? 'border-red-300 ring-1 ring-red-200' : 'border-red-100'">
-          <div class="flex items-center gap-3">
-            <div class="w-10 h-10 rounded-full bg-red-100 flex items-center justify-center flex-shrink-0">
-              <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 text-red-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"/>
-              </svg>
+      <div v-else-if="pendientesFiltrados.length === 0" class="bg-white rounded-xl border border-gray-100 px-6 py-12 text-center text-gray-400">
+        Ningún cliente pendiente coincide con la búsqueda.
+      </div>
+
+      <template v-else>
+        <!-- ── Barra de selección (solo admin: el borrado masivo es suyo) ── -->
+        <div v-if="isAdmin" class="mb-3 flex flex-wrap items-center gap-3">
+          <button v-if="hayViejos" @click="seleccionarViejos"
+            class="text-xs font-semibold text-gray-500 hover:text-red-600 underline underline-offset-2 transition-colors">
+            Seleccionar los de más de {{ PENDIENTE_VIEJO_DIAS }} días ({{ pendientesViejos.length }})
+          </button>
+          <div v-if="seleccionados.size" class="ml-auto flex items-center gap-3">
+            <span class="text-sm font-semibold text-gray-600">{{ seleccionados.size }} seleccionados</span>
+            <button @click="limpiarSeleccion" class="text-xs font-semibold text-gray-400 hover:text-gray-600">Limpiar</button>
+            <button @click="confirmarEliminarSeleccion"
+              class="px-3 py-1.5 rounded-lg bg-red-600 hover:bg-red-700 text-white text-xs font-bold transition-colors">
+              Descartar seleccionados
+            </button>
+          </div>
+        </div>
+
+        <!-- ── Cards (móvil) ── -->
+        <div class="sm:hidden space-y-3">
+          <div v-for="p in paginaItems" :key="p.id" class="bg-white rounded-xl border shadow-sm p-4"
+            :class="seleccionados.has(p.id) ? 'border-red-300 bg-red-50/40' : 'border-gray-100'">
+            <div class="flex items-center gap-3 mb-3">
+              <input v-if="isAdmin" type="checkbox" :checked="seleccionados.has(p.id)" @change="alternarSeleccion(p.id)"
+                :aria-label="`Seleccionar a ${p.nombre}`"
+                class="h-4 w-4 rounded border-gray-300 text-red-600 focus:ring-red-500 cursor-pointer flex-shrink-0" />
+              <img loading="lazy" class="h-11 w-11 rounded-full object-cover bg-gray-100 flex-shrink-0" :src="fotoSrc(p)" alt="" />
+              <div class="min-w-0 flex-1">
+                <p class="font-semibold text-gray-900 truncate">
+                  {{ p.nombre }}
+                  <span v-if="p.es_menor" class="align-middle ml-1 text-[10px] font-bold uppercase tracking-wide px-1.5 py-0.5 rounded-full bg-amber-100 text-amber-800 border border-amber-200">Menor</span>
+                </p>
+                <p class="text-xs text-gray-500 truncate">{{ p.email }}</p>
+              </div>
             </div>
-            <div class="min-w-0">
-              <p class="font-bold text-gray-900 truncate">{{ p.nombre }}</p>
-              <p class="text-xs text-gray-500 truncate">{{ p.email }}</p>
+            <div class="grid grid-cols-2 gap-2 text-xs mb-3">
+              <div class="bg-gray-50 rounded-lg px-3 py-2 min-w-0">
+                <p class="text-gray-400 font-semibold uppercase tracking-wide mb-0.5">Documento</p>
+                <p class="font-semibold text-gray-700 truncate">{{ p.documento_identidad || '—' }}</p>
+              </div>
+              <div class="bg-gray-50 rounded-lg px-3 py-2 min-w-0">
+                <p class="text-gray-400 font-semibold uppercase tracking-wide mb-0.5">Teléfono</p>
+                <p class="font-semibold text-gray-700 truncate">{{ p.telefono || '—' }}</p>
+              </div>
             </div>
-            <span v-if="p.es_menor"
-              class="ml-auto flex-shrink-0 text-[10px] font-black uppercase tracking-wide px-2 py-1 rounded-full bg-red-600 text-white">
-              Menor de edad
+            <!-- Solo la antigüedad toma color; el plan queda neutro para no gritar toda la línea. -->
+            <p class="text-xs text-gray-400 mb-3">
+              {{ p.plan_solicitado?.nombre || 'Sin plan solicitado' }} · Registrado
+              <span :class="colorAntiguedad(p.created_at)">{{ antiguedadPendiente(p.created_at) }}</span>
+            </p>
+            <PendienteDetalle v-if="detalleAbierto[p.id]" :p="p" class="mb-3" />
+            <div class="flex items-center gap-2">
+              <button @click="toggleDetalle(p.id)"
+                class="flex items-center gap-1 px-3 py-2 rounded-lg border border-gray-200 text-xs font-semibold text-gray-500 hover:text-gray-700 hover:border-gray-400 transition-colors">
+                Datos
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-3.5 w-3.5 transition-transform" :class="detalleAbierto[p.id] ? 'rotate-180' : ''" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M19 9l-7 7-7-7"/></svg>
+              </button>
+              <button @click="abrirActivar(p)"
+                class="flex-1 py-2 rounded-lg bg-red-600 hover:bg-red-700 text-white font-bold text-sm transition-colors">
+                Activar
+              </button>
+              <button @click="confirmarEliminar(p, true)" title="Eliminar registro"
+                class="p-2 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors">
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <!-- ── Tabla (desktop) ── -->
+        <div class="hidden sm:block bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
+          <div class="overflow-x-auto">
+            <table class="min-w-full divide-y divide-gray-200">
+              <thead class="bg-gray-50">
+                <tr>
+                  <th v-if="isAdmin" class="pl-6 pr-2 py-4 w-10">
+                    <input type="checkbox" :checked="todosDePaginaSeleccionados" @change="alternarSeleccionPagina"
+                      aria-label="Seleccionar todos los de esta página"
+                      class="h-4 w-4 rounded border-gray-300 text-red-600 focus:ring-red-500 cursor-pointer" />
+                  </th>
+                  <th class="px-6 py-4 text-left text-xs font-bold text-gray-500 uppercase tracking-wider">Cliente</th>
+                  <th class="px-6 py-4 text-left text-xs font-bold text-gray-500 uppercase tracking-wider">Contacto</th>
+                  <th class="px-6 py-4 text-left text-xs font-bold text-gray-500 uppercase tracking-wider">Plan solicitado</th>
+                  <th class="px-6 py-4 text-left text-xs font-bold text-gray-500 uppercase tracking-wider">Registrado</th>
+                  <th class="px-6 py-4 text-right text-xs font-bold text-gray-500 uppercase tracking-wider">Acciones</th>
+                </tr>
+              </thead>
+              <tbody class="bg-white divide-y divide-gray-100">
+                <template v-for="p in paginaItems" :key="p.id">
+                  <tr class="transition-colors" :class="seleccionados.has(p.id) ? 'bg-red-50/60' : 'hover:bg-gray-50'">
+                    <td v-if="isAdmin" class="pl-6 pr-2 py-4">
+                      <input type="checkbox" :checked="seleccionados.has(p.id)" @change="alternarSeleccion(p.id)"
+                        :aria-label="`Seleccionar a ${p.nombre}`"
+                        class="h-4 w-4 rounded border-gray-300 text-red-600 focus:ring-red-500 cursor-pointer" />
+                    </td>
+                    <td class="px-6 py-4 whitespace-nowrap">
+                      <div class="flex items-center gap-3">
+                        <img loading="lazy" class="h-10 w-10 rounded-full object-cover bg-gray-100 flex-shrink-0" :src="fotoSrc(p)" alt="" />
+                        <div>
+                          <div class="text-sm font-semibold text-gray-900 flex items-center gap-2">
+                            {{ p.nombre }}
+                            <!-- Ámbar, no rojo: ser menor es un aviso, no un error. -->
+                            <span v-if="p.es_menor" class="text-[10px] font-bold uppercase tracking-wide px-1.5 py-0.5 rounded-full bg-amber-100 text-amber-800 border border-amber-200">Menor</span>
+                          </div>
+                          <div class="text-xs text-gray-500">{{ p.email }}</div>
+                        </div>
+                      </div>
+                    </td>
+                    <td class="px-6 py-4 whitespace-nowrap">
+                      <p class="text-sm text-gray-700">{{ p.telefono || '—' }}</p>
+                      <p class="text-xs text-gray-400">CC {{ p.documento_identidad || '—' }}</p>
+                    </td>
+                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-600">{{ p.plan_solicitado?.nombre || '—' }}</td>
+                    <td class="px-6 py-4 whitespace-nowrap">
+                      <p class="text-sm text-gray-600">{{ formatFechaCorta(p.created_at) }}</p>
+                      <p class="text-xs" :class="colorAntiguedad(p.created_at)">
+                        {{ antiguedadPendiente(p.created_at) }}
+                      </p>
+                    </td>
+                    <td class="px-6 py-4 whitespace-nowrap">
+                      <div class="flex items-center justify-end gap-2">
+                        <button @click="toggleDetalle(p.id)" :title="detalleAbierto[p.id] ? 'Ocultar datos de afiliación' : 'Ver datos de afiliación'"
+                          class="flex items-center gap-1 px-2.5 py-1.5 rounded-lg border border-gray-200 text-xs font-semibold text-gray-500 hover:text-gray-700 hover:border-gray-400 transition-colors">
+                          Datos
+                          <svg xmlns="http://www.w3.org/2000/svg" class="h-3.5 w-3.5 transition-transform" :class="detalleAbierto[p.id] ? 'rotate-180' : ''" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M19 9l-7 7-7-7"/></svg>
+                        </button>
+                        <button @click="abrirActivar(p)"
+                          class="px-3 py-1.5 rounded-lg bg-red-600 hover:bg-red-700 text-white text-xs font-bold transition-colors">
+                          Activar
+                        </button>
+                        <!-- Descartar el registro que nunca se presentó. -->
+                        <button @click="confirmarEliminar(p, true)" title="Eliminar registro"
+                          class="p-1.5 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors">
+                          <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                  <tr v-if="detalleAbierto[p.id]" class="bg-gray-50">
+                    <td :colspan="isAdmin ? 6 : 5" class="px-6 py-4">
+                      <PendienteDetalle :p="p" />
+                    </td>
+                  </tr>
+                </template>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </template>
+    </template>
+
+    <!-- ── Paginación (sirve al listado de clientes y al de pendientes) ── -->
+    <div v-if="listaFiltrada.length > POR_PAGINA"
+      class="mt-4 flex flex-col sm:flex-row items-center justify-between gap-3">
+      <p class="text-xs text-gray-500 order-2 sm:order-1">
+        Mostrando <span class="font-bold text-gray-700">{{ rangoDesde }}–{{ rangoHasta }}</span>
+        de <span class="font-bold text-gray-700">{{ listaFiltrada.length }}</span>
+      </p>
+      <div class="flex items-center gap-1 order-1 sm:order-2">
+        <button @click="irAPagina(pagina - 1)" :disabled="pagina === 1"
+          class="px-2.5 py-1.5 rounded-lg border border-gray-200 text-gray-500 hover:border-gray-400 hover:text-gray-700 disabled:opacity-40 disabled:pointer-events-none transition-colors"
+          aria-label="Página anterior">
+          <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/></svg>
+        </button>
+        <template v-for="(p, i) in paginasVisibles" :key="`${p}-${i}`">
+          <span v-if="p === '…'" class="px-1.5 text-gray-400 text-sm select-none">…</span>
+          <button v-else @click="irAPagina(p)"
+            class="min-w-[2rem] px-2 py-1.5 rounded-lg text-sm font-bold border transition-colors"
+            :class="p === pagina
+              ? 'bg-gray-800 text-white border-gray-800'
+              : 'bg-white text-gray-500 border-gray-200 hover:border-gray-400 hover:text-gray-700'">
+            {{ p }}
+          </button>
+        </template>
+        <button @click="irAPagina(pagina + 1)" :disabled="pagina === totalPaginas"
+          class="px-2.5 py-1.5 rounded-lg border border-gray-200 text-gray-500 hover:border-gray-400 hover:text-gray-700 disabled:opacity-40 disabled:pointer-events-none transition-colors"
+          aria-label="Página siguiente">
+          <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
+        </button>
+      </div>
+    </div>
+
+    </template>
+    <template v-else>
+      <!-- ══════════ LISTADO: EQUIPO DEL BOX ══════════ -->
+      <div v-if="loading" class="flex justify-center py-16">
+        <div class="animate-spin rounded-full h-8 w-8 border-b-2 border-red-600"></div>
+      </div>
+
+      <div v-else-if="equipo.length === 0" class="bg-white rounded-xl border border-gray-100 px-6 py-12 text-center text-gray-400">
+        <svg xmlns="http://www.w3.org/2000/svg" class="h-12 w-12 mx-auto text-gray-300 mb-3" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z"/></svg>
+        No hay miembros del equipo registrados.
+      </div>
+
+      <template v-else>
+        <!-- ── Cards (móvil) ── -->
+        <div class="sm:hidden space-y-3">
+          <div v-for="u in equipo" :key="u.id" class="bg-white rounded-xl border border-gray-100 shadow-sm p-4">
+            <div class="flex items-center gap-3 mb-3">
+              <img loading="lazy" class="h-11 w-11 rounded-full object-cover bg-gray-100 flex-shrink-0" :src="fotoSrc(u)" alt="" />
+              <div class="min-w-0 flex-1">
+                <p class="font-semibold text-gray-900 truncate">{{ u.nombre }}</p>
+                <p class="text-xs text-gray-500 truncate">{{ u.email }}</p>
+              </div>
+            </div>
+            <div class="bg-gray-50 rounded-lg px-3 py-2 text-xs mb-3">
+              <p class="text-gray-400 font-semibold uppercase tracking-wide mb-0.5">Teléfono</p>
+              <p class="font-semibold text-gray-700">{{ u.telefono || '—' }}</p>
+            </div>
+            <div class="flex items-center justify-end">
+              <div class="flex items-center gap-1">
+                <button @click="verUsuario(u)" title="Ver perfil" class="p-2 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors">
+                  <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/></svg>
+                </button>
+                <button v-if="puedeEliminarStaff(u)" @click="confirmarEliminar(u)" title="Eliminar" class="p-2 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors">
+                  <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- ── Tabla (desktop) ── -->
+        <div class="hidden sm:block bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
+          <div class="overflow-x-auto">
+            <table class="min-w-full divide-y divide-gray-200">
+              <thead class="bg-gray-50">
+                <tr>
+                  <th class="px-6 py-4 text-left text-xs font-bold text-gray-500 uppercase tracking-wider">Miembro</th>
+                  <th class="px-6 py-4 text-left text-xs font-bold text-gray-500 uppercase tracking-wider">Contacto</th>
+                  <th class="px-6 py-4 text-left text-xs font-bold text-gray-500 uppercase tracking-wider">Acciones</th>
+                </tr>
+              </thead>
+              <tbody class="bg-white divide-y divide-gray-100">
+                <tr v-for="u in equipo" :key="u.id" class="hover:bg-gray-50 transition-colors group">
+                  <td class="px-6 py-4 whitespace-nowrap">
+                    <div class="flex items-center gap-3">
+                      <img loading="lazy" class="h-10 w-10 rounded-full object-cover bg-gray-100 flex-shrink-0" :src="fotoSrc(u)" alt="" />
+                      <div>
+                        <div class="text-sm font-semibold text-gray-900 group-hover:text-red-600 transition-colors">
+                          {{ u.nombre }}
+                          <span v-if="u.id === miId" class="ml-1 text-xs font-bold text-gray-400">(vos)</span>
+                        </div>
+                        <div class="text-xs text-gray-500">{{ u.email }}</div>
+                      </div>
+                    </div>
+                  </td>
+                  <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-600">{{ u.telefono || '—' }}</td>
+                  <td class="px-6 py-4 whitespace-nowrap">
+                    <div class="flex items-center gap-2">
+                      <!-- El enrolamiento de staff vive solo en UsuarioPerfilView. -->
+                      <button @click="verUsuario(u)" title="Ver perfil" class="p-1.5 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/></svg>
+                      </button>
+                      <button v-if="puedeEliminarStaff(u)" @click="confirmarEliminar(u)" title="Eliminar" class="p-1.5 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>
+                      </button>
+                      <span v-else class="text-xs text-gray-300 italic">—</span>
+                    </div>
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </template>
+    </template>
+
+    <!-- ── Modal: Confirmar eliminación ── -->
+    <div v-if="showEliminar" class="fixed inset-0 flex items-end sm:items-center justify-center bg-gray-900/60 backdrop-blur-sm z-50 p-4">
+      <div class="bg-white rounded-2xl w-full max-w-md shadow-2xl overflow-hidden">
+        <div class="px-6 pt-6 pb-4 flex items-start gap-4">
+          <div class="w-11 h-11 rounded-full bg-red-100 flex items-center justify-center flex-shrink-0">
+            <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 text-red-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/>
+            </svg>
+          </div>
+          <div class="min-w-0">
+            <h3 class="text-lg font-bold text-gray-900">
+              <template v-if="eliminandoLote.length">Eliminar {{ eliminandoLote.length }} registros pendientes</template>
+              <template v-else>{{ eliminandoPendiente ? 'Eliminar registro pendiente' : 'Eliminar cuenta' }}</template>
+            </h3>
+            <p class="text-sm text-gray-500 mt-1">
+              {{ eliminandoPendiente
+                ? 'Se borran las solicitudes de registro. Esas personas pueden volver a registrarse cuando quieran.'
+                : 'Se borra la cuenta y su historial queda sin dueño. Esta acción no se puede deshacer.' }}
+            </p>
+          </div>
+        </div>
+
+        <!-- Lote: la lista completa, con scroll. Confirmar un borrado masivo a ciegas
+             sobre un contador es justo donde se cuela el error. -->
+        <div v-if="eliminandoLote.length" class="mx-6 mb-4 rounded-xl border border-gray-100 bg-gray-50 divide-y divide-gray-100 max-h-48 overflow-y-auto">
+          <div v-for="p in eliminandoLote" :key="p.id" class="px-4 py-2 flex items-center gap-3">
+            <span class="text-sm text-gray-700 truncate">{{ p.nombre }}</span>
+            <span class="ml-auto flex-shrink-0 text-xs" :class="colorAntiguedad(p.created_at)">
+              {{ antiguedadPendiente(p.created_at) }}
             </span>
           </div>
-          <div class="grid grid-cols-2 gap-2 text-xs">
-            <div class="bg-gray-50 rounded-lg px-3 py-2">
-              <p class="text-gray-400 font-semibold uppercase tracking-wide mb-0.5">Documento</p>
-              <p class="font-semibold text-gray-700">{{ p.documento_identidad }}</p>
-            </div>
-            <div class="bg-gray-50 rounded-lg px-3 py-2">
-              <p class="text-gray-400 font-semibold uppercase tracking-wide mb-0.5">Teléfono</p>
-              <p class="font-semibold text-gray-700">{{ p.telefono || '—' }}</p>
-            </div>
-            <div class="bg-gray-50 rounded-lg px-3 py-2">
-              <p class="text-gray-400 font-semibold uppercase tracking-wide mb-0.5">Género</p>
-              <p class="font-semibold text-gray-700 capitalize">{{ p.genero || '—' }}</p>
-            </div>
-            <div class="bg-gray-50 rounded-lg px-3 py-2">
-              <p class="text-gray-400 font-semibold uppercase tracking-wide mb-0.5">Nacimiento</p>
-              <p class="font-semibold text-gray-700">{{ p.fecha_nacimiento ? formatFechaCorta(p.fecha_nacimiento) : '—' }}</p>
-            </div>
-            <div class="bg-gray-50 rounded-lg px-3 py-2">
-              <p class="text-gray-400 font-semibold uppercase tracking-wide mb-0.5">EPS</p>
-              <p class="font-semibold text-gray-700">{{ p.eps || '—' }}</p>
-            </div>
-            <div class="bg-gray-50 rounded-lg px-3 py-2">
-              <p class="text-gray-400 font-semibold uppercase tracking-wide mb-0.5">Barrio</p>
-              <p class="font-semibold text-gray-700">{{ p.barrio || '—' }}</p>
-            </div>
-          </div>
+        </div>
 
-          <!-- Datos del acudiente (solo menores): mini-acordeón para no desalinear las cards -->
-          <div v-if="p.es_menor" class="border border-red-200 rounded-lg overflow-hidden">
-            <button type="button" @click="toggleAcudiente(p.id)"
-              class="w-full flex items-center justify-between px-3 py-2 bg-red-50 hover:bg-red-100 transition-colors">
-              <span class="text-xs font-black uppercase tracking-wide text-red-700">Datos del acudiente</span>
-              <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 text-red-500 transition-transform"
-                :class="acudienteAbierto[p.id] ? 'rotate-180' : ''" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M19 9l-7 7-7-7"/>
-              </svg>
-            </button>
-            <div v-if="acudienteAbierto[p.id]" class="px-3 py-2.5 text-xs space-y-1 border-t border-red-100">
-              <div>
-                <span class="text-gray-400 font-semibold">Nombre: </span>
-                <span class="font-semibold text-gray-800">{{ p.acudiente_nombre || '—' }}</span>
-              </div>
-              <div>
-                <span class="text-gray-400 font-semibold">Cédula: </span>
-                <span class="font-semibold text-gray-800">{{ p.acudiente_documento || '—' }}</span>
-              </div>
-              <div>
-                <span class="text-gray-400 font-semibold">Teléfono: </span>
-                <span class="font-semibold text-gray-800">{{ p.acudiente_telefono || '—' }}</span>
-              </div>
-            </div>
+        <div v-else class="mx-6 mb-4 rounded-xl border border-gray-100 bg-gray-50 px-4 py-3 flex items-center gap-3">
+          <img loading="lazy" class="h-10 w-10 rounded-full object-cover bg-gray-100 flex-shrink-0" :src="fotoSrc(eliminando)" alt="" />
+          <div class="min-w-0">
+            <p class="text-sm font-semibold text-gray-900 truncate">{{ eliminando?.nombre }}</p>
+            <p class="text-xs text-gray-500 truncate">{{ eliminando?.email }}</p>
           </div>
+          <span v-if="eliminandoPendiente && eliminando?.created_at" class="ml-auto flex-shrink-0 text-xs text-gray-400">
+            Registrado {{ antiguedadPendiente(eliminando.created_at) }}
+          </span>
+        </div>
 
-          <p class="text-xs text-gray-400 mt-auto">Registrado {{ formatFechaCorta(p.created_at) }}</p>
-          <button @click="abrirActivar(p)"
-            class="w-full py-2.5 rounded-xl bg-red-600 hover:bg-red-700 text-white font-bold text-sm transition-colors flex items-center justify-center gap-2">
-            <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/>
-            </svg>
-            Asignar Plan y Activar
+        <p v-if="errorEliminar" class="mx-6 mb-4 text-sm text-red-600 bg-red-50 border border-red-100 rounded-lg px-3 py-2">
+          {{ errorEliminar }}
+        </p>
+
+        <div class="px-6 py-4 bg-gray-50 border-t border-gray-100 flex gap-3 justify-end">
+          <button @click="showEliminar = false" :disabled="borrando"
+            class="px-4 py-2.5 rounded-xl border border-gray-200 text-sm font-semibold text-gray-600 hover:bg-gray-100 disabled:opacity-50 transition-colors">
+            Cancelar
+          </button>
+          <button @click="ejecutarEliminar" :disabled="borrando"
+            class="px-4 py-2.5 rounded-xl bg-red-600 hover:bg-red-700 text-white text-sm font-bold disabled:opacity-60 transition-colors">
+            {{ borrando ? 'Eliminando…' : 'Eliminar' }}
           </button>
         </div>
       </div>
-    </template>
+    </div>
 
     <!-- ── Modal: Activar usuario pendiente ── -->
     <div v-if="showActivar" class="fixed inset-0 flex items-end sm:items-center justify-center bg-gray-900/60 backdrop-blur-sm z-50 p-4">
@@ -339,7 +602,7 @@
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/>
           </svg>
           <div>
-            <h3 class="text-lg font-bold text-white">Activar Usuario</h3>
+            <h3 class="text-lg font-bold text-white">Activar Cliente</h3>
             <p class="text-red-100 text-sm">{{ activarUsuario?.nombre }}</p>
           </div>
           <button @click="showActivar = false" class="ml-auto text-white/70 hover:text-white">
@@ -398,7 +661,7 @@
             <button @click="confirmarActivar" :disabled="guardandoActivar || !activarPlan"
               class="flex-1 py-2.5 rounded-xl bg-red-600 hover:bg-red-700 text-white font-bold transition-colors disabled:bg-red-300 flex items-center justify-center gap-2">
               <span v-if="guardandoActivar" class="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></span>
-              {{ guardandoActivar ? 'Activando...' : 'Activar Usuario' }}
+              {{ guardandoActivar ? 'Activando...' : 'Activar Cliente' }}
             </button>
           </div>
         </div>
@@ -409,7 +672,7 @@
     <div v-if="usuarioSeleccionado" class="fixed inset-0 flex items-end sm:items-center justify-center bg-gray-900/60 backdrop-blur-sm z-50 p-4">
       <div class="bg-white rounded-2xl w-full max-w-md shadow-2xl overflow-hidden max-h-[90vh] flex flex-col">
         <div class="bg-gradient-to-r from-red-600 to-red-700 px-5 py-5 sm:px-8 sm:py-6 flex items-center gap-4 flex-shrink-0">
-          <img class="h-16 w-16 rounded-full border-4 border-white shadow-md object-cover" :src="fotoSrc(usuarioSeleccionado, 128)" alt="" />
+          <img class="h-16 w-16 rounded-full border-4 border-white shadow-md object-cover" :src="fotoSrc(usuarioSeleccionado)" alt="" />
           <div>
             <h3 class="text-xl font-bold text-white">{{ usuarioSeleccionado.nombre }}</h3>
             <span class="inline-block mt-1 px-2.5 py-0.5 text-xs font-semibold bg-white/20 text-white rounded-full">{{ usuarioSeleccionado.rol }}</span>
@@ -433,7 +696,7 @@
               <span
                 v-if="usuarioSeleccionado.genero"
                 class="inline-block text-xs font-bold px-2.5 py-1 rounded-full"
-                :class="usuarioSeleccionado.genero === 'masculino' ? 'bg-blue-100 text-blue-700' : 'bg-purple-100 text-purple-700'"
+                :class="BADGE_NEUTRO"
               >
                 {{ usuarioSeleccionado.genero === 'masculino' ? 'Masculino' : 'Femenino' }}
               </span>
@@ -447,7 +710,7 @@
                 </p>
                 <button
                   @click="abrirEnrolamiento(usuarioSeleccionado)"
-                  class="text-xs px-2.5 py-1 rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white font-semibold transition-colors flex items-center gap-1"
+                  class="text-xs px-2.5 py-1 rounded-lg bg-red-600 hover:bg-red-700 text-white font-semibold transition-colors flex items-center gap-1"
                 >
                   <svg xmlns="http://www.w3.org/2000/svg" class="h-3.5 w-3.5" viewBox="0 0 20 20" fill="currentColor">
                     <path fill-rule="evenodd" d="M6.625 2.655A9 9 0 0119 11a1 1 0 11-2 0 7 7 0 00-9.625-6.492 1 1 0 11-.75-1.853zM4.662 4.959A1 1 0 014.75 6.37 6.97 6.97 0 003 11a1 1 0 11-2 0 8.97 8.97 0 012.25-5.953 1 1 0 011.412-.088z" clip-rule="evenodd"/>
@@ -480,7 +743,7 @@
             <div class="bg-gray-50 rounded-xl p-4">
               <p class="text-xs text-gray-400 font-semibold uppercase tracking-wide mb-1">En el box</p>
               <div class="flex items-center gap-2 mt-1">
-                <span class="w-2.5 h-2.5 rounded-full" :class="usuarioSeleccionado.esta_en_gym ? 'bg-green-500' : 'bg-gray-300'"></span>
+                <span class="w-2.5 h-2.5 rounded-full" :class="usuarioSeleccionado.esta_en_gym ? 'bg-emerald-500' : 'bg-gray-300'"></span>
                 <p class="text-sm font-semibold text-gray-800">{{ usuarioSeleccionado.esta_en_gym ? 'Activo' : 'Fuera' }}</p>
               </div>
             </div>
@@ -603,7 +866,7 @@
       <div class="bg-white rounded-2xl p-5 sm:p-8 w-full max-w-lg shadow-2xl max-h-[90vh] overflow-y-auto">
         <div class="flex justify-between items-center mb-6">
           <div>
-            <h3 class="text-2xl font-bold text-gray-900">Editar Usuario</h3>
+            <h3 class="text-2xl font-bold text-gray-900">Editar Cliente</h3>
             <p class="text-sm text-gray-500 mt-0.5">{{ editando?.nombre }}</p>
           </div>
           <button @click="cerrarEditar" class="text-gray-400 hover:text-gray-600">
@@ -642,8 +905,8 @@
                 @click="editForm.genero = 'masculino'"
                 class="py-2.5 rounded-xl border-2 font-bold text-sm transition-all"
                 :class="editForm.genero === 'masculino'
-                  ? 'border-blue-600 bg-blue-600 text-white'
-                  : 'border-gray-200 text-gray-500 hover:border-blue-300 hover:text-blue-600'"
+                  ? 'border-gray-800 bg-gray-800 text-white'
+                  : 'border-gray-200 text-gray-500 hover:border-gray-400 hover:text-gray-700'"
               >
                 Masculino
               </button>
@@ -652,8 +915,8 @@
                 @click="editForm.genero = 'femenino'"
                 class="py-2.5 rounded-xl border-2 font-bold text-sm transition-all"
                 :class="editForm.genero === 'femenino'
-                  ? 'border-purple-600 bg-purple-600 text-white'
-                  : 'border-gray-200 text-gray-500 hover:border-purple-300 hover:text-purple-600'"
+                  ? 'border-gray-800 bg-gray-800 text-white'
+                  : 'border-gray-200 text-gray-500 hover:border-gray-400 hover:text-gray-700'"
               >
                 Femenino
               </button>
@@ -678,7 +941,7 @@
     <div v-if="showForm" class="fixed inset-0 flex items-end sm:items-center justify-center bg-gray-900/60 backdrop-blur-sm z-50 p-4">
       <div class="bg-white rounded-2xl p-5 sm:p-8 w-full max-w-lg shadow-2xl max-h-[90vh] overflow-y-auto">
         <div class="flex justify-between items-center mb-6">
-          <h3 class="text-2xl font-bold text-gray-900">Registrar Usuario</h3>
+          <h3 class="text-2xl font-bold text-gray-900">{{ creandoStaff ? 'Nuevo miembro' : 'Registrar Cliente' }}</h3>
           <button @click="cerrarFormulario" class="text-gray-400 hover:text-gray-600">
             <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
           </button>
@@ -700,7 +963,7 @@
 
         <form @submit.prevent="crearUsuario">
           <div class="mb-5">
-            <label class="block text-gray-700 text-sm font-semibold mb-2">Nombre Completo</label>
+            <label class="block text-gray-700 text-sm font-semibold mb-2">Nombre Completo <span class="text-red-500">*</span></label>
             <input v-model="nuevoUsuario.nombre" type="text" class="w-full px-4 py-3 rounded-lg border border-gray-300 focus:ring-2 focus:ring-red-500 outline-none transition-all" placeholder="Ej. Juan Pérez" required>
           </div>
           <div class="mb-5">
@@ -708,11 +971,11 @@
             <input v-model="nuevoUsuario.documento_identidad" type="text" required minlength="5" maxlength="20" class="w-full px-4 py-3 rounded-lg border border-gray-300 focus:ring-2 focus:ring-red-500 outline-none transition-all" placeholder="Ej. 1020456789">
           </div>
           <div class="mb-5">
-            <label class="block text-gray-700 text-sm font-semibold mb-2">Email</label>
+            <label class="block text-gray-700 text-sm font-semibold mb-2">Email <span class="text-red-500">*</span></label>
             <input v-model="nuevoUsuario.email" type="email" class="w-full px-4 py-3 rounded-lg border border-gray-300 focus:ring-2 focus:ring-red-500 outline-none transition-all" placeholder="Ej. juan@correo.com" required>
           </div>
           <div class="mb-5">
-            <label class="block text-gray-700 text-sm font-semibold mb-2">Contraseña</label>
+            <label class="block text-gray-700 text-sm font-semibold mb-2">Contraseña <span class="text-red-500">*</span></label>
             <input v-model="nuevoUsuario.password" type="password" class="w-full px-4 py-3 rounded-lg border border-gray-300 focus:ring-2 focus:ring-red-500 outline-none transition-all" placeholder="Min. 6 caracteres" required minlength="6">
           </div>
           <div class="mb-5">
@@ -727,8 +990,8 @@
                 @click="nuevoUsuario.genero = 'masculino'"
                 class="py-3 rounded-xl border-2 font-bold text-sm transition-all"
                 :class="nuevoUsuario.genero === 'masculino'
-                  ? 'border-blue-600 bg-blue-600 text-white'
-                  : 'border-gray-200 text-gray-500 hover:border-blue-300 hover:text-blue-600'"
+                  ? 'border-gray-800 bg-gray-800 text-white'
+                  : 'border-gray-200 text-gray-500 hover:border-gray-400 hover:text-gray-700'"
               >
                 Masculino
               </button>
@@ -737,8 +1000,8 @@
                 @click="nuevoUsuario.genero = 'femenino'"
                 class="py-3 rounded-xl border-2 font-bold text-sm transition-all"
                 :class="nuevoUsuario.genero === 'femenino'
-                  ? 'border-purple-600 bg-purple-600 text-white'
-                  : 'border-gray-200 text-gray-500 hover:border-purple-300 hover:text-purple-600'"
+                  ? 'border-gray-800 bg-gray-800 text-white'
+                  : 'border-gray-200 text-gray-500 hover:border-gray-400 hover:text-gray-700'"
               >
                 Femenino
               </button>
@@ -759,12 +1022,12 @@
           </div>
           <div class="mb-5 grid grid-cols-2 gap-3">
             <div>
-              <label class="block text-gray-700 text-sm font-semibold mb-2">Emergencia: nombre <span class="text-gray-400 font-normal">(opcional)</span></label>
-              <input v-model="nuevoUsuario.contacto_emergencia_nombre" type="text" maxlength="120" class="w-full px-4 py-3 rounded-lg border border-gray-300 focus:ring-2 focus:ring-red-500 outline-none transition-all" placeholder="Nombre">
+              <label class="block text-gray-700 text-sm font-semibold mb-2">Emergencia: nombre <span class="text-red-500">*</span></label>
+              <input v-model="nuevoUsuario.contacto_emergencia_nombre" type="text" required minlength="2" maxlength="120" class="w-full px-4 py-3 rounded-lg border border-gray-300 focus:ring-2 focus:ring-red-500 outline-none transition-all" placeholder="Nombre">
             </div>
             <div>
-              <label class="block text-gray-700 text-sm font-semibold mb-2">Emergencia: teléfono <span class="text-gray-400 font-normal">(opcional)</span></label>
-              <input v-model="nuevoUsuario.contacto_emergencia_telefono" type="tel" maxlength="20" class="w-full px-4 py-3 rounded-lg border border-gray-300 focus:ring-2 focus:ring-red-500 outline-none transition-all" placeholder="Teléfono">
+              <label class="block text-gray-700 text-sm font-semibold mb-2">Emergencia: teléfono <span class="text-red-500">*</span></label>
+              <input v-model="nuevoUsuario.contacto_emergencia_telefono" type="tel" required minlength="7" maxlength="20" class="w-full px-4 py-3 rounded-lg border border-gray-300 focus:ring-2 focus:ring-red-500 outline-none transition-all" placeholder="Teléfono">
             </div>
           </div>
           <div class="mb-5 border border-gray-200 rounded-xl p-4">
@@ -774,30 +1037,25 @@
             </label>
             <div v-if="nuevoUsuario.es_menor" class="grid grid-cols-2 gap-3 mt-3">
               <div class="col-span-2">
-                <label class="block text-gray-600 text-xs font-semibold mb-1">Acudiente: nombre</label>
+                <label class="block text-gray-600 text-xs font-semibold mb-1">Acudiente: nombre <span class="text-red-500">*</span></label>
                 <input v-model="nuevoUsuario.acudiente_nombre" type="text" maxlength="120" required class="w-full px-3 py-2 rounded-lg border border-gray-300 focus:ring-2 focus:ring-red-500 outline-none text-sm" placeholder="Nombre">
               </div>
               <div>
-                <label class="block text-gray-600 text-xs font-semibold mb-1">Acudiente: cédula</label>
+                <label class="block text-gray-600 text-xs font-semibold mb-1">Acudiente: cédula <span class="text-red-500">*</span></label>
                 <input v-model="nuevoUsuario.acudiente_documento" type="text" maxlength="20" required class="w-full px-3 py-2 rounded-lg border border-gray-300 focus:ring-2 focus:ring-red-500 outline-none text-sm" placeholder="Cédula">
               </div>
               <div>
-                <label class="block text-gray-600 text-xs font-semibold mb-1">Acudiente: teléfono</label>
+                <label class="block text-gray-600 text-xs font-semibold mb-1">Acudiente: teléfono <span class="text-red-500">*</span></label>
                 <input v-model="nuevoUsuario.acudiente_telefono" type="tel" maxlength="20" required class="w-full px-3 py-2 rounded-lg border border-gray-300 focus:ring-2 focus:ring-red-500 outline-none text-sm" placeholder="Teléfono">
               </div>
             </div>
           </div>
-          <div class="mb-6">
-            <label class="block text-gray-700 text-sm font-semibold mb-2">Rol</label>
-            <select v-model="nuevoUsuario.rol" class="w-full px-4 py-3 rounded-lg border border-gray-300 focus:ring-2 focus:ring-red-500 outline-none appearance-none transition-all">
-              <option value="cliente">Cliente</option>
-              <option value="coach">Coach</option>
-              <option value="admin">Admin</option>
-            </select>
-          </div>
+          <!-- Sin selector de rol: lo define desde dónde se abrió el modal (Clientes →
+               cliente, Equipo → coach). El admin es único y lo siembra seed.py; el
+               backend rechaza con 403 cualquier intento de crear otro. -->
 
-          <!-- Plan inicial -->
-          <div class="border-t border-gray-100 pt-5 mb-6">
+          <!-- Plan inicial — al staff no le aplica membresía -->
+          <div v-if="!creandoStaff" class="border-t border-gray-100 pt-5 mb-6">
             <label class="block text-gray-700 text-sm font-semibold mb-3">Plan de Membresía <span class="text-gray-400 font-normal">(opcional)</span></label>
             <div class="grid grid-cols-2 gap-3">
               <label class="flex flex-col items-center p-3 rounded-xl border-2 cursor-pointer transition-all"
@@ -860,7 +1118,7 @@
             <button @click="cerrarFormulario" type="button" class="px-5 py-2.5 rounded-lg text-gray-600 font-semibold hover:bg-gray-100 transition-colors">Cancelar</button>
             <button type="submit" :disabled="saving || !nuevoUsuario.genero" class="px-5 py-2.5 rounded-lg bg-red-600 hover:bg-red-700 text-white font-semibold shadow-md inline-flex items-center gap-2 transition-all active:scale-95 disabled:bg-red-300">
               <span v-if="saving" class="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></span>
-              {{ saving ? 'Guardando...' : 'Crear Usuario' }}
+              {{ saving ? 'Guardando...' : (creandoStaff ? 'Crear miembro' : 'Crear Cliente') }}
             </button>
           </div>
         </form>
@@ -890,7 +1148,7 @@
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/>
             </svg>
           </div>
-          <p class="text-emerald-700 font-bold text-lg">Usuario identificado</p>
+          <p class="text-emerald-700 font-bold text-lg">Persona identificada</p>
           <div class="w-full bg-emerald-50 border border-emerald-200 rounded-xl p-4 text-left">
             <p class="text-xs text-gray-400 uppercase font-semibold mb-1">Nombre</p>
             <p class="font-bold text-gray-800 text-lg">{{ verifyStatus.usuario.nombre }}</p>
@@ -909,7 +1167,7 @@
             </svg>
           </div>
           <p class="text-amber-700 font-bold text-lg">Huella no reconocida</p>
-          <p class="text-gray-400 text-sm">No hay ningún usuario registrado con esta huella.</p>
+          <p class="text-gray-400 text-sm">No hay nadie registrado con esta huella.</p>
           <div class="flex gap-3 w-full mt-1">
             <button @click="cerrarVerify" class="flex-1 py-2.5 rounded-xl border border-gray-200 text-gray-600 font-semibold hover:bg-gray-50">Cerrar</button>
             <button @click="reiniciarVerify" class="flex-1 py-2.5 rounded-xl bg-gray-700 hover:bg-gray-800 text-white font-bold transition-colors">Reintentar</button>
@@ -961,14 +1219,14 @@
   <!-- ── Modal: Enrolamiento de Huella ── -->
   <div v-if="showEnrolModal" class="fixed inset-0 flex items-center justify-center bg-gray-900/70 backdrop-blur-sm z-50 p-4">
     <div class="bg-white rounded-2xl w-full max-w-sm shadow-2xl overflow-hidden">
-      <div class="bg-gradient-to-r from-indigo-600 to-indigo-700 px-6 py-5 flex items-center gap-3">
+      <div class="bg-gradient-to-r from-red-600 to-red-700 px-6 py-5 flex items-center gap-3">
         <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 text-white flex-shrink-0" viewBox="0 0 20 20" fill="currentColor">
           <path fill-rule="evenodd" d="M6.625 2.655A9 9 0 0119 11a1 1 0 11-2 0 7 7 0 00-9.625-6.492 1 1 0 11-.75-1.853zM4.662 4.959A1 1 0 014.75 6.37 6.97 6.97 0 003 11a1 1 0 11-2 0 8.97 8.97 0 012.25-5.953 1 1 0 011.412-.088z" clip-rule="evenodd"/>
           <path fill-rule="evenodd" d="M5 11a5 5 0 1110 0 1 1 0 11-2 0 3 3 0 10-6 0c0 1.677-.345 3.276-.968 4.729a1 1 0 11-1.838-.789A9.964 9.964 0 005 11z" clip-rule="evenodd"/>
         </svg>
         <div>
           <h3 class="text-lg font-bold text-white">Registrar Huella</h3>
-          <p class="text-indigo-200 text-sm">{{ enrolTarget?.nombre }}</p>
+          <p class="text-red-200 text-sm">{{ enrolTarget?.nombre }}</p>
         </div>
         <button v-if="!enrolStatus?.activo" @click="cerrarEnrolModal" class="ml-auto text-white/70 hover:text-white">
           <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
@@ -999,7 +1257,7 @@
           <p class="text-gray-500 text-sm">{{ enrolStatus.error }}</p>
           <div class="flex gap-3 w-full mt-2">
             <button @click="cerrarEnrolModal" class="flex-1 py-2.5 rounded-xl border border-gray-200 text-gray-600 font-semibold hover:bg-gray-50 transition-colors">Cancelar</button>
-            <button @click="iniciarEnrolamiento" class="flex-1 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-bold transition-colors">Reintentar</button>
+            <button @click="iniciarEnrolamiento" class="flex-1 py-2.5 rounded-xl bg-red-600 hover:bg-red-700 text-white font-bold transition-colors">Reintentar</button>
           </div>
         </div>
 
@@ -1007,9 +1265,9 @@
         <div v-else-if="enrolStatus?.activo" class="flex flex-col items-center gap-4">
           <!-- Icono huella animado -->
           <div class="relative w-20 h-20">
-            <div class="absolute inset-0 rounded-full bg-indigo-100 animate-ping opacity-40"></div>
-            <div class="relative w-20 h-20 bg-indigo-50 rounded-full flex items-center justify-center border-2 border-indigo-300">
-              <svg xmlns="http://www.w3.org/2000/svg" class="h-10 w-10 text-indigo-600" viewBox="0 0 20 20" fill="currentColor">
+            <div class="absolute inset-0 rounded-full bg-red-100 animate-ping opacity-40"></div>
+            <div class="relative w-20 h-20 bg-red-50 rounded-full flex items-center justify-center border-2 border-red-300">
+              <svg xmlns="http://www.w3.org/2000/svg" class="h-10 w-10 text-red-600" viewBox="0 0 20 20" fill="currentColor">
                 <path fill-rule="evenodd" d="M6.625 2.655A9 9 0 0119 11a1 1 0 11-2 0 7 7 0 00-9.625-6.492 1 1 0 11-.75-1.853zM4.662 4.959A1 1 0 014.75 6.37 6.97 6.97 0 003 11a1 1 0 11-2 0 8.97 8.97 0 012.25-5.953 1 1 0 011.412-.088z" clip-rule="evenodd"/>
                 <path fill-rule="evenodd" d="M5 11a5 5 0 1110 0 1 1 0 11-2 0 3 3 0 10-6 0c0 1.677-.345 3.276-.968 4.729a1 1 0 11-1.838-.789A9.964 9.964 0 005 11z" clip-rule="evenodd"/>
               </svg>
@@ -1021,7 +1279,7 @@
             <div v-for="i in enrolStatus.total" :key="i"
               class="w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold transition-all"
               :class="i < enrolStatus.paso ? 'bg-emerald-500 text-white' :
-                      i === enrolStatus.paso ? 'bg-indigo-600 text-white ring-4 ring-indigo-200' :
+                      i === enrolStatus.paso ? 'bg-red-600 text-white ring-4 ring-red-200' :
                       'bg-gray-100 text-gray-400'">
               {{ i < enrolStatus.paso ? '✓' : i }}
             </div>
@@ -1042,8 +1300,8 @@
             </p>
           </div>
           <div v-else>
-            <p class="text-gray-500 text-sm mb-4">Se capturarán <strong>{{ ENROL_STEPS }} muestras</strong> del dedo del usuario.<br>Asegúrate de que el lector esté conectado.</p>
-            <button @click="iniciarEnrolamiento" class="w-full py-3 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-lg transition-colors flex items-center justify-center gap-2">
+            <p class="text-gray-500 text-sm mb-4">Se capturarán <strong>{{ ENROL_STEPS }} muestras</strong> del dedo de la persona.<br>Asegúrate de que el lector esté conectado.</p>
+            <button @click="iniciarEnrolamiento" class="w-full py-3 rounded-xl bg-red-600 hover:bg-red-700 text-white font-bold text-lg transition-colors flex items-center justify-center gap-2">
               <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
                 <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-8.707l-3-3a1 1 0 00-1.414 1.414L10.586 9H7a1 1 0 100 2h3.586l-1.293 1.293a1 1 0 101.414 1.414l3-3a1 1 0 000-1.414z" clip-rule="evenodd"/>
               </svg>
@@ -1053,23 +1311,25 @@
         </div>
       </div>
     </div>
-
-    <!-- Toast: apertura de palanquera -->
-    <div v-if="palanqueraToast"
-         class="fixed bottom-6 right-6 z-50 px-5 py-3 rounded-xl shadow-2xl text-white font-semibold flex items-center gap-2 animate-fade-in-up"
-         :class="palanqueraToast.ok ? 'bg-emerald-600' : 'bg-red-600'">
-      <span>{{ palanqueraToast.ok ? '✅' : '⚠️' }}</span>
-      {{ palanqueraToast.texto }}
-    </div>
   </div>
 </template>
 
 <script setup>
-import { ref, computed, onMounted, onUnmounted } from 'vue'
-import { useRouter } from 'vue-router'
+import { ref, computed, watch, onMounted, onUnmounted } from 'vue'
+import { useRoute, useRouter } from 'vue-router'
 import api, { mediaUrl } from '../api'
+import { fotoSrc } from '../lib/avatar'
+import { BADGE_NEUTRO } from '../data/paleta'
+import { useAuth } from '../composables/useAuth'
+import PendienteDetalle from '../components/PendienteDetalle.vue'
 
+const route  = useRoute()
 const router = useRouter()
+const { isAdmin } = useAuth()
+
+// Id propio: se usa para no ofrecer el botón de eliminar en la fila propia.
+// No está en localStorage, así que se pide a /me (una vez, al montar).
+const miId = ref(null)
 const BRIDGE_URL = 'http://localhost:8001'
 const ENROL_STEPS = 4
 
@@ -1091,23 +1351,6 @@ const usuarioSeleccionado = ref(null)
 const filtroActivo = ref('todos')
 const busqueda = ref('')
 
-// ── Palanquera (apertura manual) ─────────────────────────────
-const palanqueraAbriendo = ref(false)
-const palanqueraToast    = ref(null)   // { ok: bool, texto: string }
-
-const abrirPalanquera = async () => {
-  palanqueraAbriendo.value = true
-  try {
-    const r = await fetch(`${BRIDGE_URL}/palanquera/abrir`, { method: 'POST' })
-    if (!r.ok) throw new Error()
-    palanqueraToast.value = { ok: true, texto: 'Palanquera abierta' }
-  } catch {
-    palanqueraToast.value = { ok: false, texto: 'No se pudo abrir. ¿El bridge está corriendo?' }
-  } finally {
-    palanqueraAbriendo.value = false
-    setTimeout(() => { palanqueraToast.value = null }, 3500)
-  }
-}
 
 // ── Verificación por huella ──────────────────────────────────
 const showVerifyModal  = ref(false)
@@ -1248,23 +1491,121 @@ const tieneMembresia = (u) => {
   return new Date(u.fecha_vencimiento + 'T00:00:00') >= hoy()
 }
 
+// ── Orden ────────────────────────────────────────────────────
+// Los sin fecha van siempre al final, ordene como ordene: "sin membresía" no es
+// ni lo más próximo a vencer ni lo más lejano.
+const _sinFechaAlFinal = (campo, cmp) => (a, b) => {
+  if (!a[campo] && !b[campo]) return 0
+  if (!a[campo]) return 1
+  if (!b[campo]) return -1
+  return cmp(a[campo], b[campo])
+}
+const _porNombre = (a, b) => a.nombre.localeCompare(b.nombre, 'es', { sensitivity: 'base' })
+
+const ORDENES = [
+  { key: 'nombre',        label: 'Nombre (A–Z)',      cmp: _porNombre },
+  { key: 'nombre_desc',   label: 'Nombre (Z–A)',      cmp: (a, b) => _porNombre(b, a) },
+  { key: 'vence_pronto',  label: 'Vence primero',     cmp: _sinFechaAlFinal('fecha_vencimiento', (x, y) => x.localeCompare(y)) },
+  { key: 'vence_tarde',   label: 'Vence último',      cmp: _sinFechaAlFinal('fecha_vencimiento', (x, y) => y.localeCompare(x)) },
+  { key: 'reciente',      label: 'Registro reciente', cmp: _sinFechaAlFinal('created_at', (x, y) => y.localeCompare(x)) },
+  { key: 'antiguo',       label: 'Registro antiguo',  cmp: _sinFechaAlFinal('created_at', (x, y) => x.localeCompare(y)) },
+]
+const orden = ref('nombre')
+
+// ── Vista: clientes vs. equipo del box ───────────────────────
+// Son dos poblaciones con datos distintos: al staff no le aplican membresía ni
+// "en el box" (el backend no exime al staff en _validar_membresia), así que cada
+// listado lleva sus propias columnas.
+const vista = ref('clientes')
+const clientes = computed(() => usuarios.value.filter(u => u.rol === 'cliente'))
+// Espeja los guards del backend (usuarios.py eliminar_usuario): staff solo lo
+// borra un admin, y nadie se borra a sí mismo.
+const puedeEliminarStaff = (u) => isAdmin.value && u.id !== miId.value
+
+const equipo = computed(() =>
+  usuarios.value
+    .filter(u => u.rol === 'admin' || u.rol === 'coach')
+    // admin primero, después coaches por nombre
+    .sort((a, b) => (a.rol === b.rol
+      ? a.nombre.localeCompare(b.nombre, 'es', { sensitivity: 'base' })
+      : a.rol === 'admin' ? -1 : 1))
+)
+
 const usuariosFiltrados = computed(() => {
-  let lista = usuarios.value
-  if (filtroActivo.value === 'activos')   lista = lista.filter(u => u.esta_en_gym)
-  if (filtroActivo.value === 'membresia') lista = lista.filter(tieneMembresia)
+  let lista = clientes.value
+  // "Activo" = membresía vigente. El que está físicamente en el box es 'en_box'.
+  if (filtroActivo.value === 'activos')   lista = lista.filter(tieneMembresia)
+  if (filtroActivo.value === 'inactivos') lista = lista.filter(u => !tieneMembresia(u))
+  if (filtroActivo.value === 'en_box')    lista = lista.filter(u => u.esta_en_gym)
   const q = busqueda.value.trim().toLowerCase()
   if (q) lista = lista.filter(u =>
     u.nombre.toLowerCase().includes(q) ||
     u.documento_identidad?.toLowerCase().includes(q)
   )
-  return lista
+  // slice(): sort muta el array, y sin filtros `lista` ES usuarios.value.
+  const cmp = ORDENES.find(o => o.key === orden.value)?.cmp || _porNombre
+  return lista.slice().sort(cmp)
+})
+
+// Los pendientes se buscan por los mismos campos que los clientes, pero el orden es
+// fijo (el más reciente primero) y por eso el selector "Ordenar por" no se muestra acá.
+const pendientesFiltrados = computed(() => {
+  const q = busqueda.value.trim().toLowerCase()
+  const lista = q
+    ? pendientes.value.filter(p =>
+        p.nombre.toLowerCase().includes(q) ||
+        p.documento_identidad?.toLowerCase().includes(q)
+      )
+    : pendientes.value
+  return lista.slice().sort((a, b) => new Date(b.created_at) - new Date(a.created_at))
+})
+
+// ── Paginación (en cliente: la lista completa ya viene de GET /usuarios/) ──
+// Una sola paginación para las dos listas de la vista Clientes: solo una se
+// renderiza a la vez, y el watch de `filtroActivo` resetea la página al alternar.
+const POR_PAGINA = 15
+const pagina = ref(1)
+
+const listaFiltrada = computed(() =>
+  filtroActivo.value === 'pendientes' ? pendientesFiltrados.value : usuariosFiltrados.value
+)
+
+const totalPaginas = computed(() => Math.max(1, Math.ceil(listaFiltrada.value.length / POR_PAGINA)))
+const rangoDesde   = computed(() => (pagina.value - 1) * POR_PAGINA + 1)
+const rangoHasta   = computed(() => Math.min(pagina.value * POR_PAGINA, listaFiltrada.value.length))
+const paginaItems  = computed(() => listaFiltrada.value.slice(rangoDesde.value - 1, rangoHasta.value))
+
+function irAPagina(p) {
+  pagina.value = Math.min(Math.max(1, p), totalPaginas.value)
+  window.scrollTo({ top: 0, behavior: 'smooth' })
+}
+
+// Al filtrar o buscar, la página actual puede quedar fuera de rango (o mostrando
+// resultados salteados): se vuelve a la primera.
+watch([filtroActivo, busqueda, orden], () => { pagina.value = 1 })
+// Si la lista se achica por otra vía (eliminar un usuario), se reencuadra.
+watch(totalPaginas, (n) => { if (pagina.value > n) pagina.value = n })
+
+/** Números a mostrar, con elipsis: 1 … 4 [5] 6 … 12 */
+const paginasVisibles = computed(() => {
+  const total = totalPaginas.value
+  const act = pagina.value
+  if (total <= 7) return Array.from({ length: total }, (_, i) => i + 1)
+
+  const paginas = [1]
+  if (act > 3) paginas.push('…')
+  for (let p = Math.max(2, act - 1); p <= Math.min(total - 1, act + 1); p++) paginas.push(p)
+  if (act < total - 2) paginas.push('…')
+  paginas.push(total)
+  return paginas
 })
 
 const tabs = computed(() => [
-  { key: 'todos',      label: 'Todos',              count: usuarios.value.length,                             emptyMsg: 'No hay usuarios registrados.' },
-  { key: 'membresia',  label: 'Con membresía',       count: usuarios.value.filter(tieneMembresia).length,     emptyMsg: 'Ningún usuario tiene membresía activa.' },
-  { key: 'activos',    label: 'En el box ahora',     count: usuarios.value.filter(u => u.esta_en_gym).length, emptyMsg: 'No hay usuarios en el box en este momento.' },
-  { key: 'pendientes', label: 'Pendientes',          count: pendientes.value.length,                          emptyMsg: 'No hay usuarios pendientes.' },
+  { key: 'todos',      label: 'Todos',           count: clientes.value.length,                                emptyMsg: 'No hay clientes registrados.' },
+  { key: 'activos',    label: 'Activos',         count: clientes.value.filter(tieneMembresia).length,         emptyMsg: 'Ningún cliente tiene membresía vigente.' },
+  { key: 'inactivos',  label: 'Inactivos',       count: clientes.value.filter(u => !tieneMembresia(u)).length, emptyMsg: 'Todos los clientes tienen membresía vigente.' },
+  { key: 'en_box',     label: 'En el box ahora', count: clientes.value.filter(u => u.esta_en_gym).length,     emptyMsg: 'No hay clientes en el box en este momento.' },
+  { key: 'pendientes', label: 'Pendientes',      count: pendientes.value.length,                              emptyMsg: 'No hay clientes pendientes.' },
 ])
 
 // ── Crear ────────────────────────────────────────────────────
@@ -1276,7 +1617,17 @@ const NUEVO_USUARIO_VACIO = () => ({
   es_menor: false, acudiente_nombre: '', acudiente_telefono: '', acudiente_documento: '',
 })
 const nuevoUsuario = ref(NUEVO_USUARIO_VACIO())
+// El modal es el mismo para cliente y staff; cambia el rol precargado, las opciones
+// del select y si se muestra el bloque de plan (al staff no le aplica).
+const creandoStaff = ref(false)
 const planSeleccionado = ref('ninguno')
+
+function abrirFormulario(staff = false) {
+  creandoStaff.value = staff
+  nuevoUsuario.value = { ...NUEVO_USUARIO_VACIO(), rol: staff ? 'coach' : 'cliente' }
+  planSeleccionado.value = 'ninguno'
+  showForm.value = true
+}
 const montoPlanDefault = ref('')
 const planPersonalizado = ref({ dias: '', monto: '' })
 const metodoPago = ref('efectivo')
@@ -1324,7 +1675,7 @@ const confirmarActivar = async () => {
     await fetchPendientes()
     await fetchUsuarios()
   } catch (e) {
-    errorActivar.value = e.response?.data?.detail || 'Error al activar el usuario.'
+    errorActivar.value = e.response?.data?.detail || 'Error al activar el cliente.'
   } finally {
     guardandoActivar.value = false
   }
@@ -1352,16 +1703,41 @@ const planSeleccionadoObj = computed(() =>
 )
 
 // ── Helpers ──────────────────────────────────────────────────
-const fotoSrc = (user, size = 40) =>
-  user.foto_url
-    ? mediaUrl(user.foto_url)
-    : `https://ui-avatars.com/api/?name=${encodeURIComponent(user.nombre)}&background=random&size=${size}`
 
 const formatFecha = (f) =>
   new Date(f + 'T12:00:00').toLocaleDateString('es-CO', { year: 'numeric', month: 'short', day: 'numeric' })
 
 const formatFechaCorta = (f) =>
   new Date(f).toLocaleDateString('es-CO', { year: 'numeric', month: 'short', day: 'numeric' })
+
+/** Días transcurridos desde una fecha ISO (created_at viene en UTC con hora). */
+const diasDesde = (f) => {
+  if (!f) return null
+  return Math.floor((Date.now() - new Date(f)) / (1000 * 60 * 60 * 24))
+}
+
+/** Antigüedad de un pendiente en texto: el que lleva semanas sin aparecer es el
+ *  candidato a borrar, así que la fila lo dice en vez de hacer restar fechas. */
+const antiguedadPendiente = (f) => {
+  const d = diasDesde(f)
+  if (d === null) return ''
+  if (d <= 0) return 'hoy'
+  if (d === 1) return 'ayer'
+  return `hace ${d} días`
+}
+
+// Cuánto puede llevar un registro sin activarse antes de que la fila lo señale.
+// Ámbar = aviso (a la semana), rojo = candidato a descartar (a los 15 días); es la
+// misma escala neutro → ámbar → rojo que usa la columna Membresía.
+const PENDIENTE_AVISO_DIAS = 7
+const PENDIENTE_VIEJO_DIAS = 15
+
+const colorAntiguedad = (f) => {
+  const d = diasDesde(f) ?? 0
+  if (d >= PENDIENTE_VIEJO_DIAS) return 'text-red-600 font-semibold'
+  if (d >= PENDIENTE_AVISO_DIAS) return 'text-amber-600 font-semibold'
+  return 'text-gray-400'
+}
 
 const diasRestantes = (fecha) => {
   const hoy = new Date()
@@ -1377,11 +1753,12 @@ const etiquetaDias = (dias) => {
   return `Vencida hace ${Math.abs(dias)} día${Math.abs(dias) !== 1 ? 's' : ''}`
 }
 
-const colorTextoDias = (dias) => {
-  if (dias > 7) return 'text-emerald-600'
-  if (dias > 0) return 'text-amber-600'
-  return 'text-red-600'
-}
+// El punto (o el círculo, en el modal) ya codifica el estado: colorear además el
+// texto es doble codificación, y con 15 filas en pantalla la columna se lee como
+// un tablero de alarmas. Solo la vencida conserva el rojo — es la única fila que
+// amerita gritar, porque significa que esa persona no puede entrar.
+// El umbral es el mismo que colorPuntoDias para que punto y texto nunca discrepen.
+const colorTextoDias = (dias) => (dias > 0 ? 'text-gray-900' : 'text-red-600')
 
 const colorPuntoDias = (dias) => {
   if (dias > 7) return 'bg-emerald-500'
@@ -1409,20 +1786,40 @@ const fetchPlanes = async () => {
 }
 
 // ── Exportar Excel ────────────────────────────────────────────
-const exportando = ref(false)
+const exportando  = ref(false)
+const showExportar = ref(false)
+const expClientes = ref(true)
+const expEquipo   = ref(false)
+
+// Al abrir preselecciona el grupo que estás mirando: exportar desde Equipo y
+// recibir solo clientes sería sorprendente.
+const toggleExportar = () => {
+  if (showExportar.value) { showExportar.value = false; return }
+  expClientes.value = vista.value === 'clientes'
+  expEquipo.value   = vista.value === 'equipo'
+  showExportar.value = true
+}
 
 const exportarExcel = async () => {
+  if (!expClientes.value && !expEquipo.value) return
   exportando.value = true
   try {
-    const { data } = await api.get('/usuarios/exportar-excel', { responseType: 'blob' })
+    const { data } = await api.get('/usuarios/exportar-excel', {
+      params: { clientes: expClientes.value, equipo: expEquipo.value },
+      responseType: 'blob',
+    })
+    const grupo = expClientes.value && expEquipo.value
+      ? 'usuarios'
+      : (expClientes.value ? 'clientes' : 'equipo')
     const url = URL.createObjectURL(data)
     const a = document.createElement('a')
     a.href = url
-    a.download = `clientes_jainsportbox_${new Date().toISOString().slice(0, 10)}.xlsx`
+    a.download = `${grupo}_jainsportbox_${new Date().toISOString().slice(0, 10)}.xlsx`
     document.body.appendChild(a)
     a.click()
     a.remove()
     URL.revokeObjectURL(url)
+    showExportar.value = false
   } catch (e) {
     alert('Error al exportar: ' + (e.response?.data?.detail || e.message))
   } finally {
@@ -1430,9 +1827,45 @@ const exportarExcel = async () => {
   }
 }
 
-// Acordeón "Datos del acudiente" en las cards de pendientes (por id de usuario)
-const acudienteAbierto = ref({})
-const toggleAcudiente = (id) => { acudienteAbierto.value[id] = !acudienteAbierto.value[id] }
+// Fila/bloque desplegable con los datos de afiliación de un pendiente (por id de usuario)
+const detalleAbierto = ref({})
+const toggleDetalle = (id) => { detalleAbierto.value[id] = !detalleAbierto.value[id] }
+
+// ── Selección múltiple de pendientes ─────────────────────────
+// Un Set en un ref: la selección sobrevive al cambio de página y a la búsqueda,
+// que es lo que se quiere al limpiar decenas de registros basura. Reasignar el Set
+// (en vez de mutarlo) es lo que dispara la reactividad de Vue.
+const seleccionados = ref(new Set())
+
+const alternarSeleccion = (id) => {
+  const s = new Set(seleccionados.value)
+  s.has(id) ? s.delete(id) : s.add(id)
+  seleccionados.value = s
+}
+
+const limpiarSeleccion = () => { seleccionados.value = new Set() }
+
+const todosDePaginaSeleccionados = computed(() =>
+  paginaItems.value.length > 0 && paginaItems.value.every(p => seleccionados.value.has(p.id))
+)
+
+const alternarSeleccionPagina = () => {
+  const s = new Set(seleccionados.value)
+  const marcar = !todosDePaginaSeleccionados.value
+  paginaItems.value.forEach(p => (marcar ? s.add(p.id) : s.delete(p.id)))
+  seleccionados.value = s
+}
+
+// El umbral es el mismo que pinta la antigüedad en rojo: lo que se ve en rojo es
+// exactamente lo que preselecciona esta acción.
+const pendientesViejos = computed(() =>
+  pendientes.value.filter(p => (diasDesde(p.created_at) ?? 0) >= PENDIENTE_VIEJO_DIAS)
+)
+const hayViejos = computed(() => pendientesViejos.value.length > 0)
+
+const seleccionarViejos = () => {
+  seleccionados.value = new Set(pendientesViejos.value.map(p => p.id))
+}
 
 const fetchPendientes = async () => {
   loadingPendientes.value = true
@@ -1493,6 +1926,7 @@ const confirmarRenovacion = async () => {
 // ── Crear ────────────────────────────────────────────────────
 const cerrarFormulario = () => {
   showForm.value = false
+  creandoStaff.value = false
   nuevoUsuario.value = NUEVO_USUARIO_VACIO()
   planSeleccionado.value = 'ninguno'
   montoPlanDefault.value = ''
@@ -1560,16 +1994,61 @@ const crearUsuario = async () => {
   }
 }
 
-// ── Editar ───────────────────────────────────────────────────
-const confirmarEliminar = async (user) => {
-  if (!confirm(`¿Eliminar a ${user.nombre}? Esta acción no se puede deshacer.`)) return
+// ── Eliminar ─────────────────────────────────────────────────
+// Un modal en vez del confirm() nativo: la acción es irreversible y conviene ver a
+// quién se está borrando (foto, email, documento) antes de confirmar.
+const showEliminar    = ref(false)
+const eliminando      = ref(null)
+const eliminandoPendiente = ref(false)
+const borrando        = ref(false)
+const errorEliminar   = ref('')
+
+/** @param esPendiente el payload de /usuarios/pendientes no trae `rol`, y tras
+ *  borrar hay que refrescar esa lista y no la de usuarios. */
+// El mismo modal cubre el borrado de a uno y el de la selección: cambian el
+// encabezado y el cuerpo, no el flujo.
+const eliminandoLote = ref([])
+
+const confirmarEliminar = (user, esPendiente = false) => {
+  eliminando.value = user
+  eliminandoLote.value = []
+  eliminandoPendiente.value = esPendiente
+  errorEliminar.value = ''
+  showEliminar.value = true
+}
+
+const confirmarEliminarSeleccion = () => {
+  eliminando.value = null
+  eliminandoLote.value = pendientes.value.filter(p => seleccionados.value.has(p.id))
+  eliminandoPendiente.value = true
+  errorEliminar.value = ''
+  showEliminar.value = true
+}
+
+const ejecutarEliminar = async () => {
+  const lote = eliminandoLote.value
+  const user = eliminando.value
+  if (!lote.length && !user) return
+  borrando.value = true
+  errorEliminar.value = ''
   try {
-    await api.delete(`/usuarios/${user.id}`)
+    if (lote.length) {
+      await api.post('/usuarios/pendientes/eliminar', { ids: lote.map(p => p.id) })
+      limpiarSeleccion()
+    } else {
+      await api.delete(`/usuarios/${user.id}`)
+    }
     usuarioSeleccionado.value = null
-    await fetchUsuarios()
+    showEliminar.value = false
+    eliminando.value = null
+    eliminandoLote.value = []
+    if (eliminandoPendiente.value) await fetchPendientes()
+    else await fetchUsuarios()
   } catch (e) {
     const d = e.response?.data?.detail
-    alert('Error: ' + (Array.isArray(d) ? d[0].msg : (d || e.message)))
+    errorEliminar.value = Array.isArray(d) ? d[0].msg : (d || e.message)
+  } finally {
+    borrando.value = false
   }
 }
 
@@ -1650,30 +2129,14 @@ const conectarAccesoWS = () => {
   }
 }
 
-// ── Cumpleaños hoy ───────────────────────────────────────────
-const cumpleaneros = ref([])
-const cumpleanosExpandido = ref(true)
-
-function whatsappCumpleanos(u) {
-  const tel = '57' + u.telefono.replace(/\D/g, '')
-  const msg = `¡Feliz cumpleaños ${u.nombre.split(' ')[0]}! 🎂🎉 De parte de todo el equipo del Box te deseamos un excelente día. Pasa hoy por el box y reclama tu batido gratis 🥤`
-  return `https://wa.me/${tel}?text=${encodeURIComponent(msg)}`
-}
-
-async function fetchCumpleaneros() {
-  try {
-    const { data } = await api.get('/usuarios/cumpleanos-hoy')
-    cumpleaneros.value = data
-  } catch {
-    cumpleaneros.value = []
-  }
-}
-
 onMounted(() => {
+  // Deep-link de tab: el Resumen enlaza a /usuarios?tab=pendientes desde su tarjeta
+  // de pendientes. Cualquier otro valor cae en el default 'todos'.
+  if (tabs.value.some(t => t.key === route.query.tab)) filtroActivo.value = route.query.tab
+  api.get('/me').then(({ data }) => { miId.value = data.id }).catch(() => {})
   fetchUsuarios()
   fetchPlanes()
   fetchPendientes()
-  fetchCumpleaneros()
   conectarAccesoWS()
   fetchEnGym()
   gymInterval = setInterval(fetchEnGym, 10_000)

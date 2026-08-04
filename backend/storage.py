@@ -10,6 +10,10 @@ Dos backends, elegidos por entorno:
 La elección es transparente para los routers: usan guardar_archivo() y
 eliminar_archivo() sin saber qué backend hay detrás.
 
+Toda imagen se guarda normalizada: redimensionada y re-encodeada a WebP. Las URLs
+viejas (.jpg/.png) siguen sirviéndose sin cambios; la normalización aplica a lo
+que se sube de ahora en más.
+
 URLs almacenadas en la BD:
   • Local: ruta relativa "/uploads/...". El backend la sirve vía StaticFiles.
   • S3/R2: URL pública absoluta "https://.../uploads/...".
@@ -41,6 +45,20 @@ UPLOADS_DIR = Path(__file__).parent / "uploads"
 # el filename ni en el Content-Type que envía el cliente, ambos falsificables).
 MAX_UPLOAD_BYTES = 5 * 1024 * 1024  # 5 MB
 
+# Toda imagen se guarda re-encodeada a WebP y redimensionada. El ahorro grande no
+# lo da el formato sino los píxeles: una foto de celular de 4000x3000 pesa MB en
+# cualquier formato; a 512 px queda en decenas de KB. Con el bucket de Supabase en
+# 1 GB, guardar los originales dejaría al gimnasio sin espacio en pocos cientos de
+# subidas y ahí fallarían también las fotos legítimas.
+LADO_MAX_AVATAR = 512
+LADO_MAX_PRODUCTO = 1024
+WEBP_QUALITY = 82
+
+# Techo de píxeles al decodificar: un PNG de 200 KB puede expandirse a 30000x30000
+# y comerse la RAM del contenedor (512 MB en Render Starter). El tope de 5 MB de
+# entrada no protege de eso, porque el peligro está en el tamaño descomprimido.
+MAX_PIXELES = 50_000_000  # 50 MP, muy por encima de cualquier cámara de celular
+
 
 def _detectar_imagen(data: bytes) -> Optional[Tuple[str, str]]:
     """Devuelve (extension, content_type) según los magic bytes, o None si no
@@ -70,6 +88,37 @@ def _leer_y_validar(foto: UploadFile) -> Tuple[bytes, str, str]:
         raise HTTPException(status_code=400, detail="Formato de imagen no permitido. Usa JPG, PNG, WEBP o GIF.")
     extension, content_type = detectado
     return data, extension, content_type
+
+
+def _procesar_imagen(data: bytes, lado_max: int) -> bytes:
+    """Redimensiona y re-encodea a WebP. Devuelve los bytes a guardar.
+
+    Los GIF animados quedan como WebP estático (primer frame): son avatares y
+    fotos de producto, no hace falta conservar la animación.
+    """
+    from PIL import Image, ImageOps, UnidentifiedImageError
+    from PIL.Image import DecompressionBombError
+
+    # Pillow avisa con un warning a la mitad de este valor y levanta
+    # DecompressionBombError al pasarlo.
+    Image.MAX_IMAGE_PIXELS = MAX_PIXELES
+
+    try:
+        img = Image.open(io.BytesIO(data))
+        # Sin esto las fotos sacadas con el celular en vertical salen acostadas:
+        # la orientación vive en el EXIF, que al re-encodear se pierde.
+        img = ImageOps.exif_transpose(img)
+        if img.mode not in ("RGB", "RGBA"):
+            img = img.convert("RGBA" if "A" in img.getbands() else "RGB")
+        img.thumbnail((lado_max, lado_max))
+        salida = io.BytesIO()
+        img.save(salida, "WEBP", quality=WEBP_QUALITY, method=4)
+    except DecompressionBombError:
+        raise HTTPException(status_code=400, detail="La imagen tiene dimensiones desproporcionadas.")
+    except (UnidentifiedImageError, OSError, ValueError):
+        raise HTTPException(status_code=400, detail="No se pudo procesar la imagen.")
+
+    return salida.getvalue()
 
 S3_BUCKET = os.getenv("S3_BUCKET", "")
 S3_PUBLIC_URL = os.getenv("S3_PUBLIC_URL", "").rstrip("/")
@@ -103,9 +152,13 @@ def guardar_archivo(foto: UploadFile, subcarpeta: str = "") -> str:
 
     subcarpeta: prefijo opcional (ej. "productos").
     """
-    # La extensión sale del tipo detectado por magic bytes, no del filename.
-    data, extension, content_type = _leer_y_validar(foto)
-    nombre = f"{uuid.uuid4().hex}.{extension}"
+    # Los magic bytes son el primer filtro: descartan lo que ni siquiera es una
+    # imagen antes de gastar CPU (y RAM) decodificándola.
+    data, _extension, _content_type = _leer_y_validar(foto)
+    lado_max = LADO_MAX_PRODUCTO if subcarpeta == "productos" else LADO_MAX_AVATAR
+    data = _procesar_imagen(data, lado_max)
+    content_type = "image/webp"
+    nombre = f"{uuid.uuid4().hex}.webp"
     rel = f"{subcarpeta}/{nombre}" if subcarpeta else nombre
 
     if USA_S3:

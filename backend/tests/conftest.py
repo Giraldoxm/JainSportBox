@@ -47,6 +47,14 @@ for _var in ("S3_BUCKET", "S3_PUBLIC_URL", "S3_ENDPOINT_URL",
              "S3_ACCESS_KEY_ID", "S3_SECRET_ACCESS_KEY", "S3_REGION"):
     os.environ[_var] = ""
 
+# Mismo motivo con WhatsApp, y acá el daño sería peor que subir un archivo de
+# más: con credenciales reales en backend/.env, un test de alertas le mandaría
+# un WhatsApp de verdad a un socio. Vaciarlas deja whatsapp.HABILITADO en False,
+# así el default de toda la suite es "no se puede enviar"; los tests que sí
+# ejercitan el envío lo habilitan explícitamente con monkeypatch.
+for _var in ("WA_PHONE_NUMBER_ID", "WA_ACCESS_TOKEN"):
+    os.environ[_var] = ""
+
 import database  # noqa: E402
 
 database.engine.echo = False  # el engine SQLite de dev viene con echo=True
@@ -67,8 +75,20 @@ PASSWORD_HASH = get_password_hash(PASSWORD)
 
 SEED_PLAN_NOMBRES = ("1 Semana", "15 Días", "1 Mes")
 
-# PNG mínimo válido para los endpoints de foto (storage valida magic bytes).
-PNG_BYTES = b"\x89PNG\r\n\x1a\n" + b"\x00" * 32
+# PNG real para los endpoints de foto. Tiene que ser decodificable, no solo tener
+# los magic bytes: storage.py re-encodea toda imagen a WebP redimensionado, así que
+# un header falso seguido de ceros ahora se rechaza con 400 (que es lo correcto).
+def _png_de_prueba() -> bytes:
+    import io
+
+    from PIL import Image
+
+    buf = io.BytesIO()
+    Image.new("RGB", (900, 600), (200, 30, 30)).save(buf, "PNG")
+    return buf.getvalue()
+
+
+PNG_BYTES = _png_de_prueba()
 
 
 def auth_headers(token: str) -> dict:

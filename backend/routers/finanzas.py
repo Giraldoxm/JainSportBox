@@ -1,12 +1,14 @@
 from datetime import date, datetime, timedelta
 from typing import List, Optional
 from collections import defaultdict
+from zoneinfo import ZoneInfo
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy import func
 from sqlalchemy.orm import Session, joinedload
 
 from database import get_db
+from fechas import TZ_BOGOTA, hoy_bogota
 from models import MovimientoFinanciero, Pago, Plan, RolUsuario, TipoMovimiento, Usuario, Venta
 from schemas.finanza import BalanceResponse, MovimientoCreate
 from security import get_current_user
@@ -90,15 +92,17 @@ def balance(
     )
 
 
-@router.get("/movimientos")
-def listar_movimientos(
-    fecha_desde: Optional[date] = Query(None),
-    fecha_hasta: Optional[date] = Query(None),
-    tipo: Optional[str] = Query(None),
-    limit: int = Query(100, ge=1, le=500),
-    db: Session = Depends(get_db),
-    current_user: Usuario = Depends(_require_admin),
-):
+def _recolectar_movimientos(
+    db: Session,
+    fecha_desde: Optional[date],
+    fecha_hasta: Optional[date],
+    tipo: Optional[str] = None,
+) -> List[dict]:
+    """Unifica pagos + ventas + movimientos manuales del período, ordenados por fecha desc.
+
+    Lo consumen el listado y la exportación a Excel: si la fusión de las tres
+    fuentes se duplicara, el Excel y la pantalla podrían mostrar cosas distintas.
+    """
     items = []
 
     # ── Pagos de membresías ──
@@ -158,9 +162,158 @@ def listar_movimientos(
             "es_eliminable": True,
         })
 
-    # Ordenar por fecha desc y limitar
     items.sort(key=lambda x: x["fecha"], reverse=True)
-    return items[:limit]
+    return items
+
+
+@router.get("/movimientos")
+def listar_movimientos(
+    fecha_desde: Optional[date] = Query(None),
+    fecha_hasta: Optional[date] = Query(None),
+    tipo: Optional[str] = Query(None),
+    limit: int = Query(100, ge=1, le=500),
+    db: Session = Depends(get_db),
+    current_user: Usuario = Depends(_require_admin),
+):
+    return _recolectar_movimientos(db, fecha_desde, fecha_hasta, tipo)[:limit]
+
+
+_LABELS_CATEGORIA = {
+    "mensualidad": "Membresía", "venta_tienda": "Tienda", "ingreso_varios": "Varios",
+    "renta": "Renta", "servicios": "Servicios", "equipamiento": "Equipamiento",
+    "nomina": "Nómina", "marketing": "Marketing", "mantenimiento": "Mantenimiento",
+    "otros": "Otros",
+}
+
+_LABELS_FUENTE = {
+    "pago_membresia": "Pago de membresía",
+    "venta_tienda": "Venta de tienda",
+    "manual": "Registro manual",
+    "pago_directo": "Pago directo (legacy)",
+}
+
+
+@router.get("/exportar-excel")
+def exportar_excel(
+    fecha_desde: Optional[date] = Query(None),
+    fecha_hasta: Optional[date] = Query(None),
+    db: Session = Depends(get_db),
+    _: Usuario = Depends(_require_admin),
+):
+    """Exporta el módulo financiero del período a .xlsx: Resumen + Ingresos + Egresos.
+
+    Reusa `_recolectar_movimientos` y `balance()`, así que el archivo dice
+    exactamente lo mismo que la pantalla. A diferencia del listado, acá no hay
+    tope de filas: un export recortado a 200 sería un export equivocado.
+
+    La separación por tipo se hace **en memoria, sobre una sola recolección**. Pedirle
+    al helper `tipo="ingreso"` y después `tipo="egreso"` sería más corto de escribir,
+    pero correría dos veces las consultas de pagos, ventas y movimientos.
+    """
+    import io
+
+    from fastapi.responses import Response
+    from openpyxl import Workbook
+    from openpyxl.styles import Alignment, Font, PatternFill
+    from openpyxl.utils import get_column_letter
+
+    datos = balance(fecha_desde=fecha_desde, fecha_hasta=fecha_hasta, db=db, current_user=_)
+
+    # Una sola recolección, particionada en una pasada.
+    ingresos, egresos = [], []
+    for m in _recolectar_movimientos(db, fecha_desde, fecha_hasta):
+        (ingresos if m["tipo"] == "ingreso" else egresos).append(m)
+
+    encabezado_fill = PatternFill(start_color="DC2626", end_color="DC2626", fill_type="solid")
+
+    def _formatear(ws, filas_encabezado=1):
+        for celda in ws[filas_encabezado]:
+            celda.font = Font(bold=True, color="FFFFFF")
+            celda.fill = encabezado_fill
+            celda.alignment = Alignment(horizontal="center")
+        ws.freeze_panes = f"A{filas_encabezado + 1}"
+        for idx, col in enumerate(ws.columns, start=1):
+            ancho = max((len(str(c.value)) for c in col if c.value is not None), default=10)
+            ws.column_dimensions[get_column_letter(idx)].width = min(max(ancho + 2, 12), 50)
+
+    wb = Workbook()
+
+    # ── Hoja 1: Resumen ──
+    ws = wb.active
+    ws.title = "Resumen"
+    ws.append(["Concepto", "Monto"])
+    periodo = f"{fecha_desde.isoformat() if fecha_desde else 'inicio'} → {fecha_hasta.isoformat() if fecha_hasta else 'hoy'}"
+    ws.append(["Período", periodo])
+    ws.append(["Membresías", datos.total_membresias])
+    ws.append(["Tienda", datos.total_tienda])
+    ws.append(["Total ingresos", datos.ingresos_total])
+    ws.append(["Egresos", datos.egresos_total])
+    ws.append(["Balance neto", datos.balance_neto])
+    # El desglose va siempre, aunque no haya egresos: si la sección desaparece
+    # cuando está vacía, quien abre el archivo no sabe si no hubo gastos o si el
+    # export se rompió.
+    ws.append([])
+    ws.append(["Egresos por categoría", ""])
+    if datos.egresos_por_categoria:
+        for cat, val in datos.egresos_por_categoria.items():
+            ws.append([_LABELS_CATEGORIA.get(cat, cat), val])
+    else:
+        ws.append(["Sin egresos en el período", 0])
+    _formatear(ws)
+
+    # ── Hojas 2 y 3: Ingresos y Egresos ──
+    def _hoja_movimientos(titulo: str, filas: List[dict], con_origen: bool) -> None:
+        """Una hoja por tipo. Los montos van positivos: el nombre de la hoja ya dice
+        el signo, y así el total de cada hoja se lee directo."""
+        hoja = wb.create_sheet(titulo)
+        columnas = ["Fecha", "Concepto", "Categoría", "Método de pago", "Cliente"]
+        if con_origen:
+            columnas.append("Origen")
+        columnas.append("Monto")
+        hoja.append(columnas)
+
+        for m in filas:
+            fecha = m["fecha"]
+            fila = [
+                # Las fechas se guardan naive en UTC: se pasan a Bogotá para que el
+                # Excel coincida con lo que muestra la pantalla.
+                fecha.replace(tzinfo=ZoneInfo("UTC")).astimezone(TZ_BOGOTA).strftime("%Y-%m-%d %H:%M") if fecha else None,
+                m["concepto"],
+                _LABELS_CATEGORIA.get(m["categoria"], m["categoria"]),
+                (m["metodo_pago"] or "").capitalize() or None,
+                m["usuario_nombre"],
+            ]
+            if con_origen:
+                fila.append(_LABELS_FUENTE.get(m["fuente"], m["fuente"]))
+            fila.append(m["monto"])
+            hoja.append(fila)
+
+        # Fila de total al pie, para no tener que seleccionar la columna a mano.
+        if filas:
+            total = [None] * (len(columnas) - 2) + ["TOTAL", sum(m["monto"] for m in filas)]
+            hoja.append([])
+            hoja.append(total)
+            for celda in hoja[hoja.max_row]:
+                celda.font = Font(bold=True)
+        else:
+            hoja.append([f"Sin {titulo.lower()} en el período"])
+
+        _formatear(hoja)
+
+    # "Origen" solo en Ingresos: los egresos son siempre registros manuales, así que
+    # la columna diría lo mismo en todas las filas.
+    _hoja_movimientos("Ingresos", ingresos, con_origen=True)
+    _hoja_movimientos("Egresos", egresos, con_origen=False)
+
+    buffer = io.BytesIO()
+    wb.save(buffer)
+
+    nombre_archivo = f"finanzas_jainsportbox_{hoy_bogota().isoformat()}.xlsx"
+    return Response(
+        content=buffer.getvalue(),
+        media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        headers={"Content-Disposition": f'attachment; filename="{nombre_archivo}"'},
+    )
 
 
 @router.post("/movimientos", status_code=status.HTTP_201_CREATED)

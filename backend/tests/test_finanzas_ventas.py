@@ -221,6 +221,67 @@ def test_movimiento_monto_invalido_422(client, admin_headers):
     assert _mov(client, admin_headers, "regalo", 100).status_code == 422
 
 
+# ── Exportar Excel ─────────────────────────────────────────────
+
+
+def test_exportar_excel_admin(client, admin_headers):
+    """Tres hojas: Resumen, Ingresos y Egresos, cada una con su total al pie."""
+    import io
+
+    from openpyxl import load_workbook
+
+    _mov(client, admin_headers, "ingreso", 50000)
+    _mov(client, admin_headers, "egreso", 20000, categoria="nomina")
+
+    r = client.get("/finanzas/exportar-excel", headers=admin_headers)
+    assert r.status_code == 200
+    assert r.headers["content-type"] == "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+    assert "finanzas_jainsportbox_" in r.headers["content-disposition"]
+
+    wb = load_workbook(io.BytesIO(r.content))
+    assert wb.sheetnames == ["Resumen", "Ingresos", "Egresos"]
+
+    resumen = {f[0]: f[1] for f in wb["Resumen"].iter_rows(values_only=True) if f[0]}
+    assert resumen["Total ingresos"] == 50000
+    assert resumen["Egresos"] == 20000
+    assert resumen["Balance neto"] == 30000
+
+    assert resumen["Nómina"] == 20000   # desglose de egresos por categoría
+
+    # Cada hoja lleva solo su tipo, con montos positivos y una fila TOTAL al pie.
+    ing = list(wb["Ingresos"].iter_rows(values_only=True))
+    assert ing[0][0] == "Fecha" and ing[0][-1] == "Monto" and "Origen" in ing[0]
+    assert [f[-1] for f in ing[1:] if f[-1] is not None] == [50000, 50000]  # fila + TOTAL
+
+    egr = list(wb["Egresos"].iter_rows(values_only=True))
+    assert "Origen" not in egr[0]   # en egresos sería siempre "Registro manual"
+    assert [f[-1] for f in egr[1:] if f[-1] is not None] == [20000, 20000]
+
+
+def test_exportar_excel_sin_egresos_muestra_la_seccion(client, admin_headers):
+    """Sin egresos la sección igual aparece: si se omitiera, no se sabría si no
+    hubo gastos o si el export falló."""
+    import io
+
+    from openpyxl import load_workbook
+
+    _mov(client, admin_headers, "ingreso", 10000)
+
+    r = client.get("/finanzas/exportar-excel", headers=admin_headers)
+    resumen = {
+        f[0]: f[1]
+        for f in load_workbook(io.BytesIO(r.content))["Resumen"].iter_rows(values_only=True)
+        if f[0]
+    }
+    assert "Egresos por categoría" in resumen
+    assert resumen["Sin egresos en el período"] == 0
+
+
+def test_exportar_excel_no_admin_403(client, coach, cliente):
+    assert client.get("/finanzas/exportar-excel", headers=coach.headers).status_code == 403
+    assert client.get("/finanzas/exportar-excel", headers=cliente.headers).status_code == 403
+
+
 def test_buscar_usuarios(client, admin_headers, crear_usuario):
     actor = crear_usuario("cliente", nombre="Fulanito Buscable")
     r = client.get("/finanzas/usuarios/buscar?q=Buscable", headers=admin_headers)
