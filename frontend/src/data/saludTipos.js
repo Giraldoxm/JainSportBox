@@ -10,7 +10,6 @@ export const TIPOS_SALUD = [
     colorText: 'text-gray-500',
     colorBtn: 'bg-red-400 hover:bg-red-500',
     min: 20, max: 500, step: 0.1,
-    placeholder: 'Ej: 75.5',
   },
   {
     param: 'altura',
@@ -23,7 +22,6 @@ export const TIPOS_SALUD = [
     colorText: 'text-gray-500',
     colorBtn: 'bg-red-400 hover:bg-red-500',
     min: 50, max: 300, step: 0.1,
-    placeholder: 'Ej: 175',
   },
   {
     param: 'cintura',
@@ -36,7 +34,6 @@ export const TIPOS_SALUD = [
     colorText: 'text-gray-500',
     colorBtn: 'bg-red-400 hover:bg-red-500',
     min: 30, max: 300, step: 0.1,
-    placeholder: 'Ej: 85',
   },
   {
     param: 'cuello',
@@ -49,7 +46,6 @@ export const TIPOS_SALUD = [
     colorText: 'text-gray-500',
     colorBtn: 'bg-red-400 hover:bg-red-500',
     min: 20, max: 150, step: 0.1,
-    placeholder: 'Ej: 38',
   },
   {
     param: 'cadera',
@@ -62,7 +58,6 @@ export const TIPOS_SALUD = [
     colorText: 'text-gray-500',
     colorBtn: 'bg-red-400 hover:bg-red-500',
     min: 40, max: 300, step: 0.1,
-    placeholder: 'Ej: 95',
   },
   {
     param: 'brazos',
@@ -75,6 +70,5 @@ export const TIPOS_SALUD = [
     colorText: 'text-gray-500',
     colorBtn: 'bg-red-400 hover:bg-red-500',
     min: 15, max: 100, step: 0.1,
-    placeholder: 'Ej: 35',
   },
 ]

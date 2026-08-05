@@ -338,7 +338,7 @@
           <!-- Nombre -->
           <div>
             <label class="block text-sm font-semibold text-gray-700 mb-1.5">Nombre *</label>
-            <input v-model="form.nombre" type="text" required placeholder="Ej: Proteína Whey 1kg"
+            <input v-model="form.nombre" type="text" required
               class="w-full px-4 py-2.5 rounded-lg border border-gray-300 focus:ring-2 focus:ring-red-500 outline-none">
           </div>
 
@@ -354,13 +354,11 @@
             <div>
               <label class="block text-sm font-semibold text-gray-700 mb-1.5">Precio ($) *</label>
               <input v-model.number="form.precio" type="number" min="0" step="1" required
-                placeholder="Ej: 45000"
                 class="w-full px-4 py-2.5 rounded-lg border border-gray-300 focus:ring-2 focus:ring-red-500 outline-none">
             </div>
             <div>
               <label class="block text-sm font-semibold text-gray-700 mb-1.5">Stock *</label>
               <input v-model.number="form.stock" type="number" min="0" required
-                placeholder="Ej: 20"
                 class="w-full px-4 py-2.5 rounded-lg border border-gray-300 focus:ring-2 focus:ring-red-500 outline-none">
             </div>
           </div>
@@ -369,7 +367,6 @@
           <div>
             <label class="block text-sm font-semibold text-gray-700 mb-1.5">Categoría</label>
             <input v-model="form.categoria" type="text" list="lista-categorias"
-              placeholder="Ej: Suplementos, Ropa, Accesorios"
               class="w-full px-4 py-2.5 rounded-lg border border-gray-300 focus:ring-2 focus:ring-red-500 outline-none">
             <datalist id="lista-categorias">
               <option v-for="cat in categoriasTodas" :key="cat" :value="cat" />

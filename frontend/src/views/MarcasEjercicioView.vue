@@ -141,7 +141,7 @@
               {{ tipo === 'corporal_lastre' ? 'Lastre adicional' : 'Peso' }}
             </label>
             <input v-model.number="quickPeso" type="number" step="0.5" min="0"
-              :placeholder="tipo === 'corporal_lastre' ? '0 (sin lastre)' : 'Ej: 80'"
+              :placeholder="tipo === 'corporal_lastre' ? '0 (sin lastre)' : ''"
               @keydown.enter.prevent="quickGuardar"
               class="w-full px-3 py-2.5 rounded-xl border border-gray-300 bg-white text-gray-900 focus:ring-2 focus:ring-red-500 outline-none font-bold text-lg">
           </div>
@@ -462,7 +462,7 @@
                   {{ tipo === 'corporal_lastre' ? 'Lastre adicional' : 'Peso' }}
                 </label>
                 <input v-model.number="formNuevaPeso" type="number" step="0.5" min="0"
-                  :placeholder="tipo === 'corporal_lastre' ? '0' : 'Ej: 80'"
+                  :placeholder="tipo === 'corporal_lastre' ? '0' : ''"
                   :autofocus="formSeries.length === 0"
                   @keydown.enter.prevent="modalAgregarSerie"
                   class="w-full px-3 py-2.5 rounded-xl border border-gray-300 focus:ring-2 focus:ring-red-500 outline-none font-bold text-lg">
@@ -494,7 +494,6 @@
           <div v-else-if="tipo === 'reps'">
             <label class="block text-sm font-semibold text-gray-700 mb-1.5">Repeticiones</label>
             <input v-model.number="formReps" type="number" min="1" required autofocus
-              placeholder="Ej: 20"
               class="w-full px-4 py-2.5 rounded-lg border border-gray-300 focus:ring-2 focus:ring-red-500 outline-none font-bold text-2xl">
           </div>
 
@@ -503,13 +502,11 @@
             <div>
               <label class="block text-sm font-semibold text-gray-700 mb-1.5">Nivel <span class="text-gray-400 font-normal">(1–23)</span></label>
               <input v-model.number="formNivel" type="number" min="1" max="23" required autofocus
-                placeholder="Ej: 10"
                 class="w-full px-4 py-2.5 rounded-lg border border-gray-300 focus:ring-2 focus:ring-red-500 outline-none font-bold text-2xl">
             </div>
             <div>
               <label class="block text-sm font-semibold text-gray-700 mb-1.5">Palier <span class="text-gray-400 font-normal">(1–20)</span></label>
               <input v-model.number="formPalier" type="number" min="1" max="20" required
-                placeholder="Ej: 5"
                 class="w-full px-4 py-2.5 rounded-lg border border-gray-300 focus:ring-2 focus:ring-red-500 outline-none font-bold text-2xl">
             </div>
           </div>

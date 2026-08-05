@@ -177,7 +177,6 @@
               v-model="form.nombre"
               type="text"
               required
-              placeholder="Ej: Pull-up"
               class="w-full px-4 py-2.5 rounded-lg border border-gray-300 focus:ring-2 focus:ring-red-500 focus:border-red-500 outline-none transition-all"
             />
           </div>

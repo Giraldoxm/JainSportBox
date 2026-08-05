@@ -96,7 +96,6 @@
             type="text"
             required
             autofocus
-            placeholder="Ej: AMRAP 20 min"
             class="w-full px-4 py-3 rounded-xl border border-gray-200 focus:ring-2 focus:ring-red-500 focus:border-red-500 outline-none transition-all text-base font-semibold"
           />
         </div>
@@ -141,7 +140,6 @@
         <textarea
           v-model="form.descripcion"
           rows="10"
-          placeholder="Ej:&#10;AMRAP 20 min&#10;- 10 Burpees&#10;- 15 Back Squat @ 40 kg&#10;- 200 m Remo&#10;&#10;Escala según nivel. Descansa lo necesario entre rondas."
           class="w-full px-4 py-3 rounded-xl border border-gray-200 focus:ring-2 focus:ring-red-500 focus:border-red-500 outline-none transition-all resize-y text-sm leading-relaxed"
         />
       </div>

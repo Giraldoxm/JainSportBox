@@ -84,8 +84,7 @@
           <div>
             <label class="block text-sm font-semibold text-gray-700 mb-1.5">Nombre Completo <span class="text-red-500">*</span></label>
             <input v-model="regForm.nombre" type="text" required minlength="2" maxlength="120"
-              class="w-full px-4 py-2.5 rounded-lg border border-gray-300 focus:ring-2 focus:ring-red-500 outline-none transition-all text-sm"
-              placeholder="Ej. Juan Pérez">
+              class="w-full px-4 py-2.5 rounded-lg border border-gray-300 focus:ring-2 focus:ring-red-500 outline-none transition-all text-sm">
           </div>
 
           <div>
@@ -98,15 +97,13 @@
           <div>
             <label class="block text-sm font-semibold text-gray-700 mb-1.5">Documento de Identidad <span class="text-red-500">*</span></label>
             <input v-model="regForm.documento_identidad" type="text" required minlength="5" maxlength="20"
-              class="w-full px-4 py-2.5 rounded-lg border border-gray-300 focus:ring-2 focus:ring-red-500 outline-none transition-all text-sm"
-              placeholder="Ej. 1020456789">
+              class="w-full px-4 py-2.5 rounded-lg border border-gray-300 focus:ring-2 focus:ring-red-500 outline-none transition-all text-sm">
           </div>
 
           <div>
             <label class="block text-sm font-semibold text-gray-700 mb-1.5">Teléfono / WhatsApp <span class="text-red-500">*</span></label>
             <input v-model="regForm.telefono" type="tel" required minlength="7" maxlength="20"
-              class="w-full px-4 py-2.5 rounded-lg border border-gray-300 focus:ring-2 focus:ring-red-500 outline-none transition-all text-sm"
-              placeholder="Ej. 3001234567">
+              class="w-full px-4 py-2.5 rounded-lg border border-gray-300 focus:ring-2 focus:ring-red-500 outline-none transition-all text-sm">
           </div>
 
           <div>
@@ -119,15 +116,13 @@
           <div>
             <label class="block text-sm font-semibold text-gray-700 mb-1.5">EPS <span class="text-red-500">*</span></label>
             <input v-model="regForm.eps" type="text" required minlength="2" maxlength="100"
-              class="w-full px-4 py-2.5 rounded-lg border border-gray-300 focus:ring-2 focus:ring-red-500 outline-none transition-all text-sm"
-              placeholder="Ej. Nueva EPS, Sanitas, Sura...">
+              class="w-full px-4 py-2.5 rounded-lg border border-gray-300 focus:ring-2 focus:ring-red-500 outline-none transition-all text-sm">
           </div>
 
           <div>
             <label class="block text-sm font-semibold text-gray-700 mb-1.5">Barrio <span class="text-red-500">*</span></label>
             <input v-model="regForm.barrio" type="text" required minlength="2" maxlength="100"
-              class="w-full px-4 py-2.5 rounded-lg border border-gray-300 focus:ring-2 focus:ring-red-500 outline-none transition-all text-sm"
-              placeholder="Ej. La Consolata">
+              class="w-full px-4 py-2.5 rounded-lg border border-gray-300 focus:ring-2 focus:ring-red-500 outline-none transition-all text-sm">
           </div>
 
           <!-- Contacto de emergencia -->
@@ -136,14 +131,12 @@
             <div>
               <label class="block text-sm font-semibold text-gray-700 mb-1.5">Nombre <span class="text-red-500">*</span></label>
               <input v-model="regForm.contacto_emergencia_nombre" type="text" required minlength="2" maxlength="120"
-                class="w-full px-4 py-2.5 rounded-lg border border-gray-300 focus:ring-2 focus:ring-red-500 outline-none transition-all text-sm"
-                placeholder="Ej. María Pérez">
+                class="w-full px-4 py-2.5 rounded-lg border border-gray-300 focus:ring-2 focus:ring-red-500 outline-none transition-all text-sm">
             </div>
             <div>
               <label class="block text-sm font-semibold text-gray-700 mb-1.5">Teléfono <span class="text-red-500">*</span></label>
               <input v-model="regForm.contacto_emergencia_telefono" type="tel" required minlength="7" maxlength="20"
-                class="w-full px-4 py-2.5 rounded-lg border border-gray-300 focus:ring-2 focus:ring-red-500 outline-none transition-all text-sm"
-                placeholder="Ej. 3001234567">
+                class="w-full px-4 py-2.5 rounded-lg border border-gray-300 focus:ring-2 focus:ring-red-500 outline-none transition-all text-sm">
             </div>
           </div>
 
@@ -183,20 +176,17 @@
             <div>
               <label class="block text-sm font-semibold text-gray-700 mb-1.5">Nombre del acudiente <span class="text-red-500">*</span></label>
               <input v-model="regForm.acudiente_nombre" type="text" required minlength="2" maxlength="120"
-                class="w-full px-4 py-2.5 rounded-lg border border-gray-300 focus:ring-2 focus:ring-red-500 outline-none transition-all text-sm"
-                placeholder="Ej. Carlos Pérez">
+                class="w-full px-4 py-2.5 rounded-lg border border-gray-300 focus:ring-2 focus:ring-red-500 outline-none transition-all text-sm">
             </div>
             <div>
               <label class="block text-sm font-semibold text-gray-700 mb-1.5">Cédula del acudiente <span class="text-red-500">*</span></label>
               <input v-model="regForm.acudiente_documento" type="text" required minlength="5" maxlength="20"
-                class="w-full px-4 py-2.5 rounded-lg border border-gray-300 focus:ring-2 focus:ring-red-500 outline-none transition-all text-sm"
-                placeholder="Ej. 1020456789">
+                class="w-full px-4 py-2.5 rounded-lg border border-gray-300 focus:ring-2 focus:ring-red-500 outline-none transition-all text-sm">
             </div>
             <div>
               <label class="block text-sm font-semibold text-gray-700 mb-1.5">Teléfono del acudiente <span class="text-red-500">*</span></label>
               <input v-model="regForm.acudiente_telefono" type="tel" required minlength="7" maxlength="20"
-                class="w-full px-4 py-2.5 rounded-lg border border-gray-300 focus:ring-2 focus:ring-red-500 outline-none transition-all text-sm"
-                placeholder="Ej. 3001234567">
+                class="w-full px-4 py-2.5 rounded-lg border border-gray-300 focus:ring-2 focus:ring-red-500 outline-none transition-all text-sm">
             </div>
           </div>
 

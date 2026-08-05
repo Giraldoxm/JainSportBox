@@ -347,7 +347,6 @@
           <div>
             <label class="block text-sm font-semibold text-gray-700 mb-1.5">Concepto</label>
             <input v-model="form.concepto" type="text" required
-              placeholder="Ej: Pago de renta mayo 2026"
               class="w-full px-4 py-2.5 rounded-lg border border-gray-300 focus:ring-2 focus:ring-red-500 outline-none">
           </div>
 
@@ -356,7 +355,6 @@
             <div>
               <label class="block text-sm font-semibold text-gray-700 mb-1.5">Monto ($)</label>
               <input v-model.number="form.monto" type="number" min="1" step="any" required
-                placeholder="Ej: 150000"
                 class="w-full px-4 py-2.5 rounded-lg border border-gray-300 focus:ring-2 focus:ring-red-500 outline-none">
             </div>
             <div>

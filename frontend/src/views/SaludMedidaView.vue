@@ -152,7 +152,6 @@
             </label>
             <input v-model.number="formValor" type="number"
               :step="tipo.step" :min="tipo.min" :max="tipo.max"
-              :placeholder="tipo.placeholder"
               required autofocus
               class="w-full px-4 py-2.5 rounded-lg border border-gray-300 focus:ring-2 focus:ring-red-500 outline-none text-xl font-black">
           </div>
@@ -160,7 +159,7 @@
             <label class="block text-sm font-semibold text-gray-700 mb-1.5">
               Notas <span class="text-gray-400 font-normal">(opcional)</span>
             </label>
-            <textarea v-model="formNotas" rows="2" placeholder="Ej: Después del entrenamiento..."
+            <textarea v-model="formNotas" rows="2"
               class="w-full px-4 py-2.5 rounded-lg border border-gray-300 focus:ring-2 focus:ring-red-500 outline-none resize-none text-sm">
             </textarea>
           </div>

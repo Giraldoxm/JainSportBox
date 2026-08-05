@@ -90,22 +90,22 @@
           </div>
           <div>
             <label class="block text-xs font-bold text-gray-500 uppercase tracking-wide mb-1.5">EPS</label>
-            <input v-model="form.eps" type="text" placeholder="Ej. Nueva EPS, Sanitas..."
+            <input v-model="form.eps" type="text"
               class="w-full px-3.5 py-2.5 rounded-xl border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-gray-800 focus:border-transparent transition"/>
           </div>
           <div>
             <label class="block text-xs font-bold text-gray-500 uppercase tracking-wide mb-1.5">Barrio</label>
-            <input v-model="form.barrio" type="text" placeholder="Ej. La Consolata"
+            <input v-model="form.barrio" type="text"
               class="w-full px-3.5 py-2.5 rounded-xl border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-gray-800 focus:border-transparent transition"/>
           </div>
           <div>
             <label class="block text-xs font-bold text-gray-500 uppercase tracking-wide mb-1.5">Contacto de emergencia (nombre)</label>
-            <input v-model="form.contacto_emergencia_nombre" type="text" placeholder="Ej. María Pérez"
+            <input v-model="form.contacto_emergencia_nombre" type="text"
               class="w-full px-3.5 py-2.5 rounded-xl border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-gray-800 focus:border-transparent transition"/>
           </div>
           <div>
             <label class="block text-xs font-bold text-gray-500 uppercase tracking-wide mb-1.5">Contacto de emergencia (teléfono)</label>
-            <input v-model="form.contacto_emergencia_telefono" type="tel" placeholder="Ej. 3001234567"
+            <input v-model="form.contacto_emergencia_telefono" type="tel"
               class="w-full px-3.5 py-2.5 rounded-xl border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-gray-800 focus:border-transparent transition"/>
           </div>
         </div>
@@ -116,17 +116,17 @@
           <div class="grid grid-cols-1 sm:grid-cols-2 gap-5">
             <div>
               <label class="block text-xs font-bold text-gray-500 uppercase tracking-wide mb-1.5">Nombre del acudiente</label>
-              <input v-model="form.acudiente_nombre" type="text" placeholder="Ej. Carlos Pérez"
+              <input v-model="form.acudiente_nombre" type="text"
                 class="w-full px-3.5 py-2.5 rounded-xl border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-gray-800 focus:border-transparent transition"/>
             </div>
             <div>
               <label class="block text-xs font-bold text-gray-500 uppercase tracking-wide mb-1.5">Cédula del acudiente</label>
-              <input v-model="form.acudiente_documento" type="text" placeholder="Ej. 1020456789"
+              <input v-model="form.acudiente_documento" type="text"
                 class="w-full px-3.5 py-2.5 rounded-xl border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-gray-800 focus:border-transparent transition"/>
             </div>
             <div>
               <label class="block text-xs font-bold text-gray-500 uppercase tracking-wide mb-1.5">Teléfono del acudiente</label>
-              <input v-model="form.acudiente_telefono" type="tel" placeholder="Ej. 3001234567"
+              <input v-model="form.acudiente_telefono" type="tel"
                 class="w-full px-3.5 py-2.5 rounded-xl border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-gray-800 focus:border-transparent transition"/>
             </div>
           </div>
