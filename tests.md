@@ -169,6 +169,21 @@ Unitario `_calcular_1rm`:
 | 7.11 | Unidades: registro en lbs vs kg | comparación de PR normalizada a kg (1 kg = 2.20462 lbs) — verificar en frontend/preview `esPR` |
 | 7.12 | Sincronía `TIPOS_EJERCICIO` (backend) vs `ejerciciosMarcas.js` (frontend) | test que compare las dos listas (leer el .js con regex o duplicar el fixture) — atrapa desincronización |
 
+## 7b. Planes por ingresos (`membresia.py`) — `test_membresia_ingresos.py`
+
+| # | Caso | Esperado |
+|---|---|---|
+| 7b.1 | Pagar un plan con `numero_ingresos` | carga las entradas en `usuario.ingresos_restantes` |
+| 7b.2 | Pagar el mismo bono dos veces | los ingresos **se suman**, no se pisan |
+| 7b.3 | Pagar un plan por tiempo teniendo un bono agotado | `ingresos_restantes` vuelve a `NULL` (si no, quedaría bloqueado con la mensualidad al día) |
+| 7b.4 | Activar un pendiente con plan por ingresos | queda con las entradas cargadas |
+| 7b.5 | Marcar entrada con bono | descuenta 1; la respuesta trae el saldo **ya descontado** |
+| 7b.6 | Marcar entrada con plan por tiempo | no descuenta nada; `ingresos_restantes` sigue `NULL` |
+| 7b.7 | Entrar sin ingresos | 403 con `detail.codigo == "sin_ingresos"` y **no** se registra la asistencia |
+| 7b.8 | Ingresos de sobra pero fecha vencida | 403 por vencimiento — los dos ejes se validan juntos |
+| 7b.9 | Anular el pago de un bono | resta los ingresos que había cargado |
+| 7b.10 | `numero_ingresos: 0` en el PATCH del plan | vuelve a plan por tiempo (`null`) |
+
 ## 8. Salud (`salud.py`)
 
 | # | Caso | Esperado |

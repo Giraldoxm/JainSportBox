@@ -10,6 +10,7 @@ from sqlalchemy.orm import Session, joinedload
 
 from database import get_db
 from fechas import hoy_bogota
+from membresia import descontar_ingreso
 from models import Asistencia, RolUsuario, Usuario
 from schemas.asistencia import (
     AsistenciaCreate, AsistenciaResponse,
@@ -50,11 +51,24 @@ MINUTOS_SESION = 65  # tiempo máximo de una sesión; usado por el job de reset 
 
 
 def _validar_membresia(usuario: Usuario) -> None:
-    # Toda marcación es una entrada → siempre se valida la membresía.
+    # Toda marcación es una entrada → siempre se valida la membresía. Son DOS ejes y
+    # se validan los dos: un bono de ingresos también caduca por fecha, y una
+    # mensualidad vigente no consume ingresos (los tiene en NULL).
     if not usuario.fecha_vencimiento or usuario.fecha_vencimiento < hoy_bogota():
         raise HTTPException(
             status_code=403,
             detail=f"Membresía vencida o sin plan activo para {usuario.nombre}.",
+        )
+    if usuario.ingresos_restantes is not None and usuario.ingresos_restantes <= 0:
+        # Detail estructurado (y no un string como el de arriba) para que la pantalla
+        # de recepción distinga "se le acabaron los ingresos" de "se le venció la
+        # fecha": los dos son 403 pero el socio tiene que hacer cosas distintas.
+        raise HTTPException(
+            status_code=403,
+            detail={
+                "codigo": "sin_ingresos",
+                "mensaje": f"{usuario.nombre} no tiene ingresos disponibles en su plan.",
+            },
         )
 
 
@@ -65,6 +79,10 @@ def _registrar(usuario: Usuario, db: Session) -> AsistenciaResponse:
     asistencia = Asistencia(usuario_id=usuario.id, tipo="entrada")
     db.add(asistencia)
     usuario.esta_en_gym = True
+    # Va acá y no en cada endpoint: los tres caminos de entrada (huella, por id y por
+    # documento) pasan por esta función, y descontar en uno solo dejaría bonos que no
+    # se gastan según por dónde entró el socio.
+    descontar_ingreso(usuario)
     db.commit()
     db.refresh(asistencia)
     return AsistenciaResponse(
@@ -123,6 +141,10 @@ def registrar_asistencia_por_documento(documento: str, request: Request, db: Ses
         "foto_url": usuario.foto_url,
         "fecha_vencimiento": usuario.fecha_vencimiento,
         "dias_restantes": dias_restantes,
+        # Ya descontado el ingreso de esta entrada: es lo que le queda a partir de
+        # ahora, que es lo que tiene sentido mostrarle en el cartel. None = plan por
+        # tiempo, la pantalla muestra los días en su lugar.
+        "ingresos_restantes": usuario.ingresos_restantes,
         "fecha_hora": asistencia.fecha_hora,
     }
 

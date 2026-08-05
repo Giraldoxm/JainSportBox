@@ -655,6 +655,30 @@ Para las bases **ya sembradas** hay que correr `backend/scripts/backfill_videos.
 - Chips de filtro por categoría encima del select — facilita encontrar el video al armar el WOD
 - Muestra la categoría como badge junto al nombre en la lista de videos del WOD (el backend la expone vía la property `WODEjercicio.categoria`)
 
+## Planes por ingresos (bonos)
+
+Un plan puede cobrarse **por tiempo** (mensualidad de toda la vida) o **por ingresos** (bono de N entradas). Lo define `Plan.numero_ingresos`: `NULL` → por tiempo, `N` → bono de N entradas.
+
+**Son dos ejes de vigencia y se validan los dos** (`_validar_membresia` en `asistencia.py`): un bono caduca cuando se acaban las entradas **o** cuando pasa `fecha_vencimiento`, lo que ocurra primero. `Plan.duracion_dias` sigue aplicando a los dos tipos.
+
+**`Usuario.ingresos_restantes` usa `NULL` como centinela de "no aplica"**, no `0`. Sin ese centinela habría que mirar el último plan del socio en cada marcación para saber si descontar: un cliente con mensualidad tendría `0` ingresos y sería indistinguible de un bono agotado.
+
+**Toda la lógica vive en `backend/membresia.py`**, no en los routers. Hay **cuatro caminos** que aplican o revierten un plan (`POST /pagos/`, `POST /pagos/directo/`, `POST /usuarios/{id}/activar` y `DELETE /pagos/{id}`); con la regla escrita en cada uno, olvidarse de uno deja socios con ingresos que nadie descuenta. Las funciones son `aplicar_plan`, `extender_vencimiento`, `revertir_plan` y `descontar_ingreso`.
+
+| Situación | Qué pasa con `ingresos_restantes` |
+|---|---|
+| Paga un plan por ingresos | **Se suman** a los que le quedaban (mismo criterio que la fecha, que se extiende en vez de pisarse) |
+| Paga un plan por tiempo | Vuelve a `NULL`. **Sin este reset**, un socio con un bono agotado (`0`) quedaría bloqueado pese a acabar de pagar la mensualidad |
+| Pago directo (personalizado) | No los toca: no hay plan detrás que defina ingresos |
+| Marca entrada | `descontar_ingreso()` resta 1, y solo si no es `NULL`. Va en `_registrar()` porque los tres caminos de entrada (huella, por id, por documento) pasan por ahí |
+| Se anula el pago | Se restan los ingresos que cargó. **Limitación:** si el pago anulado era por tiempo, los ingresos previos se perdieron al ponerse en `NULL` y no se pueden restaurar |
+
+**El acceso denegado por falta de ingresos manda `detail` estructurado** (`{"codigo": "sin_ingresos", ...}`) mientras que el vencido manda un string. Los dos son 403, pero en el mostrador son problemas distintos —"renová la fecha" vs "comprá más entradas"— y `AccesoView` los pinta distinto. Es la excepción a la regla de que la distinción vive en el status code.
+
+**En el form de planes, `numero_ingresos: 0` significa "volver a plan por tiempo".** El `PATCH` no puede usar `null` para eso: lo interpretaría como "campo no enviado" y no lo cambiaría. Por eso `PlanUpdate` acepta `ge=0` y el router hace `payload.numero_ingresos or None`.
+
+**Limitación conocida — el Resumen no descuenta los bonos agotados.** `/dashboard/resumen` cuenta activos por `fecha_vencimiento >= hoy`, así que un socio con 0 ingresos y fecha vigente sigue contando como activo. No se corrigió a propósito: `socios-mensuales` reconstruye el pasado desde `pagos` (donde no hay registro de cuántos ingresos se gastaron) y hay un test que exige que su último punto coincida con la tarjeta de activos. Arreglar solo la tarjeta rompería esa coincidencia; arreglar los dos requiere historial de consumo, que hoy no existe.
+
 ## Métodos de Pago
 
 Tabla `metodos_pago` — cuentas bancarias / transferencia que el admin expone en la pantalla de planes para que los usuarios sepan a dónde pagar.

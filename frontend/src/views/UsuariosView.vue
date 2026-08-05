@@ -170,6 +170,10 @@
                   <span class="w-2 h-2 rounded-full flex-shrink-0" :class="colorPuntoDias(diasRestantes(user.fecha_vencimiento))"></span>
                   {{ etiquetaDias(diasRestantes(user.fecha_vencimiento)) }}
                 </p>
+                <p v-if="user.ingresos_restantes !== null && user.ingresos_restantes !== undefined"
+                  class="text-xs font-semibold ml-4" :class="user.ingresos_restantes > 0 ? 'text-gray-600' : 'text-red-600'">
+                  {{ user.ingresos_restantes }} {{ user.ingresos_restantes === 1 ? 'ingreso' : 'ingresos' }}
+                </p>
                 <p class="text-xs text-gray-400 ml-4">Vence {{ formatFecha(user.fecha_vencimiento) }}</p>
               </template>
               <span v-else class="text-sm text-gray-400 italic">Sin membresía</span>
@@ -220,6 +224,10 @@
                       <span class="w-2 h-2 rounded-full flex-shrink-0" :class="colorPuntoDias(diasRestantes(user.fecha_vencimiento))"></span>
                       <div>
                         <p class="text-sm font-semibold" :class="colorTextoDias(diasRestantes(user.fecha_vencimiento))">{{ etiquetaDias(diasRestantes(user.fecha_vencimiento)) }}</p>
+                        <p v-if="user.ingresos_restantes !== null && user.ingresos_restantes !== undefined"
+                          class="text-xs font-semibold" :class="user.ingresos_restantes > 0 ? 'text-gray-600' : 'text-red-600'">
+                          {{ user.ingresos_restantes }} {{ user.ingresos_restantes === 1 ? 'ingreso' : 'ingresos' }}
+                        </p>
                         <p class="text-xs text-gray-400">Vence {{ formatFecha(user.fecha_vencimiento) }}</p>
                       </div>
                     </div>
@@ -638,7 +646,7 @@
             </label>
             <input v-model.number="activarMonto" type="number" min="0" step="any"
               class="w-full px-4 py-2.5 rounded-lg border border-gray-300 focus:ring-2 focus:ring-red-500 outline-none"
-              :placeholder="activarPlan ? '$' + (planes.find(p => p.id === activarPlan)?.precio || 0).toLocaleString() : 'Ej: 100000'">
+              :placeholder="activarPlan ? '$' + (planes.find(p => p.id === activarPlan)?.precio || 0).toLocaleString() : ''">
           </div>
 
           <!-- Método de pago -->
@@ -817,8 +825,7 @@
           <div v-if="renovarPlan === 'personalizado'" class="mb-4">
             <label class="block text-sm font-semibold text-gray-700 mb-1.5">Días a agregar</label>
             <input v-model.number="renovarDias" type="number" min="1" max="365"
-              class="w-full px-4 py-2.5 rounded-lg border border-gray-300 focus:ring-2 focus:ring-emerald-500 outline-none"
-              placeholder="Ej: 10">
+              class="w-full px-4 py-2.5 rounded-lg border border-gray-300 focus:ring-2 focus:ring-emerald-500 outline-none">
           </div>
 
           <!-- Monto -->
@@ -831,7 +838,7 @@
             </label>
             <input v-model.number="renovarMonto" type="number" min="0" step="any"
               class="w-full px-4 py-2.5 rounded-lg border border-gray-300 focus:ring-2 focus:ring-emerald-500 outline-none"
-              :placeholder="planSeleccionadoObj ? '$' + planSeleccionadoObj.precio.toLocaleString() : 'Ej: 100000'">
+              :placeholder="planSeleccionadoObj ? '$' + planSeleccionadoObj.precio.toLocaleString() : ''">
           </div>
 
           <!-- Método de pago -->
@@ -895,7 +902,7 @@
           </div>
           <div class="mb-5">
             <label class="block text-gray-700 text-sm font-semibold mb-2">Teléfono / WhatsApp</label>
-            <input v-model="editForm.telefono" type="tel" class="w-full px-4 py-3 rounded-lg border border-gray-300 focus:ring-2 focus:ring-red-500 outline-none transition-all" placeholder="Ej. 3001234567">
+            <input v-model="editForm.telefono" type="tel" class="w-full px-4 py-3 rounded-lg border border-gray-300 focus:ring-2 focus:ring-red-500 outline-none transition-all">
           </div>
           <div class="mb-5">
             <label class="block text-gray-700 text-sm font-semibold mb-2">Género</label>
@@ -964,15 +971,15 @@
         <form @submit.prevent="crearUsuario">
           <div class="mb-5">
             <label class="block text-gray-700 text-sm font-semibold mb-2">Nombre Completo <span class="text-red-500">*</span></label>
-            <input v-model="nuevoUsuario.nombre" type="text" class="w-full px-4 py-3 rounded-lg border border-gray-300 focus:ring-2 focus:ring-red-500 outline-none transition-all" placeholder="Ej. Juan Pérez" required>
+            <input v-model="nuevoUsuario.nombre" type="text" class="w-full px-4 py-3 rounded-lg border border-gray-300 focus:ring-2 focus:ring-red-500 outline-none transition-all" required>
           </div>
           <div class="mb-5">
             <label class="block text-gray-700 text-sm font-semibold mb-2">Documento de Identidad <span class="text-red-500">*</span></label>
-            <input v-model="nuevoUsuario.documento_identidad" type="text" required minlength="5" maxlength="20" class="w-full px-4 py-3 rounded-lg border border-gray-300 focus:ring-2 focus:ring-red-500 outline-none transition-all" placeholder="Ej. 1020456789">
+            <input v-model="nuevoUsuario.documento_identidad" type="text" required minlength="5" maxlength="20" class="w-full px-4 py-3 rounded-lg border border-gray-300 focus:ring-2 focus:ring-red-500 outline-none transition-all">
           </div>
           <div class="mb-5">
             <label class="block text-gray-700 text-sm font-semibold mb-2">Email <span class="text-red-500">*</span></label>
-            <input v-model="nuevoUsuario.email" type="email" class="w-full px-4 py-3 rounded-lg border border-gray-300 focus:ring-2 focus:ring-red-500 outline-none transition-all" placeholder="Ej. juan@correo.com" required>
+            <input v-model="nuevoUsuario.email" type="email" class="w-full px-4 py-3 rounded-lg border border-gray-300 focus:ring-2 focus:ring-red-500 outline-none transition-all" required>
           </div>
           <div class="mb-5">
             <label class="block text-gray-700 text-sm font-semibold mb-2">Contraseña <span class="text-red-500">*</span></label>
@@ -980,7 +987,7 @@
           </div>
           <div class="mb-5">
             <label class="block text-gray-700 text-sm font-semibold mb-2">Teléfono / WhatsApp <span class="text-red-500">*</span></label>
-            <input v-model="nuevoUsuario.telefono" type="tel" required minlength="7" class="w-full px-4 py-3 rounded-lg border border-gray-300 focus:ring-2 focus:ring-red-500 outline-none transition-all" placeholder="Ej. 3001234567">
+            <input v-model="nuevoUsuario.telefono" type="tel" required minlength="7" class="w-full px-4 py-3 rounded-lg border border-gray-300 focus:ring-2 focus:ring-red-500 outline-none transition-all">
           </div>
           <div class="mb-5">
             <label class="block text-gray-700 text-sm font-semibold mb-2">Género <span class="text-red-500">*</span></label>
@@ -1014,11 +1021,11 @@
           </div>
           <div class="mb-5">
             <label class="block text-gray-700 text-sm font-semibold mb-2">EPS <span class="text-gray-400 font-normal">(opcional)</span></label>
-            <input v-model="nuevoUsuario.eps" type="text" maxlength="100" class="w-full px-4 py-3 rounded-lg border border-gray-300 focus:ring-2 focus:ring-red-500 outline-none transition-all" placeholder="Ej. Nueva EPS, Sanitas...">
+            <input v-model="nuevoUsuario.eps" type="text" maxlength="100" class="w-full px-4 py-3 rounded-lg border border-gray-300 focus:ring-2 focus:ring-red-500 outline-none transition-all">
           </div>
           <div class="mb-5">
             <label class="block text-gray-700 text-sm font-semibold mb-2">Barrio <span class="text-gray-400 font-normal">(opcional)</span></label>
-            <input v-model="nuevoUsuario.barrio" type="text" maxlength="100" class="w-full px-4 py-3 rounded-lg border border-gray-300 focus:ring-2 focus:ring-red-500 outline-none transition-all" placeholder="Ej. La Consolata">
+            <input v-model="nuevoUsuario.barrio" type="text" maxlength="100" class="w-full px-4 py-3 rounded-lg border border-gray-300 focus:ring-2 focus:ring-red-500 outline-none transition-all">
           </div>
           <div class="mb-5 grid grid-cols-2 gap-3">
             <div>
@@ -1082,11 +1089,11 @@
             <div v-if="planSeleccionado === 'personalizado'" class="mt-3 grid grid-cols-2 gap-3">
               <div>
                 <label class="block text-gray-600 text-xs font-semibold mb-1">Días de acceso</label>
-                <input v-model.number="planPersonalizado.dias" type="number" min="1" max="365" class="w-full px-3 py-2 rounded-lg border border-gray-300 focus:ring-2 focus:ring-red-500 outline-none text-sm" placeholder="Ej. 7" required>
+                <input v-model.number="planPersonalizado.dias" type="number" min="1" max="365" class="w-full px-3 py-2 rounded-lg border border-gray-300 focus:ring-2 focus:ring-red-500 outline-none text-sm" required>
               </div>
               <div>
                 <label class="block text-gray-600 text-xs font-semibold mb-1">Monto ($)</label>
-                <input v-model.number="planPersonalizado.monto" type="number" min="0" step="any" class="w-full px-3 py-2 rounded-lg border border-gray-300 focus:ring-2 focus:ring-red-500 outline-none text-sm" placeholder="Ej. 30000" required>
+                <input v-model.number="planPersonalizado.monto" type="number" min="0" step="any" class="w-full px-3 py-2 rounded-lg border border-gray-300 focus:ring-2 focus:ring-red-500 outline-none text-sm" required>
               </div>
             </div>
             <div v-if="planSeleccionado !== 'ninguno' && planSeleccionado !== 'personalizado'" class="mt-3">

@@ -136,6 +136,12 @@
                   <p class="text-sm font-bold" :class="colorTextoDias(diasRestantes(usuario.fecha_vencimiento))">
                     {{ etiquetaDias(diasRestantes(usuario.fecha_vencimiento)) }}
                   </p>
+                  <p v-if="usuario.ingresos_restantes !== null && usuario.ingresos_restantes !== undefined"
+                    class="text-sm font-bold mt-0.5"
+                    :class="usuario.ingresos_restantes > 0 ? 'text-gray-900' : 'text-red-600'">
+                    {{ usuario.ingresos_restantes }}
+                    {{ usuario.ingresos_restantes === 1 ? 'ingreso restante' : 'ingresos restantes' }}
+                  </p>
                   <p class="text-xs text-gray-500 mt-0.5">Vence el {{ formatFecha(usuario.fecha_vencimiento) }}</p>
                 </template>
                 <p v-else class="text-sm text-gray-400">Sin membresía activa</p>
@@ -339,14 +345,14 @@
           <!-- EPS -->
           <div>
             <label class="block text-xs font-bold text-gray-500 uppercase tracking-wide mb-1.5">EPS</label>
-            <input v-model="form.eps" type="text" placeholder="Ej. Nueva EPS, Sanitas..."
+            <input v-model="form.eps" type="text"
               class="w-full px-3.5 py-2.5 rounded-xl border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-gray-800 focus:border-transparent transition"/>
           </div>
 
           <!-- Barrio -->
           <div>
             <label class="block text-xs font-bold text-gray-500 uppercase tracking-wide mb-1.5">Barrio</label>
-            <input v-model="form.barrio" type="text" placeholder="Ej. La Consolata"
+            <input v-model="form.barrio" type="text"
               class="w-full px-3.5 py-2.5 rounded-xl border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-gray-800 focus:border-transparent transition"/>
           </div>
 
@@ -547,8 +553,7 @@
           <div v-if="renovarPlan === 'personalizado'">
             <label class="block text-sm font-semibold text-gray-700 mb-1.5">Días a agregar</label>
             <input v-model.number="renovarDias" type="number" min="1" max="365"
-              class="w-full px-4 py-2.5 rounded-lg border border-gray-300 focus:ring-2 focus:ring-red-500 outline-none"
-              placeholder="Ej: 10">
+              class="w-full px-4 py-2.5 rounded-lg border border-gray-300 focus:ring-2 focus:ring-red-500 outline-none">
           </div>
 
           <!-- Monto -->
@@ -559,7 +564,7 @@
             </label>
             <input v-model.number="renovarMonto" type="number" min="0" step="any"
               class="w-full px-4 py-2.5 rounded-lg border border-gray-300 focus:ring-2 focus:ring-red-500 outline-none"
-              :placeholder="renovarPlan && renovarPlan !== 'personalizado' ? '$' + (planes.find(p => p.id === renovarPlan)?.precio || 0).toLocaleString() : 'Ej: 100000'">
+              :placeholder="renovarPlan && renovarPlan !== 'personalizado' ? '$' + (planes.find(p => p.id === renovarPlan)?.precio || 0).toLocaleString() : ''">
           </div>
 
           <!-- Método de pago -->

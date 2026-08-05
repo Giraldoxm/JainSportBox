@@ -1,4 +1,3 @@
-from datetime import date, datetime, timedelta
 
 from fastapi import APIRouter, Depends, HTTPException, status
 from pydantic import BaseModel, Field
@@ -7,6 +6,7 @@ from typing import Optional
 
 from database import get_db
 from fechas import hoy_bogota
+from membresia import aplicar_plan, extender_vencimiento, revertir_plan
 from models import MovimientoFinanciero, Pago, Plan, RolUsuario, TipoMovimiento, Usuario
 from schemas.pago import PagoCreate, PagoResponse
 from security import get_current_user
@@ -42,14 +42,7 @@ def registrar_pago(
     )
     db.add(pago)
 
-    hoy = hoy_bogota()
-    base = (
-        usuario.fecha_vencimiento
-        if (usuario.fecha_vencimiento and usuario.fecha_vencimiento >= hoy)
-        else hoy
-    )
-    nueva_fecha = base + timedelta(days=plan.duracion_dias)
-    usuario.fecha_vencimiento = nueva_fecha
+    nueva_fecha = aplicar_plan(usuario, plan, hoy_bogota())
 
     db.commit()
     db.refresh(pago)
@@ -82,14 +75,8 @@ def registrar_pago_directo(
     if not usuario:
         raise HTTPException(status_code=404, detail="Usuario no encontrado.")
 
-    hoy = hoy_bogota()
-    base = (
-        usuario.fecha_vencimiento
-        if (usuario.fecha_vencimiento and usuario.fecha_vencimiento >= hoy)
-        else hoy
-    )
-    nueva_fecha = base + timedelta(days=payload.duracion_dias)
-    usuario.fecha_vencimiento = nueva_fecha
+    # El pago directo es siempre por tiempo (no hay plan detrás que defina ingresos).
+    nueva_fecha = extender_vencimiento(usuario, payload.duracion_dias, hoy_bogota())
 
     pago = Pago(
         usuario_id=payload.usuario_id,
@@ -161,9 +148,10 @@ def anular_pago(
     usuario = db.query(Usuario).filter(Usuario.id == pago.usuario_id).first()
     plan = db.query(Plan).filter(Plan.id == pago.plan_id).first() if pago.plan_id else None
     dias_a_restar = plan.duracion_dias if plan else (pago.duracion_dias or 0)
+    ingresos_a_restar = plan.numero_ingresos if plan else None
 
-    if usuario and usuario.fecha_vencimiento and dias_a_restar:
-        usuario.fecha_vencimiento = usuario.fecha_vencimiento - timedelta(days=dias_a_restar)
+    if usuario:
+        revertir_plan(usuario, dias_a_restar, ingresos_a_restar)
 
     db.delete(pago)
     db.commit()

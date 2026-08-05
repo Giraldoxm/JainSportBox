@@ -53,6 +53,7 @@ class UsuarioResponse(BaseModel):
     huella_id: Optional[str]
     telefono: Optional[str]
     fecha_vencimiento: Optional[date]
+    ingresos_restantes: Optional[int] = None   # None = membresía por tiempo
     esta_en_gym: bool
     foto_url: Optional[str]
     genero: Optional[str]

@@ -63,6 +63,12 @@ class Usuario(Base):
     huella_template: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
     telefono: Mapped[Optional[str]] = mapped_column(String(20), nullable=True)
     fecha_vencimiento: Mapped[Optional[date]] = mapped_column(Date, nullable=True)
+    # NULL → la membresía es por tiempo y los ingresos no aplican.
+    # int  → membresía por ingresos: entradas que le quedan (0 = agotada).
+    # Se usa el NULL en vez de un 0 para no tener que mirar el último plan en cada
+    # marcación: sin este centinela, un socio con mensualidad tendría 0 ingresos y
+    # no habría forma de distinguirlo de un bono agotado.
+    ingresos_restantes: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)
     esta_en_gym: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
     foto_url: Mapped[Optional[str]] = mapped_column(String(300), nullable=True)
     genero: Mapped[Optional[str]] = mapped_column(String(20), nullable=True)
@@ -103,10 +109,17 @@ class Plan(Base):
     nombre: Mapped[str] = mapped_column(String(80), nullable=False)
     precio: Mapped[float] = mapped_column(Float, nullable=False)
     duracion_dias: Mapped[int] = mapped_column(Integer, nullable=False)
+    # NULL → plan por tiempo (la vigencia la da solo duracion_dias).
+    # N    → plan por ingresos: N entradas, que además caducan a los duracion_dias.
+    numero_ingresos: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)
     descripcion: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
     beneficios: Mapped[Optional[str]] = mapped_column(Text, nullable=True)  # JSON array de strings
     activo: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
     incluye_wods_personalizados: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
+
+    @property
+    def por_ingresos(self) -> bool:
+        return bool(self.numero_ingresos)
 
     # ── Relaciones ──
     pagos: Mapped[List["Pago"]] = relationship("Pago", back_populates="plan")

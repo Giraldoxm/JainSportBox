@@ -22,6 +22,9 @@ class PlanCreate(BaseModel):
     nombre: str = Field(..., min_length=2, max_length=80)
     precio: float = Field(..., gt=0)
     duracion_dias: int = Field(..., gt=0)
+    # None → plan por tiempo. N → bono de N ingresos, que igual caduca a los
+    # duracion_dias (los dos ejes se validan juntos al marcar entrada).
+    numero_ingresos: Optional[int] = Field(None, gt=0, le=1000)
     beneficios: List[str] = Field(default=[])
     descripcion: Optional[str] = None
     incluye_wods_personalizados: bool = False
@@ -31,6 +34,9 @@ class PlanUpdate(BaseModel):
     nombre: Optional[str] = Field(None, min_length=2, max_length=80)
     precio: Optional[float] = Field(None, gt=0)
     duracion_dias: Optional[int] = Field(None, gt=0)
+    # 0 se acepta y significa "pasar a plan por tiempo": con gt=0 no habría forma de
+    # sacarle los ingresos a un plan una vez puestos.
+    numero_ingresos: Optional[int] = Field(None, ge=0, le=1000)
     beneficios: Optional[List[str]] = None
     descripcion: Optional[str] = None
     incluye_wods_personalizados: Optional[bool] = None
@@ -42,6 +48,8 @@ def _serializar(p: Plan) -> dict:
         "nombre": p.nombre,
         "precio": p.precio,
         "duracion_dias": p.duracion_dias,
+        "numero_ingresos": p.numero_ingresos,
+        "por_ingresos": p.por_ingresos,
         "descripcion": p.descripcion,
         "beneficios": json.loads(p.beneficios) if p.beneficios else [],
         "activo": p.activo,
@@ -64,6 +72,7 @@ def crear_plan(
         nombre=payload.nombre,
         precio=payload.precio,
         duracion_dias=payload.duracion_dias,
+        numero_ingresos=payload.numero_ingresos,
         descripcion=payload.descripcion,
         beneficios=json.dumps(payload.beneficios, ensure_ascii=False),
         incluye_wods_personalizados=payload.incluye_wods_personalizados,
@@ -90,6 +99,8 @@ def actualizar_plan(
         plan.precio = payload.precio
     if payload.duracion_dias is not None:
         plan.duracion_dias = payload.duracion_dias
+    if payload.numero_ingresos is not None:
+        plan.numero_ingresos = payload.numero_ingresos or None   # 0 → por tiempo
     if payload.descripcion is not None:
         plan.descripcion = payload.descripcion
     if payload.beneficios is not None:

@@ -98,14 +98,30 @@
           <p class="text-3xl sm:text-4xl font-black text-emerald-900 leading-tight">{{ resultado.nombre }}</p>
           <p class="text-sm font-bold text-emerald-700 uppercase tracking-wide mt-2">✓ Entrada registrada</p>
 
+          <!-- En un bono lo que le importa al socio es cuántas entradas le quedan;
+               los días pasan a la línea chica junto con la fecha de caducidad. -->
           <div class="mt-5 pt-5 border-t border-emerald-200">
-            <p class="text-4xl sm:text-5xl font-black text-emerald-800 leading-none">
-              {{ resultado.dias_restantes }}
-            </p>
-            <p class="text-sm font-bold text-emerald-700 mt-1">
-              {{ resultado.dias_restantes === 1 ? 'día restante' : 'días restantes' }}
-            </p>
-            <p class="text-xs text-emerald-600 mt-2">Vence el {{ formatFecha(resultado.fecha_vencimiento) }}</p>
+            <template v-if="resultado.ingresos_restantes !== null && resultado.ingresos_restantes !== undefined">
+              <p class="text-4xl sm:text-5xl font-black text-emerald-800 leading-none">
+                {{ resultado.ingresos_restantes }}
+              </p>
+              <p class="text-sm font-bold text-emerald-700 mt-1">
+                {{ resultado.ingresos_restantes === 1 ? 'ingreso restante' : 'ingresos restantes' }}
+              </p>
+              <p class="text-xs text-emerald-600 mt-2">
+                Vencen el {{ formatFecha(resultado.fecha_vencimiento) }}
+                ({{ resultado.dias_restantes }} {{ resultado.dias_restantes === 1 ? 'día' : 'días' }})
+              </p>
+            </template>
+            <template v-else>
+              <p class="text-4xl sm:text-5xl font-black text-emerald-800 leading-none">
+                {{ resultado.dias_restantes }}
+              </p>
+              <p class="text-sm font-bold text-emerald-700 mt-1">
+                {{ resultado.dias_restantes === 1 ? 'día restante' : 'días restantes' }}
+              </p>
+              <p class="text-xs text-emerald-600 mt-2">Vence el {{ formatFecha(resultado.fecha_vencimiento) }}</p>
+            </template>
           </div>
 
           <p v-if="avisoBridge" class="text-xs font-semibold text-gray-600 bg-white/70 rounded-lg px-3 py-2 mt-4 inline-block">
@@ -345,6 +361,12 @@ async function abrirManual() {
 function _falloDesde(e) {
   const status = e.response?.status
   if (status === 403) {
+    // Los dos casos son 403, pero el socio tiene que hacer cosas distintas: uno
+    // renueva la fecha y el otro compra más entradas. El backend manda un detail
+    // estructurado solo para el de ingresos.
+    if (e.response?.data?.detail?.codigo === 'sin_ingresos') {
+      return { titulo: 'Sin ingresos disponibles', detalle: 'Acércate a recepción para comprar más ingresos.' }
+    }
     return { titulo: 'Membresía vencida', detalle: 'Acércate a recepción para renovar tu mensualidad.' }
   }
   if (status === 404) {

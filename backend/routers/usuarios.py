@@ -11,6 +11,7 @@ from sqlalchemy.orm import Session, defer
 
 from database import get_db
 from fechas import hoy_bogota
+from membresia import aplicar_plan
 from models import MovimientoFinanciero, Pago, Plan, RolUsuario, TipoMovimiento, Usuario
 from schemas.usuario import UsuarioCreate, UsuarioResponse, UsuarioUpdate
 from security import get_current_user, get_password_hash
@@ -499,8 +500,9 @@ def activar_usuario(
 
     usuario.rol = RolUsuario.CLIENTE
     usuario.plan_solicitado_id = None
-    nueva_fecha = hoy_bogota() + timedelta(days=plan.duracion_dias)
-    usuario.fecha_vencimiento = nueva_fecha
+    # aplicar_plan también carga los ingresos si el plan es por ingresos. Un pendiente
+    # no tiene vencimiento previo, así que la base termina siendo hoy igual.
+    nueva_fecha = aplicar_plan(usuario, plan, hoy_bogota())
 
     pago = Pago(
         usuario_id=usuario.id,

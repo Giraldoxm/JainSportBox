@@ -195,6 +195,7 @@ def _serialize_me(current_user: Usuario, db: Session) -> dict:
                     "id": plan.id,
                     "nombre": plan.nombre,
                     "duracion_dias": plan.duracion_dias,
+                    "numero_ingresos": plan.numero_ingresos,
                     "precio": plan.precio,
                     "beneficios": plan.beneficios,
                     "incluye_wods_personalizados": plan.incluye_wods_personalizados,
@@ -221,6 +222,7 @@ def _serialize_me(current_user: Usuario, db: Session) -> dict:
         "terminos_version": current_user.terminos_version,
         "foto_url": current_user.foto_url,
         "fecha_vencimiento": current_user.fecha_vencimiento,
+        "ingresos_restantes": current_user.ingresos_restantes,   # None = plan por tiempo
         "esta_en_gym": current_user.esta_en_gym,
         "plan_solicitado_id": current_user.plan_solicitado_id,
         "incluye_wods_personalizados": incluye_wods_personalizados,

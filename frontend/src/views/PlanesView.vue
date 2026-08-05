@@ -76,7 +76,14 @@
               <svg xmlns="http://www.w3.org/2000/svg" class="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
               </svg>
-              {{ plan.duracion_dias }} días de acceso
+              {{ plan.duracion_dias }} días de vigencia
+            </span>
+            <span v-if="plan.numero_ingresos"
+              class="inline-flex items-center gap-1 px-3 py-0.5 rounded-full text-xs font-bold bg-white/10 text-gray-300 border border-white/10">
+              <svg xmlns="http://www.w3.org/2000/svg" class="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 16l-4-4m0 0l4-4m-4 4h14m-5 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h7a3 3 0 013 3v1" />
+              </svg>
+              {{ plan.numero_ingresos }} ingresos
             </span>
             <span v-if="plan.incluye_wods_personalizados"
               class="inline-flex items-center gap-1 px-3 py-0.5 rounded-full text-xs font-bold bg-red-600/80 text-white border border-red-500/50">
@@ -253,23 +260,49 @@
           <div>
             <label class="block text-sm font-semibold text-gray-700 mb-1.5">Nombre del plan <span class="text-red-500">*</span></label>
             <input v-model="form.nombre" type="text" required minlength="2" maxlength="80"
-              class="w-full px-4 py-3 rounded-lg border border-gray-300 focus:ring-2 focus:ring-red-500 outline-none transition-all"
-              placeholder="Ej. Plan Mensual">
+              class="w-full px-4 py-3 rounded-lg border border-gray-300 focus:ring-2 focus:ring-red-500 outline-none transition-all">
           </div>
 
           <div class="grid grid-cols-2 gap-4">
             <div>
               <label class="block text-sm font-semibold text-gray-700 mb-1.5">Precio (COP) <span class="text-red-500">*</span></label>
               <input v-model.number="form.precio" type="number" required min="1" step="1"
-                class="w-full px-4 py-3 rounded-lg border border-gray-300 focus:ring-2 focus:ring-red-500 outline-none transition-all"
-                placeholder="Ej. 100000">
+                class="w-full px-4 py-3 rounded-lg border border-gray-300 focus:ring-2 focus:ring-red-500 outline-none transition-all">
             </div>
             <div>
               <label class="block text-sm font-semibold text-gray-700 mb-1.5">Duración (días) <span class="text-red-500">*</span></label>
               <input v-model.number="form.duracion_dias" type="number" required min="1"
-                class="w-full px-4 py-3 rounded-lg border border-gray-300 focus:ring-2 focus:ring-red-500 outline-none transition-all"
-                placeholder="Ej. 30">
+                class="w-full px-4 py-3 rounded-lg border border-gray-300 focus:ring-2 focus:ring-red-500 outline-none transition-all">
             </div>
+          </div>
+
+          <!-- Tipo de cobro: por tiempo (default) o por ingresos -->
+          <div>
+            <label class="block text-sm font-semibold text-gray-700 mb-1.5">Tipo de plan</label>
+            <div class="flex gap-2 mb-3">
+              <button type="button" @click="form.por_ingresos = false"
+                class="flex-1 py-2.5 px-3 rounded-lg border-2 text-sm font-bold transition-all"
+                :class="!form.por_ingresos ? 'border-red-500 bg-red-50 text-red-700' : 'border-gray-200 text-gray-400 hover:border-gray-300'">
+                Por tiempo
+              </button>
+              <button type="button" @click="form.por_ingresos = true"
+                class="flex-1 py-2.5 px-3 rounded-lg border-2 text-sm font-bold transition-all"
+                :class="form.por_ingresos ? 'border-red-500 bg-red-50 text-red-700' : 'border-gray-200 text-gray-400 hover:border-gray-300'">
+                Por ingresos
+              </button>
+            </div>
+            <div v-if="form.por_ingresos">
+              <label class="block text-sm font-semibold text-gray-700 mb-1.5">Número de ingresos <span class="text-red-500">*</span></label>
+              <input v-model.number="form.numero_ingresos" type="number" required min="1" max="1000"
+                class="w-full px-4 py-3 rounded-lg border border-gray-300 focus:ring-2 focus:ring-red-500 outline-none transition-all">
+              <p class="text-xs text-gray-400 mt-1.5">
+                Se descuenta un ingreso por cada entrada. El bono caduca cuando se acaban los ingresos
+                <span class="font-semibold">o</span> cuando pasan los {{ form.duracion_dias || '—' }} días, lo que ocurra primero.
+              </p>
+            </div>
+            <p v-else class="text-xs text-gray-400">
+              Acceso ilimitado durante los {{ form.duracion_dias || '—' }} días de vigencia.
+            </p>
           </div>
 
           <!-- WODs Personalizados -->
@@ -460,7 +493,7 @@ const showForm      = ref(false)
 const editando      = ref(null)
 const guardando     = ref(false)
 const errorForm     = ref('')
-const form = ref({ nombre: '', precio: '', duracion_dias: '', beneficios: [], incluye_wods_personalizados: false })
+const form = ref({ nombre: '', precio: '', duracion_dias: '', por_ingresos: false, numero_ingresos: '', beneficios: [], incluye_wods_personalizados: false })
 
 const formatPrecio = (v) => Number(v).toLocaleString('es-CO')
 
@@ -495,7 +528,7 @@ const fetchPlanes = async () => {
 // ── Admin CRUD ────────────────────────────────────────────────
 const abrirCrear = () => {
   editando.value = null
-  form.value = { nombre: '', precio: '', duracion_dias: '', beneficios: [], incluye_wods_personalizados: false }
+  form.value = { nombre: '', precio: '', duracion_dias: '', por_ingresos: false, numero_ingresos: '', beneficios: [], incluye_wods_personalizados: false }
   errorForm.value = ''
   showForm.value = true
 }
@@ -506,6 +539,8 @@ const abrirEditar = (plan) => {
     nombre: plan.nombre,
     precio: plan.precio,
     duracion_dias: plan.duracion_dias,
+    por_ingresos: !!plan.numero_ingresos,
+    numero_ingresos: plan.numero_ingresos ?? '',
     beneficios: [...plan.beneficios],
     incluye_wods_personalizados: plan.incluye_wods_personalizados ?? false,
   }
@@ -525,6 +560,9 @@ const guardarPlan = async () => {
     nombre: form.value.nombre,
     precio: form.value.precio,
     duracion_dias: form.value.duracion_dias,
+    // 0 (y no null) es lo que el backend interpreta como "volver a plan por tiempo":
+    // con null el PATCH lo trataria como "campo no enviado" y no lo cambiaria.
+    numero_ingresos: form.value.por_ingresos ? form.value.numero_ingresos : 0,
     beneficios: form.value.beneficios.filter(b => b.trim()),
     incluye_wods_personalizados: form.value.incluye_wods_personalizados,
   }

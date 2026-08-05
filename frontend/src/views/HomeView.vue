@@ -31,8 +31,12 @@
 
               <div class="mt-4 space-y-1">
                 <p class="text-sm font-semibold opacity-90">{{ etiquetaMembresia }}</p>
+                <p v-if="tieneIngresos" class="text-sm font-bold">
+                  {{ userData.ingresos_restantes }}
+                  {{ userData.ingresos_restantes === 1 ? 'ingreso disponible' : 'ingresos disponibles' }}
+                </p>
                 <p v-if="userData.fecha_vencimiento" class="text-xs opacity-70">
-                  Vence el {{ formatFecha(userData.fecha_vencimiento) }}
+                  {{ tieneIngresos ? 'Vencen el' : 'Vence el' }} {{ formatFecha(userData.fecha_vencimiento) }}
                 </p>
                 <p v-if="userData.plan_actual" class="text-xs font-bold opacity-90 pt-1">
                   Plan: {{ userData.plan_actual.nombre }}
@@ -233,8 +237,19 @@ const diasRestantes = computed(() => {
   return Math.ceil((vence - hoy) / 86400000)
 })
 
+// null/undefined = membresía por tiempo; un número = bono de ingresos.
+const tieneIngresos = computed(() =>
+  userData.value.ingresos_restantes !== null && userData.value.ingresos_restantes !== undefined
+)
+
 // El día de vencimiento todavía cuenta como activo (mismo criterio que el backend).
-const estadoMembresia = computed(() => (diasRestantes.value >= 0 ? 'Activo' : 'Inactivo'))
+// Con un bono hay que mirar los dos ejes: quedarse sin ingresos también inactiva,
+// aunque la fecha siga vigente.
+const estadoMembresia = computed(() => {
+  if (diasRestantes.value < 0) return 'Inactivo'
+  if (tieneIngresos.value && userData.value.ingresos_restantes <= 0) return 'Sin ingresos'
+  return 'Activo'
+})
 
 const gradienteMembresia = computed(() => {
   const d = diasRestantes.value
