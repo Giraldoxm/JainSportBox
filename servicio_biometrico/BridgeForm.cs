@@ -63,16 +63,35 @@ namespace HuelleroBridge
 
         private async Task IniciarAccesoAuto()
         {
-            try
+            // La carga inicial puede fallar por transporte si el bridge arranca antes de
+            // que la red esté lista — el caso típico al encender la PC del gym con el
+            // bridge en Task Scheduler. Sin reintento quedarían hasta 5 minutos (el
+            // intervalo de _reloadTimer) con el cache vacío, y con el cache vacío ninguna
+            // huella coincide: el lector "no reconoce a nadie" sin ningún error visible.
+            // RecargarTemplatesAsync no lanza: devuelve -1 si falló.
+            int[] esperas = { 3, 10, 30 };
+            int n = -1;
+            for (int intento = 0; ; intento++)
             {
-                var n = await _capture.RecargarTemplatesAsync();
-                _state.IniciarAcceso();
-                Console.WriteLine($"[ACCESO] Modo acceso permanente ACTIVO ({n} usuarios cargados).");
+                n = await _capture.RecargarTemplatesAsync();
+                if (n >= 0 || intento >= esperas.Length) break;
+                Console.WriteLine($"[ACCESO] Falló la carga de templates. Reintento en {esperas[intento]}s…");
+                await Task.Delay(esperas[intento] * 1000);
             }
-            catch (Exception ex)
-            {
-                Console.WriteLine($"[ACCESO] No se pudo iniciar modo acceso: {ex.Message}");
-            }
+
+            _state.IniciarAcceso();
+
+            // Los tres desenlaces se loguean distinto a propósito: "0 cargados" y "falló
+            // la carga" se ven igual desde el mostrador (el lector no reconoce a nadie)
+            // pero se arreglan de forma completamente distinta.
+            if (n < 0)
+                Console.WriteLine($"[ACCESO] ACTIVO pero SIN templates: no se pudo consultar {BridgeConfig.ApiBase}. " +
+                                  "El timer reintenta cada 5 min. Ninguna huella se reconocerá hasta que cargue.");
+            else if (n == 0)
+                Console.WriteLine("[ACCESO] ACTIVO pero el backend no tiene NINGUNA huella enrolada. " +
+                                  "Enrolar desde el perfil del cliente (card \"Huella digital\").");
+            else
+                Console.WriteLine($"[ACCESO] Modo acceso permanente ACTIVO ({n} huellas cargadas).");
         }
 
         protected override void OnFormClosed(FormClosedEventArgs e)
