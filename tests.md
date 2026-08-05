@@ -74,6 +74,7 @@ backend/tests/
 | 2.11 | `PATCH /me` cambio de contraseña | login con la nueva funciona, con la vieja falla |
 | 2.12 | `POST /me/foto` reemplaza foto | foto anterior eliminada del disco |
 | 2.13 | `GET /contacto` sin auth | 200 (público) |
+| 2.16 | `POST /me/verificar-password` correcta / incorrecta / sin token | 200 `{ok:true}` / **403** (no 401: el interceptor de `api.js` tumbaría el modo kiosco) / 401 |
 | 2.14 | Token expirado / firmado con otra key / malformado | 401 |
 | 2.15 | JWT de usuario luego eliminado | 401 (get_current_user no revienta con 500) |
 
@@ -134,8 +135,8 @@ backend/tests/
 | # | Caso | Esperado |
 |---|---|---|
 | 6.1 | `POST /wods/` admin y coach | 201; cliente → 403 |
-| 6.2 | Crear WOD con ejercicios y superseries | filas consecutivas con `superserie_con_anterior=True`; **primera fila siempre `False`** (normalización `_aplicar_ejercicios`) |
-| 6.3 | `PUT /wods/{id}` reordena ejercicios | grupos de superserie no quedan huérfanos; invariante primera fila se mantiene |
+| 6.2 | Crear WOD con lista de videos | cada video expone `nombre`/`video_url`/`categoria` del catálogo; los campos de prescripción (reps, %RM, tiempo, superserie) no están en la respuesta y se ignoran si vienen en el payload |
+| 6.3 | `PUT /wods/{id}` reemplaza y reordena la lista de videos | queda exactamente la lista enviada, en el orden enviado |
 | 6.4 | `GET /wods/` cliente | solo `activo=True`; staff sin filtro ve todos |
 | 6.5 | `GET /wods/?activo=false&skip=N&limit=M` | paginación correcta |
 | 6.6 | `PATCH /wods/{id}/toggle` | alterna `activo` |
@@ -274,6 +275,15 @@ Correr backend local + `npm run dev`. Checklist por rol:
 **Coach:** Gestión (Usuarios, Sesiones, Alertas, Ejercicios) sí; Planes y Finanzas NO (ni por URL); crear/editar WODs y personalizados; Mi Box completo.
 
 **Admin:** todo lo de gestión + Finanzas + Planes + Tienda; NO ve Mi Salud/Mis Marcas (ni por URL directa); UsuariosView: panel cumpleaños (colapsable, WhatsApp link con `57` + dígitos), filtro "En el box ahora" (refresco 10 s), buscar por huella, activar usuario, perfil `/usuarios/:id` (editar, agregar/editar/anular membresía, calendario, huella); SesionesView (semana/mes/fecha, BloqueCard acordeón, buscador); AlertasView (pendientes/historial, generar en mount); FinanzasView (balance cuadra con seed de datos conocido); Tienda (crear producto con foto, vender, stock baja).
+
+**Modo kiosco (`/acceso`, manual):**
+- Entrar como coach → `/acceso` se ve full-screen, **sin sidebar**; "Volver al panel" funciona.
+- "Activar modo kiosco" → modal explicativo → Activar: desaparecen "Volver al panel" y "Abrir palanquera"; queda solo el candado.
+- Con el kiosco activo: escribir `/usuarios` en la URL, dar atrás, y F5 → siempre vuelve a `/acceso`.
+- **Aislamiento por pestaña (el bug que motivó `sessionStorage`)**: con el kiosco activo, abrir **otra pestaña** en `/usuarios` con la misma sesión → funciona normal, sin rebote a `/acceso`. Y esa segunda pestaña no desbloquea la de recepción.
+- Cédula vigente → nombre + días restantes en grande; cédula vencida → solo "Membresía vencida" (sin nombre); cédula inexistente → "Documento no encontrado". Los tres se autolimpian a los 8 s.
+- Candado → contraseña incorrecta: mensaje de error y **la sesión NO se cierra** (verifica el 403 de `/me/verificar-password`); contraseña correcta: se desbloquea y reaparecen los botones de staff.
+- Login estando el flag puesto (borrar token a mano y volver a entrar) → no queda encerrado en `/acceso`.
 
 **Transversal frontend:**
 - 401: borrar el token en localStorage a mano → siguiente request redirige a `/login`.

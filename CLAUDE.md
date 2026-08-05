@@ -172,7 +172,7 @@ La fuente única de los colores categóricos es `frontend/src/data/paleta.js`. N
 
 `green` no se usa: es `emerald`. `red` cubre marca y destructivo (no hay una quinta familia para "peligro").
 
-**Escala categórica — 5 hues fríos, solo como punto.** Para datos sin semántica (categoría de ejercicio): `sky-500`, `slate-600`, `violet-500`, `fuchsia-500`, `gray-400`. Hoy su único consumidor es `WodEjerciciosEditor`, donde la categoría va inline junto al nombre y no hay columna que la rotule; `puntoRol()` se eliminó al quedar sin uso. Todos en la mitad fría del círculo, así nunca leen como éxito/alerta/peligro. Se aplican sobre un badge neutro:
+**Escala categórica — 5 hues fríos, solo como punto.** Para datos sin semántica (categoría de ejercicio): `sky-500`, `slate-600`, `violet-500`, `fuchsia-500`, `gray-400`. Hoy su único consumidor es `WodVideosEditor`, donde la categoría va inline junto al nombre y no hay columna que la rotule; `puntoRol()` se eliminó al quedar sin uso. Todos en la mitad fría del círculo, así nunca leen como éxito/alerta/peligro. Se aplican sobre un badge neutro:
 
 ```html
 <span class="inline-flex items-center gap-1.5 ... rounded-full" :class="BADGE_NEUTRO">
@@ -306,6 +306,7 @@ Es una **página** (no modal ni cards): encabezado con foto + identidad, secció
 - `GET /me` — además de membresía/plan, devuelve `telefono`, `documento_identidad`, `fecha_nacimiento` y `foto_url`. Serializado por el helper `_serialize_me(current_user, db)`.
 - `PATCH /me` — edita el perfil propio (mismos campos y validación de email/documento duplicado y normalización que `PATCH /usuarios/{id}`, pero con `get_current_user` en vez de admin/coach). Acepta `UsuarioUpdate`.
 - `POST /me/foto` — sube/reemplaza la foto propia (multipart, campo `foto`). Borra la anterior con `eliminar_archivo`.
+- `POST /me/verificar-password` — reconfirma la contraseña del usuario logueado sin emitir token nuevo; lo usa el modo kiosco de `/acceso` para desbloquear. Rate-limited (10 / 5 min por IP). Responde **403** —no 401— con contraseña incorrecta: el interceptor de `api.js` trata cualquier 401 como sesión expirada, así que con 401 un cliente tecleando cualquier cosa en el modal sacaría al staff de su sesión. **No cambiar ese status.**
 
 ## Alertas de membresía (sin vista propia)
 
@@ -349,7 +350,7 @@ El router `backend/routers/alertas.py` sigue igual y es lo que alimenta ese pane
 `backend/routers/asistencia.py` endpoints:
 - `POST /asistencia/` — registra entrada por `huella_id` (bridge); valida membresía vigente (helper `_validar_membresia`)
 - `POST /asistencia/por-usuario/{usuario_id}` — registra entrada por ID (bridge con `X-Bridge-Secret` o admin/coach JWT); valida membresía vigente en cada marcación
-- `POST /asistencia/por-documento/{documento}` — acceso manual desde recepción: busca por cédula/TI, valida membresía y registra entrada; devuelve nombre, foto, `dias_restantes`. Usado por la vista `/acceso` (`AccesoView.vue`, admin/coach, enlace "Acceso Manual" en el sidebar): tras el 201 el frontend abre la palanquera vía bridge (`POST localhost:8001/palanquera/abrir`), así que la apertura física solo funciona en la PC del gym; en otros equipos igual queda registrada la entrada. La vista incluye además la **apertura manual** como fallback al pie (ver "Apertura manual de palanquera"); el helper `abrirPalanqueraBridge()` es compartido por los dos caminos
+- `POST /asistencia/por-documento/{documento}` — acceso manual desde recepción: busca por cédula/TI, valida membresía y registra entrada; devuelve nombre, foto, `dias_restantes`. Usado por la vista `/acceso` (`AccesoView.vue`, admin/coach, enlace "Acceso Manual" en el sidebar — ver "AccesoView y modo kiosco"): tras el 201 el frontend abre la palanquera vía bridge (`POST localhost:8001/palanquera/abrir`), así que la apertura física solo funciona en la PC del gym; en otros equipos igual queda registrada la entrada. La vista incluye además la **apertura manual** como fallback al pie (ver "Apertura manual de palanquera"); el helper `abrirPalanqueraBridge()` es compartido por los dos caminos. Los códigos importan para la UI: **403** = membresía vencida, **404** = documento inexistente
 - `GET /asistencia/mi-historial?meses=N` — historial propio (cualquier rol autenticado)
 - `GET /asistencia/historial/{usuario_id}?meses=N` — historial de cualquier usuario (admin/coach)
 - `GET /asistencia/en-gym` — usuarios con `esta_en_gym=True`, con `entrada_desde`, `minutos_transcurridos`, `minutos_restantes` y `minutos_sesion` (admin/coach)
@@ -358,6 +359,29 @@ El router `backend/routers/alertas.py` sigue igual y es lo que alimenta ese pane
 **Constante `MINUTOS_SESION`** (en `asistencia.py`): duración máxima de sesión usada tanto por `GET /en-gym` como por el job `_job_reset_gym` en `main.py`. Cambiar en un solo lugar.
 
 **Auto-reset `esta_en_gym`:** el job `_job_reset_gym` (APScheduler, cada 3 min) usa un JOIN para obtener en una sola query los usuarios con `esta_en_gym=True` cuya última entrada supere `MINUTOS_SESION`, y los resetea a `False` sin crear registro de salida. Cubre el caso de usuarios que salen sin pasar por el torniquete. Implementado con subconsulta de `MAX(fecha_hora)` agrupada por `usuario_id` para evitar N+1.
+
+## AccesoView (`/acceso`) — pantalla de recepción y modo kiosco
+
+Ruta **top-level, fuera del shell de `Dashboard.vue`** (única excepción junto a `/login`): es la pantalla que queda abierta en la PC del mostrador con la sesión de un coach/admin, y los clientes escriben ahí su cédula. Si viviera como hija de `/` traería el sidebar y el cliente entraría al panel del staff con dos clics. Full-screen, con barra propia (logo + acciones). `meta: { requiresAuth: true, roles: ['admin','coach'] }` — al no heredar del padre, el `requiresAuth` va explícito.
+
+**Modo kiosco (candado).** Flag `kioscoAcceso` en **`sessionStorage`**, manejado por `composables/useKiosco.js` (`kioscoActivo` ref para la UI, `kioscoBloqueado()` lee el storage directo para el guard, que corre antes de montar componentes).
+
+**Por qué sessionStorage y no localStorage** (ya se rompió una vez así): localStorage se comparte entre todas las pestañas del mismo navegador, así que activar el kiosco en recepción bloqueaba también la pestaña donde el staff estaba trabajando. sessionStorage está aislado por pestaña → recepción queda bloqueada y el coach sigue en el panel desde otra pestaña con la misma sesión. Tampoco sirve un ref en memoria: sessionStorage **sobrevive al F5**, así que un cliente que recargue no se sale del kiosco. Lo que no sobrevive es cerrar la pestaña; se acepta a cambio del aislamiento. **No volver a localStorage.**
+
+Mientras está activo:
+- El guard de `router/index.js` devuelve a `/acceso` **toda** navegación de esa pestaña (URL a mano, botón atrás, F5).
+- Se oculta "Volver al panel" y el fallback **"Abrir palanquera"** — ese botón abre la puerta *sin registrar entrada*, y a la vista de cualquier cliente sería la forma obvia de meter a un amigo.
+- Salir exige la contraseña del staff logueado vía `POST /me/verificar-password`.
+
+Activar pasa por un modal que explica las tres cosas (candado solo de esa pestaña, palanquera manual oculta, contraseña para salir). No es una confirmación de rutina: la duda "¿me bloquea todo el perfil?" es razonable y el modal la contesta antes de que aparezca.
+
+**Sesión compartida:** el kiosco y la pestaña de trabajo usan el mismo JWT del localStorage. Si el staff **cierra sesión** en su pestaña, el token desaparece para las dos y el kiosco cae a `/login` en su próximo request. Cerrar sesión y volver a entrar exige reactivar el kiosco.
+
+**Orden en el guard:** el bloque del kiosco va **después** del chequeo de token/login y **antes** de las reglas de rol. Si un rol no-staff queda logueado con el flag puesto, el guard lo desactiva en vez de redirigir: `meta.roles` rebotaría `/acceso` y las dos reglas se ciclarían. El flag también se limpia en el login exitoso (`LoginView`), en el logout (`Dashboard`) y en el interceptor 401 de `api.js`.
+
+**Alcance real del candado:** frena el uso casual, que es el caso real (clientes en el mostrador). No frena a alguien que abra las devtools y saque el JWT del localStorage. La solución de fondo sería un token de kiosco con permiso solo para marcar asistencia — no está implementada.
+
+**Cartel de resultado.** Con vigencia: foto, nombre grande y el número de días restantes en grande + fecha de vencimiento. Sin vigencia (403): solo **"Membresía vencida"** + "Acércate a recepción para renovar tu mensualidad" — **sin nombre ni fechas, a pedido explícito**; en un mostrador con fila detrás no se expone quién está en mora. Documento inexistente (404): "Documento no encontrado". El helper `_falloDesde(e)` traduce el status a ese cartel, así que **la distinción vive en el status code** y no hace falta detail estructurado en el backend. El resultado se autolimpia a los `SEGUNDOS_RESULTADO` (8 s) para que el siguiente de la fila no vea los datos del anterior.
 
 **Deduplicación en sesiones-por-bloque:** los registros se ordenan por `fecha_hora` antes de agrupar. Si un usuario entró más de una vez en el mismo bloque (salió y volvió), solo aparece la primera entrada. Esto evita duplicados causados por re-entradas dentro del mismo bloque.
 
@@ -557,12 +581,14 @@ Para ejercicios de peso, cada serie se guarda **inmediatamente** al presionar `+
 | `genero_destino` | `String(20)`, nullable | `"masculino"` \| `"femenino"` — solo para personalizados |
 | `tipo` | `String(50)`, nullable | Formato del WOD: `"For Time"` \| `"AMRAP"` \| `"EMOM"` \| `"Por Rondas"` \| `"Fuerza"` \| `"Otro"` |
 
-### Superseries
+### Rutina en notas + lista de videos
 
-Un ejercicio de un WOD puede formar superserie con el anterior via el booleano `superserie_con_anterior` en `wod_ejercicios` (default `False`). Los grupos se **derivan** de filas consecutivas con el flag en `true` — no se guardan números de grupo, así el reordenado nunca deja grupos huérfanos. Invariante: la primera fila siempre tiene el flag en `False` (normalizado en `_aplicar_ejercicios` del router y en el frontend).
+**La rutina completa va en texto libre en `WOD.descripcion`** (label "Notas de la rutina" en el form): rondas, ejercicios, reps, peso, tiempos y escalas. Los `wod_ejercicios` **no** prescriben nada: son solo la **lista de videos** que el coach quiere que el cliente vea, referenciando el catálogo de `ejercicios` (nombre + `video_url` + categoría) y guardando únicamente `ejercicio_id` + `orden`.
 
-- **Editor** (`WodEjerciciosEditor.vue`): botón de eslabón 🔗 en cada fila (excepto la primera) que alterna el enlace con la fila de arriba; las filas agrupadas se pintan con acento rojo y encabezado "Superserie A/B/…" (computed `gruposMeta`). `quitar()`/`mover()` re-normalizan la primera fila.
-- **Render** (`WodEjerciciosLista.vue`): computed `bloques` agrupa la lista; los bloques de superserie se envuelven en un contenedor con borde y encabezado "Superserie A · alternar sin descanso", manteniendo la numeración continua. Cubre todas las vistas consumidoras (WodsView, WodsPersonalizadosView).
+Las columnas `notas`, `rep_min`, `rep_max`, `rir`, `porcentaje_rm`, `tiempo_segundos` y `superserie_con_anterior` de `wod_ejercicios` son **legacy**: siguen en la tabla por los WODs históricos, pero no se escriben (`_aplicar_ejercicios` no las setea) ni se serializan (`WODEjercicioResponse` no las expone). El payload de `WODEjercicioItem` las ignora si un cliente viejo las manda — hay un test que lo cubre. No re-agregarlas: el modelo de prescripción por campos se retiró a propósito porque la rutina vive en las notas.
+
+- **Editor** (`WodVideosEditor.vue`): chips de filtro por categoría + select del catálogo + lista ordenable (subir/bajar/quitar). Los ejercicios sin `video_url` se pueden agregar pero se marcan `· sin video` en el select y con badge ámbar en la lista.
+- **Render** (`WodVideosLista.vue`): lista numerada con nombre, descripción del catálogo y botón "Ver video" (solo si hay `video_url`). Prop `videos` (no `ejercicios`) y flag `dark`. Consumidores: `WodsView`, `WodsPersonalizadosView`.
 
 ### Separación activo / historial
 
@@ -604,7 +630,7 @@ El filtro de género en el frontend usa `localStorage.getItem('userGenero')`. El
 
 Ruta `/wods/nuevo` y `/wods/:id/editar` (admin/coach). Soporta WODs regulares y personalizados vía `route.meta.personalizado`. Rutas de personalizados (`/wods/personalizados/nuevo`, `/wods/personalizados/:id/editar`) accesibles para admin y coach.
 
-Campos del form: `titulo`, `fecha`, **`tipo`** (select con 6 opciones, opcional), `descripcion`, `activo` (toggle), `ejercicios` (via `WodEjerciciosEditor`). Para personalizados en modo creación: selección múltiple de género (masculino / femenino), crea un WOD por género seleccionado.
+Campos del form: `titulo`, `fecha`, **`tipo`** (select con 6 opciones, opcional), `descripcion` (textarea grande, "Notas de la rutina" — acá va la rutina completa), `activo` (toggle), `ejercicios` = lista de videos (via `WodVideosEditor`). Para personalizados en modo creación: selección múltiple de género (masculino / femenino), crea un WOD por género seleccionado.
 
 ### Catálogo de ejercicios
 
@@ -625,9 +651,9 @@ Campos del form: `titulo`, `fecha`, **`tipo`** (select con 6 opciones, opcional)
 
 Para las bases **ya sembradas** hay que correr `backend/scripts/backfill_videos.py`: `seed_ejercicios()` se corta apenas la tabla tiene filas, así que no las alcanza. El script es idempotente (solo toca `video_url` vacío, matchea por nombre) y usa el `DATABASE_URL` del entorno — **confirmar contra qué base se está corriendo antes de ejecutarlo**. No se puso como bloque de arranque en `main.py` a pesar de que ahí viven otras limpiezas de datos: correría en cada boot y le devolvería el video a un ejercicio al que el coach se lo borró a propósito (el form guarda el vacío como `NULL`).
 
-**`WodEjerciciosEditor.vue`** (componente de selección al crear/editar un WOD):
-- Chips de filtro por categoría encima del select de ejercicios — facilita encontrar el ejercicio al armar el WOD
-- Muestra la categoría del ejercicio como badge junto al nombre en la lista de ejercicios del WOD
+**`WodVideosEditor.vue`** (componente de selección al crear/editar un WOD):
+- Chips de filtro por categoría encima del select — facilita encontrar el video al armar el WOD
+- Muestra la categoría como badge junto al nombre en la lista de videos del WOD (el backend la expone vía la property `WODEjercicio.categoria`)
 
 ## Métodos de Pago
 
@@ -745,7 +771,7 @@ Ruta: `C:\Program Files\DigitalPersona\One Touch SDK\.NET\Bin\`
 | `POST` | `/access/reload` | Recarga el cache de templates del modo acceso |
 | `POST` | `/palanquera/abrir` | Apertura manual de la palanquera (dispara `RelayController.Abrir()`). No registra asistencia. Responde `503` si no hay relé. |
 
-**Apertura manual de palanquera:** botón "Abrir palanquera" al pie de `AccesoView` (`/acceso`, admin/coach), que hace `POST http://localhost:8001/palanquera/abrir`. Es el **fallback** de esa pantalla: la persona no aparece por cédula, la huella no se reconoce, o entra un invitado. **No registra asistencia** — por eso va como botón secundario (borde gris) y con la leyenda explícita, para no competir con el submit rojo, que es el camino correcto porque sí deja el registro. Vivía en el header de `UsuariosView`, donde no tenía relación con la tabla que lo rodeaba. El `HttpApi` recibe el `RelayController` vía `BridgeForm.Relay` (expuesto en `Program.cs`). Como llama a `localhost:8001`, **solo funciona desde la PC del gym** donde corre el bridge — no desde un celular remoto.
+**Apertura manual de palanquera:** botón "Abrir palanquera" al pie de `AccesoView` (`/acceso`, admin/coach), que hace `POST http://localhost:8001/palanquera/abrir`. Es el **fallback** de esa pantalla: la persona no aparece por cédula, la huella no se reconoce, o entra un invitado. **No registra asistencia** — por eso va como botón secundario (borde gris) y con la leyenda explícita, para no competir con el submit rojo, que es el camino correcto porque sí deja el registro. Vivía en el header de `UsuariosView`, donde no tenía relación con la tabla que lo rodeaba. **Se oculta cuando el modo kiosco está activo** (ver "AccesoView y modo kiosco"): sin staff mirando, es el atajo obvio para meter a alguien sin registro. El `HttpApi` recibe el `RelayController` vía `BridgeForm.Relay` (expuesto en `Program.cs`). Como llama a `localhost:8001`, **solo funciona desde la PC del gym** donde corre el bridge — no desde un celular remoto.
 
 ### Flujo de enrolamiento
 
@@ -770,7 +796,16 @@ Ruta: `C:\Program Files\DigitalPersona\One Touch SDK\.NET\Bin\`
 
 El bridge no tiene JWT. Los endpoints `POST /usuarios/{id}/huella-template` y `GET /usuarios/con-template/lista` aceptan el header `X-Bridge-Secret: <valor>` como alternativa al JWT de admin/coach.
 
-El secreto se define en `backend/.env` como `BRIDGE_SECRET=jain_bridge_secret_2024`. Si el header no coincide, el backend exige JWT normal.
+El secreto se define en `backend/.env` como `BRIDGE_SECRET=...`. Si el header no coincide, el backend exige JWT normal.
+
+**El default del código (`jain_bridge_secret_2024`) sirve solo para dev local y NUNCA debe quedar en un backend alcanzable desde internet:** está escrito en `BridgeConfig.cs` y en este archivo, y `GET /usuarios/con-template/lista` devuelve **los templates biométricos de todos los socios**. Con ese valor en producción, cualquiera que lea el repo puede bajarse las huellas. En Render/producción va un valor aleatorio largo, cargado a mano en el dashboard (`render.yaml` lo declara `sync: false`).
+
+**Los tres lugares tienen que coincidir** y es la falla más difícil de diagnosticar del bridge, porque el síntoma no es un error visible sino `[HUELLERO] Templates cargados: 0` — con el cache vacío ninguna huella coincide, así que el lector "no reconoce a nadie" y la palanquera nunca abre, sin ningún mensaje de auth en el log:
+1. El backend (env var del host; en Render, el dashboard).
+2. La env var `BRIDGE_SECRET` de la PC del gym (nivel máquina).
+3. `backend/.env` para dev — ojo: `load_dotenv()` **no sobreescribe** variables ya existentes, así que si hay una `BRIDGE_SECRET` a nivel máquina, esa gana y el valor del `.env` se ignora en silencio.
+
+Para verificar sin adivinar: `GET /usuarios/con-template/lista` con el header debe dar **200**; un **401** significa que el secreto no coincide (o que falta en el backend). Un error de transporte en cambio (`Error al enviar la solicitud` en el log) es que `ApiBase` no responde, que es otra cosa.
 
 ### Modelo de datos relevante (tabla `usuarios`)
 
