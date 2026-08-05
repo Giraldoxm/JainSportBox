@@ -24,7 +24,12 @@ frontend/.env.production
 # Build Release del bridge (el Debug SÍ va trackeado: la PC del gym corre
 # bin/Debug/net48 sin compilar)
 servicio_biometrico/bin/Release/
-servicio_biometrico/obj/Release/
+
+# Intermedios de compilación: los regenera cualquier `dotnet build` y ensuciaban el
+# diff con ~18 archivos (caches, nuget assets, AssemblyInfo generado, y una copia
+# duplicada del exe) en cada recompilación. OJO: esto NO incluye bin/Debug/net48,
+# que sigue trackeado a propósito porque es lo que se copia a la PC del gym.
+servicio_biometrico/obj/
 
 # Logs en runtime (el bridge mantiene bridge.log abierto y bloqueaba los cambios de rama)
 *.log
