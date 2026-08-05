@@ -371,3 +371,23 @@ def test_me_foto_se_guarda_como_webp_redimensionado(client, cliente):
 def test_me_foto_formato_invalido(client, cliente):
     r = client.post("/me/foto", files={"foto": ("x.txt", b"hola", "text/plain")}, headers=cliente.headers)
     assert r.status_code == 400
+
+
+# ── POST /me/verificar-password ─────────────────────────────────
+
+
+def test_verificar_password_ok(client, cliente):
+    r = client.post("/me/verificar-password", json={"password": PASSWORD}, headers=cliente.headers)
+    assert r.status_code == 200
+    assert r.json()["ok"] is True
+
+
+def test_verificar_password_incorrecta_da_403_no_401(client, cliente):
+    """403 a propósito: el interceptor de api.js trata cualquier 401 como sesión
+    expirada y limpia el localStorage, lo que tumbaría el modo kiosco de /acceso."""
+    r = client.post("/me/verificar-password", json={"password": "otra-clave"}, headers=cliente.headers)
+    assert r.status_code == 403
+
+
+def test_verificar_password_sin_token_401(client):
+    assert client.post("/me/verificar-password", json={"password": PASSWORD}).status_code == 401

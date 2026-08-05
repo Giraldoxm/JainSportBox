@@ -41,6 +41,10 @@ api.interceptors.response.use(
       localStorage.removeItem('userName')
       localStorage.removeItem('userGenero')
       localStorage.removeItem('fechaVencimiento')
+      // Sin sesión el modo kiosco no tiene nada que proteger, y dejarlo activo haría
+      // que el guard intente devolver a /acceso a quien vuelva a loguearse. Va en
+      // sessionStorage porque el candado es por-pestaña (ver composables/useKiosco.js).
+      sessionStorage.removeItem('kioscoAcceso')
       window.location.href = '/login'
     }
     return Promise.reject(error)

@@ -28,6 +28,15 @@ const routes = [
     name: 'Login',
     component: LoginView
   },
+  // /acceso vive FUERA del shell de Dashboard (a diferencia del resto): es una
+  // pantalla de recepción a pantalla completa, sin sidebar, para que el cliente que
+  // marca su cédula no tenga por dónde entrar al panel del coach.
+  {
+    path: '/acceso',
+    name: 'Acceso',
+    component: AccesoView,
+    meta: { requiresAuth: true, roles: ['admin', 'coach'] },
+  },
   {
     path: '/',
     component: Dashboard,
@@ -144,12 +153,6 @@ const routes = [
         meta: { roles: ['cliente', 'coach'] },
       },
       {
-        path: 'acceso',
-        name: 'Acceso',
-        component: AccesoView,
-        meta: { roles: ['admin', 'coach'] },
-      },
-      {
         path: 'ejercicios',
         name: 'Ejercicios',
         component: EjerciciosView,
@@ -171,6 +174,7 @@ const router = createRouter({
 })
 
 import { membresiaVencidaFor } from '../composables/useAuth'
+import { kioscoBloqueado, desactivarKiosco } from '../composables/useKiosco'
 
 // Rutas permitidas para clientes con membresía vencida
 const RUTAS_CLIENTE_VENCIDO = ['/home', '/planes', '/perfil', '/']
@@ -185,6 +189,17 @@ router.beforeEach((to, from, next) => {
 
   if (to.path === '/login' && token) {
     return next('/')
+  }
+
+  // Candado del modo kiosco: mientras esté activo, toda navegación vuelve a /acceso
+  // (URL escrita a mano, botón atrás, F5). Salir exige la contraseña del staff, y eso
+  // lo maneja AccesoView. Va antes de las reglas de rol para que ninguna de ellas
+  // pueda sacar la pestaña del kiosco.
+  if (token && kioscoBloqueado()) {
+    // Un rol no-staff no puede estar en /acceso (lo rebota meta.roles más abajo).
+    // Sin esta salida, el candado y el guard de roles se rebotarían en bucle.
+    if (rol !== 'admin' && rol !== 'coach') desactivarKiosco()
+    else if (to.path !== '/acceso') return next('/acceso')
   }
 
   // Usuarios pendientes solo pueden ver /planes

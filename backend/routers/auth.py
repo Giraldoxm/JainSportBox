@@ -4,6 +4,7 @@ from typing import Optional
 
 from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile, status
 from fastapi.security import OAuth2PasswordRequestForm
+from pydantic import BaseModel
 from sqlalchemy import desc
 from sqlalchemy.orm import Session
 
@@ -36,6 +37,7 @@ def _calcular_edad(fecha_nacimiento: date) -> int:
 # REGISTROS_MAX_HORA, contado contra la base.
 _limite_login = limitar("login", max_requests=10, window_seconds=300)     # 10 / 5 min
 _limite_registro = limitar("registro", max_requests=3, window_seconds=3600)  # 3 / hora
+_limite_verificar = limitar("verificar_password", max_requests=10, window_seconds=300)  # 10 / 5 min
 
 # Techo global de registros por hora, para todo el sistema. Está muy por encima de
 # cualquier día real de inscripciones y muy por debajo de un flood; si alguna vez
@@ -299,6 +301,31 @@ def actualizar_mi_perfil(
     db.commit()
     db.refresh(current_user)
     return _serialize_me(current_user, db)
+
+
+class PasswordCheck(BaseModel):
+    password: str
+
+
+@router.post("/me/verificar-password")
+def verificar_mi_password(
+    payload: PasswordCheck,
+    _limite: None = Depends(_limite_verificar),
+    current_user: Usuario = Depends(get_current_user),
+):
+    """Reconfirma la contraseña del usuario logueado, sin emitir un token nuevo.
+
+    Lo usa el modo kiosco de /acceso para desbloquear la pestaña que queda abierta
+    en recepción: el candado solo sirve si salir exige algo que el cliente no tiene.
+
+    Devuelve **403** (no 401) cuando la contraseña no coincide, a propósito: el
+    interceptor de `api.js` trata cualquier 401 como sesión expirada y manda a
+    /login limpiando el localStorage. Con 401 acá, un cliente tecleando cualquier
+    cosa en el modal sacaría al staff de su sesión y tumbaría el kiosco.
+    """
+    if not verify_password(payload.password, current_user.password_hash):
+        raise HTTPException(status_code=403, detail="Contraseña incorrecta.")
+    return {"ok": True}
 
 
 @router.post("/me/foto")

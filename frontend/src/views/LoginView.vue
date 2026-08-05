@@ -243,6 +243,7 @@ import { computed, ref, watch } from 'vue'
 import api from '../api'
 import { useRouter } from 'vue-router'
 import TerminosModal from '../components/TerminosModal.vue'
+import { desactivarKiosco } from '../composables/useKiosco'
 
 const router = useRouter()
 const tab = ref('login')
@@ -267,6 +268,11 @@ const handleLogin = async () => {
     localStorage.setItem('userRol', me.data.rol)
     localStorage.setItem('userName', me.data.nombre)
     localStorage.setItem('fechaVencimiento', me.data.fecha_vencimiento || '')
+
+    // Quien acaba de escribir email y contraseña es staff, no un cliente en el
+    // mostrador: si había un kiosco activo en esta pestaña, se libera. Sin esto el
+    // guard lo dejaría encerrado en /acceso justo después de loguearse.
+    desactivarKiosco()
 
     router.push('/')
   } catch (e) {
