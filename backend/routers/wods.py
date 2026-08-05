@@ -30,7 +30,7 @@ def _require_admin(current_user: Usuario = Depends(get_current_user)):
 
 
 def _aplicar_ejercicios(wod: WOD, items, db: Session) -> None:
-    """Reemplaza los ejercicios de un WOD con la lista recibida. Valida que existan."""
+    """Reemplaza los videos de un WOD con la lista recibida. Valida que existan."""
     wod.ejercicios.clear()
     db.flush()
     items = list(items or [])
@@ -50,14 +50,7 @@ def _aplicar_ejercicios(wod: WOD, items, db: Session) -> None:
         wod.ejercicios.append(
             WODEjercicio(
                 ejercicio_id=item.ejercicio_id,
-                notas=(item.notas or None),
-                rep_min=item.rep_min,
-                rep_max=item.rep_max,
-                rir=item.rir,
-                porcentaje_rm=item.porcentaje_rm,
-                tiempo_segundos=item.tiempo_segundos,
                 orden=item.orden if item.orden is not None else idx,
-                superserie_con_anterior=(item.superserie_con_anterior and idx > 0),
             )
         )
 

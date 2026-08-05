@@ -1,4 +1,4 @@
-"""§6 de tests.md — WODs (roles, superseries, activo/historial, personalizados)
+"""§6 de tests.md — WODs (roles, lista de videos, activo/historial, personalizados)
 y catálogo de ejercicios."""
 
 from datetime import date, timedelta
@@ -56,46 +56,60 @@ def test_crear_wod_ejercicio_inexistente_422(client, admin_headers):
     assert r.status_code == 422
 
 
-# ── Superseries ────────────────────────────────────────────────
+# ── Lista de videos ────────────────────────────────────────────
 
 
-def test_superserie_primera_fila_normalizada(client, admin_headers, db_session):
-    ids = _crear_ejercicios(db_session, 3)
-    payload = _payload_wod()
-    payload["ejercicios"] = [
-        {"ejercicio_id": ids[0], "orden": 0, "superserie_con_anterior": True},  # inválido: primera fila
-        {"ejercicio_id": ids[1], "orden": 1, "superserie_con_anterior": True},
-        {"ejercicio_id": ids[2], "orden": 2, "superserie_con_anterior": False},
-    ]
-    r = client.post("/wods/", json=payload, headers=admin_headers)
+def test_videos_serializan_datos_del_catalogo(client, admin_headers, db_session):
+    """La rutina va en descripcion; cada video expone nombre/url/categoría del catálogo."""
+    e = models.Ejercicio(
+        nombre=f"Snatch Test {id(db_session)}",
+        video_url="https://youtu.be/abc123",
+        categoria="Olímpico",
+    )
+    db_session.add(e)
+    db_session.commit()
+
+    r = client.post("/wods/", json=_payload_wod(ejercicio_ids=[e.id]), headers=admin_headers)
     assert r.status_code == 201
-    flags = [e["superserie_con_anterior"] for e in r.json()["ejercicios"]]
-    assert flags == [False, True, False]  # la primera siempre False
+    video = r.json()["ejercicios"][0]
+    assert video["nombre"] == e.nombre
+    assert video["video_url"] == "https://youtu.be/abc123"
+    assert video["categoria"] == "Olímpico"
+    # los campos de prescripción ya no forman parte del contrato
+    assert not {"rep_min", "porcentaje_rm", "tiempo_segundos", "superserie_con_anterior"} & video.keys()
 
 
-def test_superserie_sobrevive_reordenado(client, admin_headers, db_session):
+def test_videos_respetan_orden_y_se_reemplazan_al_editar(client, admin_headers, db_session):
     ids = _crear_ejercicios(db_session, 3)
-    payload = _payload_wod()
-    payload["ejercicios"] = [
-        {"ejercicio_id": ids[0], "orden": 0},
-        {"ejercicio_id": ids[1], "orden": 1, "superserie_con_anterior": True},
-        {"ejercicio_id": ids[2], "orden": 2},
-    ]
-    wod_id = client.post("/wods/", json=payload, headers=admin_headers).json()["id"]
+    wod_id = client.post("/wods/", json=_payload_wod(ejercicio_ids=ids), headers=admin_headers).json()["id"]
 
-    # reordenar: el que era superserie pasa a primera fila
     r = client.put(
         f"/wods/{wod_id}",
         json={"ejercicios": [
-            {"ejercicio_id": ids[1], "orden": 0, "superserie_con_anterior": True},
+            {"ejercicio_id": ids[2], "orden": 0},
             {"ejercicio_id": ids[0], "orden": 1},
-            {"ejercicio_id": ids[2], "orden": 2, "superserie_con_anterior": True},
         ]},
         headers=admin_headers,
     )
     assert r.status_code == 200
-    flags = [e["superserie_con_anterior"] for e in r.json()["ejercicios"]]
-    assert flags == [False, False, True]
+    assert [v["ejercicio_id"] for v in r.json()["ejercicios"]] == [ids[2], ids[0]]
+
+
+def test_campos_de_prescripcion_en_el_payload_se_ignoran(client, admin_headers, db_session):
+    """Un cliente viejo puede seguir mandando reps/%RM: no revienta y no se guardan."""
+    ids = _crear_ejercicios(db_session, 1)
+    payload = _payload_wod()
+    payload["ejercicios"] = [{
+        "ejercicio_id": ids[0], "orden": 0,
+        "rep_min": 5, "rep_max": 10, "rir": 2,
+        "porcentaje_rm": 80, "tiempo_segundos": 60,
+        "notas": "3 series", "superserie_con_anterior": True,
+    }]
+    r = client.post("/wods/", json=payload, headers=admin_headers)
+    assert r.status_code == 201
+
+    fila = db_session.query(models.WODEjercicio).filter_by(wod_id=r.json()["id"]).one()
+    assert fila.rep_min is None and fila.porcentaje_rm is None and fila.notas is None
 
 
 # ── Listado, activo/historial, paginación ──────────────────────

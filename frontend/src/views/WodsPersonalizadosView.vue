@@ -86,10 +86,10 @@
                   <svg xmlns="http://www.w3.org/2000/svg" class="h-3.5 w-3.5 transition-transform duration-200" :class="expandidos[wod.id] ? 'rotate-180' : ''" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M19 9l-7 7-7-7" />
                   </svg>
-                  {{ expandidos[wod.id] ? 'Ocultar ejercicios' : `Ver ${wod.ejercicios.length} ejercicio${wod.ejercicios.length !== 1 ? 's' : ''}` }}
+                  {{ expandidos[wod.id] ? 'Ocultar videos' : `Ver ${wod.ejercicios.length} video${wod.ejercicios.length !== 1 ? 's' : ''}` }}
                 </button>
                 <div v-show="expandidos[wod.id]" class="mt-3">
-                  <WodEjerciciosLista :ejercicios="wod.ejercicios" dark />
+                  <WodVideosLista :videos="wod.ejercicios" dark />
                 </div>
               </div>
               <div class="flex gap-2 flex-shrink-0">
@@ -184,10 +184,10 @@
                 <svg xmlns="http://www.w3.org/2000/svg" class="h-3 w-3 transition-transform duration-200" :class="expandidos[wod.id] ? 'rotate-180' : ''" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                   <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M19 9l-7 7-7-7" />
                 </svg>
-                {{ expandidos[wod.id] ? 'Ocultar' : `${wod.ejercicios.length} ejercicio${wod.ejercicios.length !== 1 ? 's' : ''}` }}
+                {{ expandidos[wod.id] ? 'Ocultar' : `${wod.ejercicios.length} video${wod.ejercicios.length !== 1 ? 's' : ''}` }}
               </button>
               <div v-show="expandidos[wod.id]" class="mt-2">
-                <WodEjerciciosLista :ejercicios="wod.ejercicios" class="mt-1" />
+                <WodVideosLista :videos="wod.ejercicios" class="mt-1" />
               </div>
             </div>
             <div class="flex gap-1 flex-shrink-0">
@@ -273,10 +273,10 @@
               <svg xmlns="http://www.w3.org/2000/svg" class="h-3.5 w-3.5 transition-transform duration-200" :class="expandidos[wodDeHoy.id] ? 'rotate-180' : ''" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M19 9l-7 7-7-7" />
               </svg>
-              {{ expandidos[wodDeHoy.id] ? 'Ocultar ejercicios' : `Ver ${wodDeHoy.ejercicios.length} ejercicio${wodDeHoy.ejercicios.length !== 1 ? 's' : ''}` }}
+              {{ expandidos[wodDeHoy.id] ? 'Ocultar videos' : `Ver ${wodDeHoy.ejercicios.length} video${wodDeHoy.ejercicios.length !== 1 ? 's' : ''}` }}
             </button>
             <div v-show="expandidos[wodDeHoy.id]" class="mt-3">
-              <WodEjerciciosLista :ejercicios="wodDeHoy.ejercicios" dark />
+              <WodVideosLista :videos="wodDeHoy.ejercicios" dark />
             </div>
           </div>
 
@@ -320,10 +320,10 @@
                   <svg xmlns="http://www.w3.org/2000/svg" class="h-3 w-3 transition-transform duration-200" :class="expandidos[wod.id] ? 'rotate-180' : ''" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M19 9l-7 7-7-7" />
                   </svg>
-                  {{ expandidos[wod.id] ? 'Ocultar' : `${wod.ejercicios.length} ejercicio${wod.ejercicios.length !== 1 ? 's' : ''}` }}
+                  {{ expandidos[wod.id] ? 'Ocultar' : `${wod.ejercicios.length} video${wod.ejercicios.length !== 1 ? 's' : ''}` }}
                 </button>
                 <div v-show="expandidos[wod.id]" class="mt-2">
-                  <WodEjerciciosLista :ejercicios="wod.ejercicios" class="mt-1" />
+                  <WodVideosLista :videos="wod.ejercicios" class="mt-1" />
                 </div>
               </div>
             </div>
@@ -340,7 +340,7 @@ import { ref, computed, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import api from '../api'
 import { useAuth } from '../composables/useAuth'
-import WodEjerciciosLista from '../components/WodEjerciciosLista.vue'
+import WodVideosLista from '../components/WodVideosLista.vue'
 
 const { isAdmin, isCoach } = useAuth()
 const isStaff = computed(() => isAdmin.value || isCoach.value)

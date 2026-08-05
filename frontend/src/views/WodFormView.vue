@@ -132,17 +132,17 @@
         </div>
       </div>
 
-      <!-- Fila 3: descripción -->
+      <!-- Fila 3: notas / rutina -->
       <div class="bg-white rounded-2xl border border-gray-100 p-6">
-        <label class="block text-sm font-semibold text-gray-700 mb-2">
-          Descripción / Notas generales
-          <span class="text-gray-400 font-normal">(opcional)</span>
-        </label>
+        <label class="block text-sm font-semibold text-gray-700 mb-1">Notas de la rutina</label>
+        <p class="text-xs text-gray-400 mb-2">
+          Escribí acá la rutina completa: rondas, ejercicios, repeticiones, peso, tiempos y escalas.
+        </p>
         <textarea
           v-model="form.descripcion"
-          rows="4"
-          placeholder="Ej: AMRAP 20 min. Escala según nivel. Descansa lo necesario entre series."
-          class="w-full px-4 py-3 rounded-xl border border-gray-200 focus:ring-2 focus:ring-red-500 focus:border-red-500 outline-none transition-all resize-none text-sm leading-relaxed"
+          rows="10"
+          placeholder="Ej:&#10;AMRAP 20 min&#10;- 10 Burpees&#10;- 15 Back Squat @ 40 kg&#10;- 200 m Remo&#10;&#10;Escala según nivel. Descansa lo necesario entre rondas."
+          class="w-full px-4 py-3 rounded-xl border border-gray-200 focus:ring-2 focus:ring-red-500 focus:border-red-500 outline-none transition-all resize-y text-sm leading-relaxed"
         />
       </div>
 
@@ -165,9 +165,9 @@
         </button>
       </div>
 
-      <!-- Fila 5: ejercicios (ancho completo) -->
+      <!-- Fila 5: videos (ancho completo) -->
       <div class="bg-white rounded-2xl border border-gray-100 p-6">
-        <WodEjerciciosEditor v-model="form.ejercicios" :catalogo="catalogo" />
+        <WodVideosEditor v-model="form.ejercicios" :catalogo="catalogo" />
       </div>
 
       <!-- Botones al pie -->
@@ -196,7 +196,7 @@
 import { ref, computed, onMounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import api from '../api'
-import WodEjerciciosEditor from '../components/WodEjerciciosEditor.vue'
+import WodVideosEditor from '../components/WodVideosEditor.vue'
 
 const route  = useRoute()
 const router = useRouter()
@@ -228,19 +228,13 @@ function volver() {
   router.push(esPersonalizado.value ? '/wods/personalizados' : '/wods')
 }
 
-function _mapEjercicio(e) {
+function _mapVideo(e) {
   return {
-    ejercicio_id:    e.ejercicio_id,
-    nombre:          e.nombre,
-    video_url:       e.video_url,
-    descripcion:     e.descripcion || null,
-    notas:           e.notas || '',
-    rep_min:         e.rep_min         ?? null,
-    rep_max:         e.rep_max         ?? null,
-    rir:             e.rir             ?? null,
-    porcentaje_rm:   e.porcentaje_rm   ?? null,
-    tiempo_segundos: e.tiempo_segundos ?? null,
-    superserie_con_anterior: e.superserie_con_anterior ?? false,
+    ejercicio_id: e.ejercicio_id,
+    nombre:       e.nombre,
+    video_url:    e.video_url,
+    descripcion:  e.descripcion || null,
+    categoria:    e.categoria || null,
   }
 }
 
@@ -252,7 +246,7 @@ function _aplicarWod(wod) {
     activo:         wod.activo,
     genero_destino: wod.genero_destino || '',
     tipo:           wod.tipo || '',
-    ejercicios:     (wod.ejercicios || []).map(_mapEjercicio),
+    ejercicios:     (wod.ejercicios || []).map(_mapVideo),
   }
 }
 
@@ -298,15 +292,8 @@ async function guardar() {
   errorForm.value = ''
   try {
     const ejercicios = form.value.ejercicios.map((e, i) => ({
-      ejercicio_id:    e.ejercicio_id,
-      notas:           e.notas?.trim() || null,
-      rep_min:         e.rep_min         || null,
-      rep_max:         e.rep_max         || null,
-      rir:             e.rir             ?? null,
-      porcentaje_rm:   e.porcentaje_rm   ?? null,
-      tiempo_segundos: e.tiempo_segundos ?? null,
-      orden:           i,
-      superserie_con_anterior: i > 0 && !!e.superserie_con_anterior,
+      ejercicio_id: e.ejercicio_id,
+      orden:        i,
     }))
 
     const tipo = form.value.tipo || null

@@ -209,20 +209,28 @@ class Ejercicio(Base):
 
 
 class WODEjercicio(Base):
-    """Ejercicio incluido en un WOD, con notas (repeticiones, peso, etc.) y orden."""
+    """Video del catálogo adjuntado a un WOD, con su orden de aparición.
+
+    La rutina (reps, peso, %RM, tiempo, esquema…) va en texto libre en
+    `WOD.descripcion`; acá solo se referencia qué videos debe ver el cliente.
+    Las columnas de prescripción (`notas`, `rep_min`, `rep_max`, `rir`,
+    `porcentaje_rm`, `tiempo_segundos`, `superserie_con_anterior`) son legacy:
+    se conservan por los WODs históricos, no se escriben ni se serializan.
+    """
     __tablename__ = "wod_ejercicios"
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
     wod_id: Mapped[int] = mapped_column(Integer, ForeignKey("wods.id"), nullable=False)
     ejercicio_id: Mapped[int] = mapped_column(Integer, ForeignKey("ejercicios.id"), nullable=False)
-    notas: Mapped[Optional[str]] = mapped_column(Text, nullable=True)  # reps, peso, esquema...
+    orden: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
+    # ── Legacy (ver docstring): no se escriben desde la app ──
+    notas: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
     rep_min: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)
     rep_max: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)
     rir: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)
     porcentaje_rm: Mapped[Optional[float]] = mapped_column(Float, nullable=True)
     tiempo_segundos: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)
-    orden: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
-    superserie_con_anterior: Mapped[bool] = mapped_column(Boolean, default=False)  # True → forma superserie con la fila anterior
+    superserie_con_anterior: Mapped[bool] = mapped_column(Boolean, default=False)
 
     # ── Relaciones ──
     wod: Mapped["WOD"] = relationship("WOD", back_populates="ejercicios")
@@ -240,6 +248,10 @@ class WODEjercicio(Base):
     @property
     def descripcion(self) -> Optional[str]:
         return self.ejercicio.descripcion if self.ejercicio else None
+
+    @property
+    def categoria(self) -> Optional[str]:
+        return self.ejercicio.categoria if self.ejercicio else None
 
     def __repr__(self) -> str:
         return f"<WODEjercicio WOD {self.wod_id} → Ejercicio {self.ejercicio_id}>"

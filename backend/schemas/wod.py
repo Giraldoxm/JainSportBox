@@ -5,16 +5,13 @@ from pydantic import BaseModel, Field
 
 
 class WODEjercicioItem(BaseModel):
-    """Ejercicio seleccionado al crear/editar un WOD."""
+    """Video (ejercicio del catálogo) adjuntado al WOD.
+
+    La prescripción (reps, peso, %RM, tiempo…) va en texto libre en
+    `WODCreate.descripcion` — acá solo se referencia el video a ver.
+    """
     ejercicio_id: int
-    notas: Optional[str] = Field(None, max_length=500)
-    rep_min: Optional[int] = Field(None, ge=1, le=999)
-    rep_max: Optional[int] = Field(None, ge=1, le=999)
-    rir: Optional[int] = Field(None, ge=0, le=10)
-    porcentaje_rm: Optional[float] = Field(None, ge=0, le=150)
-    tiempo_segundos: Optional[int] = Field(None, ge=1, le=86400)
     orden: int = 0
-    superserie_con_anterior: bool = False
 
 
 class WODEjercicioResponse(BaseModel):
@@ -22,14 +19,8 @@ class WODEjercicioResponse(BaseModel):
     nombre: Optional[str] = None
     video_url: Optional[str] = None
     descripcion: Optional[str] = None
-    notas: Optional[str] = None
-    rep_min: Optional[int] = None
-    rep_max: Optional[int] = None
-    rir: Optional[int] = None
-    porcentaje_rm: Optional[float] = None
-    tiempo_segundos: Optional[int] = None
+    categoria: Optional[str] = None
     orden: int
-    superserie_con_anterior: bool = False
 
     model_config = {"from_attributes": True}
 

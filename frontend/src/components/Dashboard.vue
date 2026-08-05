@@ -267,6 +267,7 @@ import { computed, ref, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { useAuth, setFechaVencimiento } from '../composables/useAuth'
 import { useSessionMarca } from '../composables/useSessionMarca'
+import { desactivarKiosco } from '../composables/useKiosco'
 import api from '../api'
 
 const router = useRouter()
@@ -301,6 +302,7 @@ const rolLabel = computed(() => {
 
 const logout = () => {
   cancelarSesion()
+  desactivarKiosco()
   localStorage.removeItem('token')
   localStorage.removeItem('userRol')
   localStorage.removeItem('userName')

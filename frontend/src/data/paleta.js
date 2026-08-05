@@ -9,7 +9,7 @@
 //
 // Para datos sin semántica (categoría de ejercicio) se usa un badge neutro con un
 // punto de color de la escala de abajo. El punto identifica sin competir con el
-// rojo/verde/ámbar. Único consumidor hoy: WodEjerciciosEditor, donde la categoría
+// rojo/verde/ámbar. Único consumidor hoy: WodVideosEditor, donde la categoría
 // va inline junto al nombre y no hay columna que la rotule. En la tabla de
 // /ejercicios la categoría va como texto plano: ahí el color no desambigua nada.
 //
