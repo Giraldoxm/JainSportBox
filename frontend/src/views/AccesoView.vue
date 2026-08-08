@@ -101,7 +101,13 @@
           <!-- En un bono lo que le importa al socio es cuántas entradas le quedan;
                los días pasan a la línea chica junto con la fecha de caducidad. -->
           <div class="mt-5 pt-5 border-t border-emerald-200">
-            <template v-if="resultado.ingresos_restantes !== null && resultado.ingresos_restantes !== undefined">
+            <!-- El staff entra sin membresía: no tiene días ni fecha que mostrar, y
+                 sin esta rama el cartel decía "null días restantes / Invalid Date". -->
+            <template v-if="resultado.es_staff">
+              <p class="text-2xl font-black text-emerald-800 leading-none">Equipo del box</p>
+              <p class="text-sm font-semibold text-emerald-700 mt-1">Acceso sin membresía</p>
+            </template>
+            <template v-else-if="resultado.ingresos_restantes !== null && resultado.ingresos_restantes !== undefined">
               <p class="text-4xl sm:text-5xl font-black text-emerald-800 leading-none">
                 {{ resultado.ingresos_restantes }}
               </p>
@@ -207,13 +213,12 @@
           Escribe la contraseña de <span class="font-semibold">{{ nombreStaff }}</span> para desbloquear la pantalla.
         </p>
         <form @submit.prevent="confirmarSalir">
-          <input
+          <InputPassword
             ref="inputPass"
             v-model="password"
-            type="password"
             autocomplete="current-password"
             placeholder="Contraseña"
-            class="w-full px-4 py-3 rounded-xl border border-gray-200 focus:ring-2 focus:ring-red-500 focus:border-red-500 outline-none transition-all"
+            input-class="w-full px-4 py-3 rounded-xl border border-gray-200 focus:ring-2 focus:ring-red-500 focus:border-red-500 outline-none transition-all"
             :disabled="verificando"
           />
           <p v-if="errorPass" class="text-xs font-semibold text-red-600 mt-2">{{ errorPass }}</p>
@@ -237,6 +242,7 @@
 <script setup>
 import { ref, nextTick, onMounted, onBeforeUnmount } from 'vue'
 import api, { mediaUrl } from '../api'
+import InputPassword from '../components/InputPassword.vue'
 import { kioscoActivo, activarKiosco, desactivarKiosco } from '../composables/useKiosco'
 
 const BRIDGE_URL = 'http://localhost:8001'

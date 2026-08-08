@@ -183,12 +183,18 @@ def resumen(
 
     # ── Asistencia ──
     def _contar_entradas(desde: date, hasta: date):
+        # Cuenta solo CLIENTES. El staff también marca huella (desde que se lo eximió
+        # de la validación de membresía, si no la palanquera no le abría), pero un
+        # coach entrando todos los días infla "asistencia de hoy" y le cambia el
+        # significado al número. Participación ya filtraba por rol; esto lo alinea.
         return (
             db.query(func.count(Asistencia.id))
+            .join(Usuario, Usuario.id == Asistencia.usuario_id)
             .filter(
                 Asistencia.tipo == "entrada",
                 Asistencia.fecha_hora >= _inicio_dia_utc(desde),
                 Asistencia.fecha_hora <= _fin_dia_utc(hasta),
+                Usuario.rol == RolUsuario.CLIENTE,
             )
             .scalar()
             or 0

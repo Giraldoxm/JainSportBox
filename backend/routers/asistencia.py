@@ -51,6 +51,13 @@ MINUTOS_SESION = 65  # tiempo máximo de una sesión; usado por el job de reset 
 
 
 def _validar_membresia(usuario: Usuario) -> None:
+    # El staff no tiene membresía: no paga plan ni tiene fecha_vencimiento, así que
+    # validarlo le daba un 403 en cada marcación. Y como la palanquera solo se abre
+    # cuando el backend responde 2xx, al equipo del box la huella no le abría nunca
+    # por más que estuviera enrolado.
+    if usuario.rol in (RolUsuario.ADMIN, RolUsuario.COACH):
+        return
+
     # Toda marcación es una entrada → siempre se valida la membresía. Son DOS ejes y
     # se validan los dos: un bono de ingresos también caduca por fecha, y una
     # mensualidad vigente no consume ingresos (los tiene en NULL).
@@ -133,11 +140,15 @@ def registrar_asistencia_por_documento(documento: str, request: Request, db: Ses
         raise HTTPException(status_code=404, detail=f"No existe un usuario con documento {doc}.")
     _validar_membresia(usuario)
     asistencia = _registrar(usuario, db)
-    dias_restantes = (usuario.fecha_vencimiento - hoy_bogota()).days
+    # El staff pasa sin membresía, así que puede no tener fecha: sin este guard, un
+    # coach marcando por cédula daba un 500 al restarle hoy a un None.
+    dias_restantes = (usuario.fecha_vencimiento - hoy_bogota()).days if usuario.fecha_vencimiento else None
+    es_staff = usuario.rol in (RolUsuario.ADMIN, RolUsuario.COACH)
     return {
         "mensaje": f"Entrada registrada para {usuario.nombre}.",
         "usuario_id": usuario.id,
         "nombre": usuario.nombre,
+        "es_staff": es_staff,
         "foto_url": usuario.foto_url,
         "fecha_vencimiento": usuario.fecha_vencimiento,
         "dias_restantes": dias_restantes,

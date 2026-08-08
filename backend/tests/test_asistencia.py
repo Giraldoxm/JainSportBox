@@ -266,3 +266,38 @@ def test_job_reset_gym(cliente, crear_usuario, db_session):
         assert db.query(models.Asistencia).filter_by(tipo="salida").count() == 0
     finally:
         db.close()
+
+
+# ── Staff: entra sin membresía ──────────────────────────────────
+
+
+def test_staff_puede_marcar_sin_membresia(client, admin_headers, coach, db_session):
+    """El equipo del box no paga plan ni tiene fecha_vencimiento. Validarlo daba 403,
+    y como la palanquera solo abre con un 2xx, al staff la huella no le abria nunca."""
+    coach_db = db_session.query(models.Usuario).filter_by(id=coach.user.id).one()
+    assert coach_db.fecha_vencimiento is None      # premisa del test
+
+    r = _marcar(client, admin_headers, coach.user.id)
+    assert r.status_code == 201
+    assert _usuario_db(db_session, coach.user.id).esta_en_gym is True
+
+
+def test_staff_por_documento_no_revienta_sin_fecha(client, admin_headers, coach):
+    """dias_restantes sale de fecha_vencimiento: sin el guard, un coach marcando por
+    cedula daba 500 al restarle hoy a un None."""
+    r = client.post(f"/asistencia/por-documento/{coach.user.documento_identidad}", headers=admin_headers)
+    assert r.status_code == 201
+    body = r.json()
+    assert body["es_staff"] is True
+    assert body["dias_restantes"] is None
+
+
+def test_asistencia_del_staff_no_cuenta_en_los_kpis(client, admin_headers, coach, cliente):
+    """Los KPIs de asistencia son de clientes: un coach entrando a diario no debe
+    inflar 'asistencia de hoy'."""
+    _marcar(client, admin_headers, coach.user.id)
+    _marcar(client, admin_headers, cliente.user.id)
+
+    r = client.get("/dashboard/resumen", headers=admin_headers)
+    assert r.status_code == 200
+    assert r.json()["asistencia"]["hoy"] == 1     # solo el cliente
