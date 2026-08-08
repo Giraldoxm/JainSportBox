@@ -128,6 +128,8 @@ backend/tests/
 | 5.9 | `GET /en-gym` | incluye `minutos_transcurridos`/`minutos_restantes` coherentes con `MINUTOS_SESION` |
 | 5.10 | `GET /sesiones-por-bloque?desde=&hasta=` rango > 31 días | 400/422 |
 | 5.11 | sesiones-por-bloque: usuario con 2 entradas en el mismo bloque | aparece una sola vez (la primera); zona horaria Bogotá correcta (entrada 23:30 UTC cae en el día local correcto) |
+| 5.11b | Staff marca entrada sin membresía | 201 (exento de `_validar_membresia`); `esta_en_gym=True`; por documento devuelve `es_staff=true` y `dias_restantes=null` sin reventar |
+| 5.11c | Asistencia del staff en los KPIs de `/dashboard/resumen` | NO cuenta: `asistencia.hoy` solo suma clientes |
 | 5.12 | Job `_job_reset_gym` (unitario: llamar la función con la sesión de test) | usuario con última entrada > `MINUTOS_SESION` pasa a `False`; reciente queda `True`; no crea registro de salida |
 
 ## 6. WODs y Ejercicios (`wods.py`, `ejercicios.py`)

@@ -36,9 +36,9 @@
         </div>
         <div>
           <label class="block text-sm font-semibold text-gray-700 mb-1.5">Contraseña</label>
-          <input v-model="loginPassword" type="password" required
-            class="w-full px-4 py-3 rounded-lg border border-gray-300 focus:ring-2 focus:ring-red-500 focus:border-red-500 outline-none transition-all text-sm"
-            placeholder="••••••••">
+          <InputPassword v-model="loginPassword" required autocomplete="current-password"
+            placeholder="••••••••"
+            input-class="w-full px-4 py-3 rounded-lg border border-gray-300 focus:ring-2 focus:ring-red-500 focus:border-red-500 outline-none transition-all text-sm" />
         </div>
 
         <div v-if="loginError" class="bg-red-50 text-red-600 text-sm p-3 rounded-lg border border-red-100 flex items-start gap-2">
@@ -158,9 +158,9 @@
 
           <div>
             <label class="block text-sm font-semibold text-gray-700 mb-1.5">Contraseña <span class="text-red-500">*</span></label>
-            <input v-model="regForm.password" type="password" required minlength="6"
-              class="w-full px-4 py-2.5 rounded-lg border border-gray-300 focus:ring-2 focus:ring-red-500 outline-none transition-all text-sm"
-              placeholder="Mínimo 6 caracteres">
+            <InputPassword v-model="regForm.password" required minlength="6" autocomplete="new-password"
+              placeholder="Mínimo 6 caracteres"
+              input-class="w-full px-4 py-2.5 rounded-lg border border-gray-300 focus:ring-2 focus:ring-red-500 outline-none transition-all text-sm" />
           </div>
 
           <!-- Menor de edad: aparece automáticamente según la fecha de nacimiento -->
@@ -233,6 +233,7 @@ import { computed, ref, watch } from 'vue'
 import api from '../api'
 import { useRouter } from 'vue-router'
 import TerminosModal from '../components/TerminosModal.vue'
+import InputPassword from '../components/InputPassword.vue'
 import { desactivarKiosco } from '../composables/useKiosco'
 
 const router = useRouter()

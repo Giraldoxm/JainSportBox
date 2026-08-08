@@ -931,7 +931,8 @@
           </div>
           <div class="mb-6">
             <label class="block text-gray-700 text-sm font-semibold mb-2">Nueva Contraseña <span class="text-gray-400 font-normal">(dejar vacío para no cambiar)</span></label>
-            <input v-model="editForm.password" type="password" minlength="6" class="w-full px-4 py-3 rounded-lg border border-gray-300 focus:ring-2 focus:ring-red-500 outline-none transition-all" placeholder="Min. 6 caracteres">
+            <InputPassword v-model="editForm.password" minlength="6" autocomplete="new-password"
+              placeholder="Min. 6 caracteres" input-class="w-full px-4 py-3 rounded-lg border border-gray-300 focus:ring-2 focus:ring-red-500 outline-none transition-all" />
           </div>
           <div class="flex justify-end gap-3 pt-4 border-t border-gray-100">
             <button @click="cerrarEditar" type="button" class="px-5 py-2.5 rounded-lg text-gray-600 font-semibold hover:bg-gray-100 transition-colors">Cancelar</button>
@@ -983,7 +984,8 @@
           </div>
           <div class="mb-5">
             <label class="block text-gray-700 text-sm font-semibold mb-2">Contraseña <span class="text-red-500">*</span></label>
-            <input v-model="nuevoUsuario.password" type="password" class="w-full px-4 py-3 rounded-lg border border-gray-300 focus:ring-2 focus:ring-red-500 outline-none transition-all" placeholder="Min. 6 caracteres" required minlength="6">
+            <InputPassword v-model="nuevoUsuario.password" required minlength="6" autocomplete="new-password"
+              placeholder="Min. 6 caracteres" input-class="w-full px-4 py-3 rounded-lg border border-gray-300 focus:ring-2 focus:ring-red-500 outline-none transition-all" />
           </div>
           <div class="mb-5">
             <label class="block text-gray-700 text-sm font-semibold mb-2">Teléfono / WhatsApp <span class="text-red-500">*</span></label>

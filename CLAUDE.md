@@ -82,6 +82,7 @@ La suite (`backend/tests/`) cubre todos los routers; el plan completo y los hall
 - `frontend/src/composables/useSessionMarca.js` — Composable de sesión de Marcas (legacy, ya no usado por `MarcasEjercicioView`). Se mantiene para que `Dashboard.vue` pueda limpiar el localStorage en logout (`cancelarSesion()`).
 - `frontend/src/views/` — One large SFC per page: `LoginView`, `DashboardView` (la página de resumen; no confundir con `components/Dashboard.vue`, que es el layout), `UsuariosView`, `UsuarioPerfilView`, `HomeView`, `TiendaView`, `WodsView`, `WodsPersonalizadosView`, `FinanzasView`, `PlanesView`, `SaludView`, `SaludMedidaView`, `MarcasView`, `MarcasEjercicioView`, `MiPerfilView`. (`MonitorAccesoView.vue` exists but is not registered in the router.)
 - `frontend/src/components/Dashboard.vue` — Main layout shell (sidebar + navigation). Does NOT show membership status in the sidebar — that info lives in `HomeView`. Sidebar organizado en tres secciones: **Gestión** (admin+coach), **Contenido** (todos), **Mi Box** (coach+cliente). Ver sección de sidebar más abajo.
+- `frontend/src/components/InputPassword.vue` — Input de contraseña con ojito para mostrarla. **Los 7 campos de contraseña de la app lo usan**: login, registro, crear/editar cliente, Mi Perfil, perfil de cliente y el desbloqueo del kiosco. Es un componente y no markup repetido porque el SVG del ojo son 6 líneas por campo. Las clases del input las pasa quien lo usa (`input-class`): cada pantalla tiene su estilo de borde y focus. Expone `focus()` — un `ref` sobre el componente apunta a la instancia, no al `<input>`, y el modal del kiosco necesita enfocarlo al abrirse. Arranca siempre oculta.
 - `frontend/src/components/BloqueCard.vue` — Acordeón reutilizable de bloque horario (usado por `SesionesPanel`). Header clicable muestra hora del bloque + badge de personas; al expandir muestra la lista completa de asistentes con hora exacta de entrada.
 - `frontend/src/data/` — Shared config files: `saludTipos.js` (6 measurement configs), `ejerciciosMarcas.js` (12 fixed exercises)
 - `frontend/src/lib/avatar.js` — `fotoSrc(u)`: la foto del usuario, o `AVATAR_FALLBACK` si no tiene. El fallback es una silueta blanca sobre `#dc2626` como **data: URI de SVG inline**. Reemplazó a `ui-avatars.com` (iniciales), que exigía internet —la PC del gym no siempre lo tiene y el avatar quedaba roto— y le mandaba el nombre de cada socio a un tercero. No re-introducir un servicio externo de avatares. Lo usan `UsuariosView`, `UsuarioPerfilView`, `MiPerfilView` y `MonitorAccesoView`; `AccesoView` es la excepción a propósito: sin foto muestra el check verde de "acceso permitido", que ahí es la información que importa.
@@ -356,6 +357,11 @@ El router `backend/routers/alertas.py` sigue igual y es lo que alimenta ese pane
 - `GET /asistencia/en-gym` — usuarios con `esta_en_gym=True`, con `entrada_desde`, `minutos_transcurridos`, `minutos_restantes` y `minutos_sesion` (admin/coach)
 - `GET /asistencia/sesiones-por-bloque?desde=&hasta=` — entradas agrupadas por (fecha, hora) en zona Bogotá; rango máx 31 días; deduplica por `usuario_id` dentro del mismo bloque conservando la primera entrada (admin/coach)
 
+**El staff está exento de `_validar_membresia`.** Un admin/coach no paga plan y no tiene `fecha_vencimiento`, así que validarlo le daba un 403 en cada marcación; y como la palanquera **solo se abre cuando el backend responde 2xx**, al equipo del box la huella no le abría nunca por más que estuviera enrolado. La exención es el primer chequeo de la función. Dos consecuencias que hay que mantener:
+
+- `dias_restantes` en `POST /por-documento` sale de `fecha_vencimiento`, que en el staff es `NULL`: va con guard, si no un coach marcando por cédula daba un 500. La respuesta trae `es_staff` para que `AccesoView` muestre "Equipo del box" en vez de "null días restantes / Invalid Date".
+- **Los KPIs de asistencia de `/dashboard/resumen` cuentan solo `rol == CLIENTE`.** Hasta que existió esta exención el staff no podía marcar, así que esos números eran de clientes de facto; sin el filtro, un coach entrando a diario infla "asistencia de hoy" y le cambia el significado. Participación ya filtraba por rol. **El panel de sesiones por bloque sí los muestra**, a propósito: ahí la pregunta es quién estuvo en el box.
+
 **Constante `MINUTOS_SESION`** (en `asistencia.py`): duración máxima de sesión usada tanto por `GET /en-gym` como por el job `_job_reset_gym` en `main.py`. Cambiar en un solo lugar.
 
 **Auto-reset `esta_en_gym`:** el job `_job_reset_gym` (APScheduler, cada 3 min) usa un JOIN para obtener en una sola query los usuarios con `esta_en_gym=True` cuya última entrada supere `MINUTOS_SESION`, y los resetea a `False` sin crear registro de salida. Cubre el caso de usuarios que salen sin pasar por el torniquete. Implementado con subconsulta de `MAX(fecha_hora)` agrupada por `usuario_id` para evitar N+1.
@@ -416,7 +422,7 @@ Activar pasa por un modal que explica las tres cosas (candado solo de esa pesta�
 
 ### Switch Clientes / Equipo del box
 
-La vista tiene un `vista = ref('clientes')` que alterna dos listados sobre el mismo `GET /usuarios/` (una sola petición; el filtrado es en cliente vía los computed `clientes` y `equipo`). Son dos poblaciones con datos distintos: **al staff no le aplican membresía ni "en el box"** — `_validar_membresia` en `asistencia.py` no exime al staff, así que un coach sin `fecha_vencimiento` recibe 403 al marcar huella y esas columnas serían siempre "Sin membresía / Fuera".
+La vista tiene un `vista = ref('clientes')` que alterna dos listados sobre el mismo `GET /usuarios/` (una sola petición; el filtrado es en cliente vía los computed `clientes` y `equipo`). Son dos poblaciones con datos distintos: **al staff no le aplica la membresía** (no paga plan, no tiene `fecha_vencimiento`), así que esas columnas serían siempre "Sin membresía".
 
 | | Clientes | Equipo del box |
 |---|---|---|
@@ -426,7 +432,7 @@ La vista tiene un `vista = ref('clientes')` que alterna dos listados sobre el mi
 | Panel de cumpleaños | sí | no |
 | Exportar Excel | sí | no — el endpoint exporta solo `rol == cliente` |
 
-**Equipo no muestra Huella ni Desde.** "Desde" (`created_at`) era dato de archivo. "Huella" informaba un estado que para el staff **no habilita nada**: `_validar_membresia` en `asistencia.py` no exime al staff, así que un coach sin `fecha_vencimiento` recibe 403 al marcar por más que tenga template enrolado. El enrolamiento de staff se hace desde `UsuarioPerfilView` (card "Huella digital"), que es el mismo camino que para un cliente — no hay atajo en el listado.
+**Equipo no muestra Huella ni Desde.** "Desde" (`created_at`) era dato de archivo. La columna Huella se saca por espacio, no porque no sirva: **el staff sí marca huella y sí le abre la palanquera** (ver la exención en `_validar_membresia`). El enrolamiento de staff se hace desde `UsuarioPerfilView` (card "Huella digital"), que es el mismo camino que para un cliente — no hay atajo en el listado.
 
 **Columna Membresía — el color vive en el punto, no en el texto.** `colorTextoDias()` devuelve `text-gray-900` mientras quede algún día y `text-red-600` solo cuando está vencida; el estado (verde/ámbar/rojo) lo da `colorPuntoDias()`. Colorear también el texto era doble codificación y convertía la columna en un tablero de alarmas con 15 filas en pantalla. Los dos helpers comparten el mismo umbral para que punto y texto nunca discrepen. La card móvil lleva el punto por la misma razón: sin él, con el texto neutro se quedaba sin señal de estado.
 
