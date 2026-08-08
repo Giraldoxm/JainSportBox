@@ -36,3 +36,9 @@ servicio_biometrico/obj/
 
 # Claude
 .claude/
+
+# Paquete de instalacion del huellero que arma empaquetar.ps1: son binarios
+# generados (el exe sale de bin/Debug/net48) mas el RTE de DigitalPersona, 19 MB
+# de un redistribuible de un tercero que no corresponde versionar.
+dist/HuelleroBridge-Instalador/
+dist/HuelleroBridge-Instalador.zip

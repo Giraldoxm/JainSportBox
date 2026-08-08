@@ -1,0 +1,69 @@
+HUELLERO BRIDGE - JAINSPORTBOX
+==============================
+
+Instalacion en una PC nueva (Windows 10/11):
+
+  1. NO conectes el lector de huella todavia.
+  2. Doble clic a INSTALAR.cmd y acepta el permiso de administrador.
+  3. Segui los pasos en pantalla. Cuando lo pida, conecta el lector.
+
+Antes de empezar, tene a mano el BRIDGE_SECRET del backend. En Render esta en
+Environment > BRIDGE_SECRET. El instalador lo pide y NO tiene default valido:
+el valor compilado en el bridge es solo para desarrollo y produccion lo rechaza.
+
+Que hace el instalador:
+  - Instala el runtime de DigitalPersona (driver USB + componentes COM).
+  - Copia el bridge a C:\JainSportBox\HuelleroBridge.
+  - Configura BRIDGE_SECRET (obligatorio) a nivel maquina.
+  - Configura PALANQUERA_COM si le indicas el puerto del Arduino (opcional).
+  - Crea la tarea programada "HuelleroBridge" que arranca el bridge como
+    administrador cada vez que se inicia sesion en Windows.
+  - Arranca el bridge y verifica que responda, mostrando cuantas huellas
+    cargo del backend.
+
+Verificar que funciona:
+  - Al final del instalador tiene que decir "OK: el bridge se autentico y
+    cargo las huellas". Si dice "0 huellas en cache", ver mas abajo.
+  - Abrir http://localhost:8001/status en el navegador -> debe responder JSON.
+  - El log vive en C:\JainSportBox\HuelleroBridge\bridge.log
+    Las primeras lineas [CONFIG] ApiBase y [CONFIG] BridgeSecret dicen a que
+    backend apunta y si el secreto esta definido.
+
+PROBLEMA MAS COMUN: "0 huellas en cache" / el lector no reconoce a nadie
+-----------------------------------------------------------------------
+No da ningun error en pantalla, y por eso cuesta encontrarlo. Dos causas:
+
+  a) El BRIDGE_SECRET no coincide con el del backend. El bridge recibe un 401
+     que no se loguea como error de auth: solo aparece "Templates cargados: 0".
+     Verificar el valor y volver a correr el instalador.
+
+  b) Todavia no hay ninguna huella enrolada en el backend. Se enrolan una por
+     una desde la interfaz web: Clientes > la persona > card "Huella digital" >
+     Registrar (4 toques). El enrolamiento habla con localhost:8001, asi que
+     hay que hacerlo DESDE esta PC.
+
+     OJO: la interfaz tiene que estar apuntando al MISMO backend que el bridge
+     (produccion). Si se enrola desde un frontend de desarrollo apuntado a otra
+     base, los ids de usuario no coinciden y la huella queda asignada a otra
+     persona. Usar start-estacion.ps1 con la URL de produccion.
+
+Notas:
+  - El bridge apunta por defecto al backend de produccion en Render. Para
+    apuntarlo a otro backend: definir la variable de entorno de maquina
+    JSB_API_BASE (ej. http://localhost:8000) y reiniciar el bridge.
+  - Si esta PC controla la palanquera, conectar el Arduino por USB. El bridge
+    autodetecta el puerto, pero si arranca antes de que el Arduino este
+    enchufado no lo encuentra: en ese caso conviene fijar PALANQUERA_COM.
+    Sin Arduino el bridge funciona igual, solo no abre la palanquera.
+  - Si esa PC va a mostrar la interfaz web de recepcion, ademas hay que
+    instalar Node.js y usar start-estacion.ps1 del repo (ver DEPLOYMENT.md).
+
+Reiniciar / detener el bridge:
+  - Detener: Administrador de tareas -> HuelleroBridge.exe -> Finalizar tarea
+  - Arrancar: schtasks /run /tn "HuelleroBridge"  (o reiniciar sesion)
+
+Regenerar este paquete (para el desarrollador):
+  Desde la raiz del repo, tras compilar el bridge:
+     .\servicio_biometrico\instalador\empaquetar.ps1
+  Toma el exe del build actual, asi que el paquete nunca queda apuntando a un
+  backend viejo. Ver el encabezado de ese script.

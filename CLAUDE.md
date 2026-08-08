@@ -744,10 +744,30 @@ Lo único conservado en `Program.cs` además del shell WinForms es `SetThreadExe
 | `RelayController.cs` | Abre la palanquera mandando el byte `'A'` por USB-serial a un Arduino UNO. Ver sección "Palanquera (relé + Arduino)" más abajo. |
 | `arduino/palanquera_rele/palanquera_rele.ino` | Sketch del Arduino UNO que controla el módulo de relé. |
 | `ver-logs.ps1` / `.cmd` | Tail coloreado de `bridge.log` en vivo |
+| `instalador/` | Paquete para instalar el bridge en una PC nueva: `INSTALAR.cmd`, `LEEME.txt` y `empaquetar.ps1`. Ver "Instalador del bridge" más abajo |
 | `EnrollmentState.cs` | Estado compartido (thread-safe con `lock`) entre captura y HTTP API |
 | `HttpApi.cs` | `HttpListener` en puerto 8001; endpoints REST consumidos por el frontend. Recibe el `RelayController` (vía `BridgeForm.Relay`) para la apertura manual de palanquera. |
 | `WebSocketHub.cs` | Servidor WebSocket en puerto 8765 (Fleck); broadcast de eventos en tiempo real |
 | `HuelleroBridge.csproj` | net48 x86; referencia DLLs SDK desde `C:\Program Files\DigitalPersona\One Touch SDK\.NET\Bin\` |
+
+### Instalador del bridge (PC nueva)
+
+`servicio_biometrico/instalador/` — versionado a propósito. **El paquete se arma con `empaquetar.ps1`, nunca a mano:** el instalador que se armaba copiando archivos quedó con un exe de un mes antes apuntando a un backend ya dado de baja, y el síntoma en la PC nueva no era un error claro sino "el lector no reconoce a nadie". El script toma el exe de `bin/Debug/net48` y **aborta si algún `.cs` es más nuevo que el binario**.
+
+```powershell
+dotnet build servicio_biometrico\HuelleroBridge.csproj
+.\servicio_biometrico\instalador\empaquetar.ps1 -Zip      # → dist\HuelleroBridge-Instalador(.zip)
+```
+
+Imprime a qué backend apunta el exe, **leído del binario**, que es exactamente el dato que estuvo mal. El RTE de DigitalPersona (19 MB, redistribuible de un tercero) **no está en git**: se copia de `-RteOrigen`, que por defecto apunta al paquete viejo en `~\Downloads`. Si esa carpeta se borra, hay que pasar `-RteOrigen` a mano — conviene guardar el RTE en un lugar estable.
+
+**`INSTALAR.cmd` — dos cosas que no son obvias:**
+1. **El `BRIDGE_SECRET` es obligatorio** (bucle hasta que se ingrese; se puede saltear escribiendo `SALTAR`). La versión anterior ofrecía "Enter = usar el default", y ese default lo rechaza producción: el bridge arranca igual y solo loguea `Templates cargados: 0`, sin ningún error de auth.
+2. **El primer arranque va directo al exe, no por `schtasks`.** El Task Scheduler es un servicio que puede tener cacheado el entorno viejo, así que lanzado por ahí el bridge no vería el `BRIDGE_SECRET` que `setx /M` acaba de escribir. Desde el siguiente inicio de sesión la tarea ya lo toma bien.
+
+Al terminar consulta `/status` y avisa si `templates_en_cache` es 0, distinguiendo las dos causas (secreto que no coincide vs. nadie enrolado todavía).
+
+**`empaquetar.ps1` va como UTF-8 con BOM.** Sin BOM, PowerShell 5.1 lo lee como CP1252 y un guion largo rompe el parseo: uno de sus bytes cae en la comilla tipográfica de cierre y termina el string antes de tiempo. Tampoco usar `<`/`>` dentro de strings, ni una variable `$zip` conviviendo con el switch `-Zip` (PowerShell no distingue mayúsculas y son la misma).
 
 ### Palanquera (relé + Arduino)
 
