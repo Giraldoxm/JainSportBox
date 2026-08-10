@@ -90,9 +90,9 @@
             </svg>
             Acceso Manual
           </router-link>
-          <!-- "Alertas WhatsApp" salió del sidebar: los recordatorios pendientes se
-               atienden desde el panel "Por vencer · 7 días" del Resumen. La ruta
-               /alertas sigue viva para el historial, enlazada desde ese panel. -->
+          <!-- "Alertas WhatsApp" salió del sidebar: los recordatorios se atienden
+               enteros desde el panel "Por vencer · 7 días" del Resumen, que tiene sus
+               dos pestañas (pendientes / enviados). La vista y la ruta ya no existen. -->
           <router-link to="/ejercicios" @click="sidebarOpen = false"
             class="flex items-center gap-3 py-3 px-4 rounded-lg hover:bg-gray-800 transition-colors"
             active-class="bg-red-600 hover:bg-red-700 font-semibold shadow-md">
@@ -207,25 +207,6 @@
 
       </nav>
 
-      <!-- Chip sesión activa -->
-      <div v-if="tieneSession && !isPendiente" class="px-4 pb-3">
-        <div class="flex items-center gap-2 bg-red-950 border border-red-800 rounded-xl px-3 py-2.5">
-          <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 text-red-400 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/>
-          </svg>
-          <button @click="irASesion" class="flex-1 text-left min-w-0">
-            <p class="text-xs font-bold text-white truncate">{{ sesion.ejercicio }}</p>
-            <p class="text-xs text-red-300">{{ sesion.series.length }} serie{{ sesion.series.length !== 1 ? 's' : '' }} en progreso</p>
-          </button>
-          <button @click="cancelarSesion" title="Cancelar sesión"
-            class="p-1 text-red-500 hover:text-white transition-colors shrink-0">
-            <svg xmlns="http://www.w3.org/2000/svg" class="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M6 18L18 6M6 6l12 12"/>
-            </svg>
-          </button>
-        </div>
-      </div>
-
       <!-- Logout -->
       <div class="p-4 border-t border-gray-800">
         <button @click="logout"
@@ -266,21 +247,14 @@
 import { computed, ref, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { useAuth, setFechaVencimiento } from '../composables/useAuth'
-import { useSessionMarca } from '../composables/useSessionMarca'
 import { desactivarKiosco } from '../composables/useKiosco'
 import api from '../api'
 
 const router = useRouter()
 const { nombre, rol, isAdmin, isCoach, isCliente, isPendiente, canManage, membresiaVencida } = useAuth()
-const { sesion, tieneSession, cancelarSesion } = useSessionMarca()
 
 const sidebarOpen = ref(false)
 
-function irASesion() {
-  if (!sesion.value) return
-  sidebarOpen.value = false
-  router.push('/marcas/' + encodeURIComponent(sesion.value.ejercicio))
-}
 const tieneWodsPersonalizados = ref(localStorage.getItem('tieneWodsPersonalizados') === 'true')
 
 onMounted(async () => {
@@ -301,7 +275,6 @@ const rolLabel = computed(() => {
 })
 
 const logout = () => {
-  cancelarSesion()
   desactivarKiosco()
   localStorage.removeItem('token')
   localStorage.removeItem('userRol')

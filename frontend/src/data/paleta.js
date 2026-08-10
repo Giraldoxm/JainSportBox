@@ -20,10 +20,8 @@
 /** Clase base del badge categórico (el color lo aporta el punto). */
 export const BADGE_NEUTRO = 'bg-gray-100 text-gray-700'
 
-/** Escala categórica: 5 hues fríos, ninguno confundible con éxito/alerta/peligro. */
-export const CATEGORICOS = ['bg-sky-500', 'bg-slate-600', 'bg-violet-500', 'bg-fuchsia-500', 'bg-gray-400']
-
-/** Punto por categoría de ejercicio. */
+/** Punto por categoría de ejercicio. Escala de 5 hues fríos, ninguno confundible
+ *  con éxito/alerta/peligro. */
 export const CATEGORIA_EJERCICIO = {
   'Cardio':   'bg-sky-500',
   'Fuerza':   'bg-slate-600',

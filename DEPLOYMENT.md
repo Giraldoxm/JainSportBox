@@ -144,7 +144,6 @@ Dos detalles que rompen si se pasan por alto:
 ### 3.5 Archivos de despliegue (raíz del repo)
 - `render.yaml` — blueprint: `runtime: docker`, `plan: starter`, `healthCheckPath: /`, env vars con `sync: false`.
 - `Dockerfile` — imagen del backend. Explícito para que el autodetector no vea el proyecto .NET de `servicio_biometrico/` y corra `dotnet restore`.
-- `railway.toml` — **legado**, se borra cuando Railway se apague definitivamente.
 
 **Entregable de la capa:** `https://<app>.onrender.com/docs` accesible, login funcional contra Supabase.
 
