@@ -113,14 +113,6 @@ def test_enviadas_ultimos_dias_acota_el_historial(client, admin_headers, crear_u
     assert alerta.id not in [a["id"] for a in fuera]
 
 
-def test_contar_pendientes(client, admin_headers, crear_usuario):
-    crear_usuario("cliente", fecha_vencimiento=date.today() + timedelta(days=2))
-    crear_usuario("cliente", fecha_vencimiento=date.today() + timedelta(days=5))
-    _generar(client, admin_headers)
-    r = client.get("/alertas/contar", headers=admin_headers)
-    assert r.json()["pendientes"] == 2
-
-
 def test_descartar_alerta(client, admin_headers, crear_usuario, db_session):
     actor = crear_usuario("cliente", fecha_vencimiento=date.today() + timedelta(days=2))
     _generar(client, admin_headers)
@@ -131,7 +123,6 @@ def test_descartar_alerta(client, admin_headers, crear_usuario, db_session):
 
 def test_alertas_cliente_403(client, cliente):
     assert client.get("/alertas/", headers=cliente.headers).status_code == 403
-    assert client.get("/alertas/contar", headers=cliente.headers).status_code == 403
     assert client.post("/alertas/generar", headers=cliente.headers).status_code == 403
     assert client.post("/alertas/enviar-whatsapp", headers=cliente.headers).status_code == 403
 

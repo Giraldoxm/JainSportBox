@@ -191,34 +191,6 @@ def test_exportar_excel_cliente_403(client, cliente):
     assert client.get("/usuarios/exportar-excel", headers=cliente.headers).status_code == 403
 
 
-# ── GET /usuarios/cumpleanos-hoy ───────────────────────────────
-
-
-def test_cumpleanos_hoy(client, admin_headers, crear_usuario):
-    hoy = date.today()
-    cumple = crear_usuario(
-        "cliente",
-        fecha_vencimiento=hoy + timedelta(days=10),
-        fecha_nacimiento=hoy.replace(year=1995),
-    )
-    vencido = crear_usuario(
-        "cliente",
-        fecha_vencimiento=hoy - timedelta(days=1),
-        fecha_nacimiento=hoy.replace(year=1990),
-    )
-    otro_dia = crear_usuario(
-        "cliente",
-        fecha_vencimiento=hoy + timedelta(days=10),
-        fecha_nacimiento=(hoy - timedelta(days=40)).replace(year=1990),
-    )
-    r = client.get("/usuarios/cumpleanos-hoy", headers=admin_headers)
-    assert r.status_code == 200  # no capturada por /{usuario_id}
-    ids = [u["id"] for u in r.json()]
-    assert cumple.user.id in ids
-    assert vencido.user.id not in ids
-    assert otro_dia.user.id not in ids
-
-
 # ── GET /usuarios/{id} ─────────────────────────────────────────
 
 
@@ -477,12 +449,3 @@ def test_lista_con_template_sin_auth(client):
     assert client.get("/usuarios/con-template/lista").status_code == 401
 
 
-def test_buscar_por_huella(client, admin_headers, cliente, db_session):
-    db_session.query(models.Usuario).filter_by(id=cliente.user.id).update(
-        {"huella_id": f"dp_{cliente.user.id}"}
-    )
-    db_session.commit()
-    r = client.get(f"/usuarios/huella/dp_{cliente.user.id}", headers=admin_headers)
-    assert r.status_code == 200
-    assert r.json()["id"] == cliente.user.id
-    assert client.get("/usuarios/huella/dp_999999", headers=admin_headers).status_code == 404

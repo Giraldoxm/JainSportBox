@@ -360,17 +360,3 @@ def eliminar_movimiento(
     db.commit()
 
 
-@router.get("/usuarios/buscar")
-def buscar_usuarios(
-    q: str = Query(..., min_length=1),
-    db: Session = Depends(get_db),
-    current_user: Usuario = Depends(_require_admin),
-):
-    term = f"%{q}%"
-    usuarios = (
-        db.query(Usuario)
-        .filter((Usuario.nombre.ilike(term)) | (Usuario.email.ilike(term)))
-        .limit(10)
-        .all()
-    )
-    return [{"id": u.id, "nombre": u.nombre, "email": u.email} for u in usuarios]

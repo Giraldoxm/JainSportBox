@@ -225,15 +225,6 @@ def listar_alertas(
     return result
 
 
-@router.get("/contar")
-def contar_pendientes(
-    db: Session = Depends(get_db),
-    current_user: Usuario = Depends(_require_admin_or_coach),
-):
-    total = db.query(AlertaMembresia).filter(AlertaMembresia.enviada == False).count()
-    return {"pendientes": total}
-
-
 @router.post("/generar")
 def generar_manualmente(
     db: Session = Depends(get_db),

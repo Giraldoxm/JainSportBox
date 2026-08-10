@@ -1,4 +1,3 @@
-from datetime import date
 from typing import List, Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
@@ -167,18 +166,6 @@ def eliminar_wod(
         raise HTTPException(status_code=404, detail="WOD no encontrado.")
     db.delete(wod)
     db.commit()
-
-
-@router.get("/hoy", response_model=List[WODResponse])
-def wods_de_hoy(
-    db: Session = Depends(get_db),
-    current_user: Usuario = Depends(get_current_user),
-):
-    es_staff = current_user.rol in (RolUsuario.ADMIN, RolUsuario.COACH)
-    q = db.query(WOD).options(_EAGER_EJERCICIOS).filter(WOD.fecha == date.today(), WOD.es_personalizado == False)
-    if not es_staff:
-        q = q.filter(WOD.activo == True)
-    return q.order_by(WOD.id).all()
 
 
 @router.get("/", response_model=List[WODResponse])

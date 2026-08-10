@@ -147,14 +147,6 @@ def test_toggle(client, admin_headers):
     assert client.patch(f"/wods/{wod_id}/toggle", headers=admin_headers).json()["activo"] is True
 
 
-def test_wods_hoy(client, admin_headers, cliente):
-    hoy_id = client.post("/wods/", json=_payload_wod(), headers=admin_headers).json()["id"]
-    ayer = (date.today() - timedelta(days=1)).isoformat()
-    ayer_id = client.post("/wods/", json=_payload_wod(fecha=ayer), headers=admin_headers).json()["id"]
-    ids = [w["id"] for w in client.get("/wods/hoy", headers=cliente.headers).json()]
-    assert hoy_id in ids and ayer_id not in ids
-
-
 def test_eliminar_wod(client, admin_headers, db_session):
     ids = _crear_ejercicios(db_session, 1)
     wod_id = client.post("/wods/", json=_payload_wod(ejercicio_ids=ids), headers=admin_headers).json()["id"]

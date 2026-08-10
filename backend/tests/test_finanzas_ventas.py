@@ -282,8 +282,3 @@ def test_exportar_excel_no_admin_403(client, coach, cliente):
     assert client.get("/finanzas/exportar-excel", headers=cliente.headers).status_code == 403
 
 
-def test_buscar_usuarios(client, admin_headers, crear_usuario):
-    actor = crear_usuario("cliente", nombre="Fulanito Buscable")
-    r = client.get("/finanzas/usuarios/buscar?q=Buscable", headers=admin_headers)
-    assert r.status_code == 200
-    assert [u["id"] for u in r.json()] == [actor.user.id]

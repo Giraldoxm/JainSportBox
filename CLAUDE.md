@@ -474,7 +474,7 @@ Cubierto por `test_coach_no_puede_eliminar_admin`, `test_coach_no_puede_eliminar
 
 ### Cumpleaños
 
-El panel de cumpleaños **ya no vive acá**: se movió al dashboard (`/dashboard`). El endpoint `GET /usuarios/cumpleanos-hoy` sigue existiendo, pero su lógica está en el helper `query_cumpleaneros_hoy(db)` de `routers/usuarios.py`, que consumen tanto ese endpoint como `GET /dashboard/resumen` — el criterio (cumple hoy **y** `fecha_vencimiento >= hoy`) no se duplica. El endpoint debe seguir declarado **antes** de `GET /{usuario_id}` para que FastAPI no lo capture como ID.
+El panel de cumpleaños **ya no vive acá**: se movió al dashboard (`/dashboard`). El endpoint `GET /usuarios/cumpleanos-hoy` se eliminó al quedar sin consumidores; el criterio (cumple hoy **y** `fecha_vencimiento >= hoy`) vive en el helper `query_cumpleaneros_hoy(db)` de `routers/usuarios.py`, que ahora usa solo `GET /dashboard/resumen`. Sus casos borde (vencido y otro día) se cubren en `test_resumen_incluye_cumpleaneros`.
 
 ### Exportar Excel
 
@@ -864,7 +864,7 @@ Para verificar sin adivinar: `GET /usuarios/con-template/lista` con el header de
 | `huella_template` | `Text`, nullable | Template FMD en Base64 generado por el SDK |
 | `esta_en_gym` | `Boolean` | `True` al marcar entrada; vuelve a `False` solo por tiempo (`_job_reset_gym`). No hay registro de salida. |
 | `fecha_vencimiento` | `Date` | Validada en `POST /asistencia/por-usuario/{id}` antes de registrar entrada |
-| `fecha_nacimiento` | `Date`, nullable | Cumpleaños del miembro; usada por `GET /usuarios/cumpleanos-hoy` |
+| `fecha_nacimiento` | `Date`, nullable | Cumpleaños del miembro; usada por `query_cumpleaneros_hoy` (panel del Resumen) |
 
 ### Endpoints de asistencia relevantes
 

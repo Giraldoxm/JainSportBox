@@ -86,14 +86,13 @@ backend/tests/
 | 3.2 | `GET /usuarios/` | 200; verificar que NO serializa `huella_template` (defer) y que password nunca sale en ninguna respuesta |
 | 3.3 | `PATCH /usuarios/{id}` cambia email a uno existente | 400/409; con case distinto también rechaza |
 | 3.4 | `GET /usuarios/pendientes` | solo rol `pendiente` |
-| 3.5 | `GET /usuarios/cumpleanos-hoy` | usuario con `fecha_nacimiento` hoy Y membresía vigente aparece; vencido NO; **la ruta no es capturada por `/{usuario_id}`** (regresión de orden de rutas) |
+| 3.5 | Criterio de `query_cumpleaneros_hoy` | se prueba vía `/dashboard/resumen`: cumple hoy Y vigente aparece; vencido y otro día, no |
 | 3.6 | `GET /usuarios/{id}` con id no numérico (`/usuarios/abc`) | 422, no 500 |
 | 3.7 | `POST /usuarios/{id}/activar` | rol pasa a cliente, `fecha_vencimiento` correcta |
 | 3.8 | `DELETE /usuarios/{id}` | 204; verificar qué pasa con sus pagos/asistencias/marcas (¿cascade u orphans? documentar resultado) |
 | 3.9 | `POST /usuarios/{id}/huella-template` con `X-Bridge-Secret` correcto | 200, guarda template y `huella_id = dp_{id}` |
 | 3.10 | Ídem con secret incorrecto y sin JWT | 401/403 |
 | 3.11 | `GET /usuarios/con-template/lista` con secret | 200, solo usuarios con template |
-| 3.12 | `GET /usuarios/huella/{huella_id}` inexistente | 404 |
 | 3.13 | `POST /usuarios/{id}/foto` | reemplaza y borra la anterior |
 
 ## 4. Planes y Pagos (`planes.py`, `pagos.py`)
@@ -142,10 +141,9 @@ backend/tests/
 | 6.4 | `GET /wods/` cliente | solo `activo=True`; staff sin filtro ve todos |
 | 6.5 | `GET /wods/?activo=false&skip=N&limit=M` | paginación correcta |
 | 6.6 | `PATCH /wods/{id}/toggle` | alterna `activo` |
-| 6.7 | `GET /wods/hoy` | solo WODs de la fecha actual |
 | 6.8 | `GET /wods/personalizados` como cliente masculino | solo activos con `genero_destino="masculino"`; staff ve todos |
 | 6.9 | Crear personalizado con 2 géneros (desde form) | dos WODs, uno por género |
-| 6.10 | **Orden de rutas**: `GET /wods/personalizados` y `GET /wods/hoy` no capturados por rutas con path param | 200 con datos correctos |
+| 6.10 | **Orden de rutas**: `GET /wods/personalizados` no capturado por rutas con path param | 200 con datos correctos |
 | 6.11 | N+1: listar 50 WODs con ejercicios | número de queries acotado (eager loading `_EAGER_EJERCICIOS`) — verificar con `echo=True` o contador de eventos |
 | 6.12 | CRUD ejercicios: filtro `?categoria=`, borrar ejercicio usado en un WOD | comportamiento definido, no 500 |
 
@@ -206,7 +204,6 @@ Unitario `_calcular_1rm`:
 | 9.2 | `GET /finanzas/movimientos` con filtros fecha/tipo | correcto; solo admin |
 | 9.3 | `POST /finanzas/movimientos` ingreso y egreso manual | 201, afecta balance |
 | 9.4 | `DELETE /finanzas/movimientos/{id}` sobre fila legacy `pago_directo` | comportamiento definido |
-| 9.5 | `GET /finanzas/usuarios/buscar?q=` | busca por nombre/documento |
 | 9.6 | `POST /ventas/` con stock suficiente | 201, stock decrementa, NO crea movimiento financiero espejo (regresión commit `8b8ff01`) |
 | 9.7 | Venta con stock insuficiente | 400, stock intacto |
 | 9.8 | Venta de producto inexistente | 404 |

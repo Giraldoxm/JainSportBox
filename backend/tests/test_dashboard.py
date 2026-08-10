@@ -75,12 +75,34 @@ def test_resumen_asistencia_de_hoy(client, admin_headers, cliente):
 
 
 def test_resumen_incluye_cumpleaneros(client, admin_headers, crear_usuario):
+    """Cubre el criterio de query_cumpleaneros_hoy: cumple hoy Y membresía vigente.
+
+    Las dos exclusiones vivían en el test de `GET /usuarios/cumpleanos-hoy`, que se
+    eliminó junto con ese endpoint; el helper sigue vivo acá y sin esto quedaba
+    probado solo el caso feliz.
+    """
     crear_usuario(
         "cliente",
         fecha_vencimiento=HOY + timedelta(days=30),
         fecha_nacimiento=date(1995, HOY.month, HOY.day),
         nombre="Cumpleañero",
     )
+    # Cumple hoy pero con la membresía vencida: no va en la lista.
+    crear_usuario(
+        "cliente",
+        fecha_vencimiento=HOY - timedelta(days=1),
+        fecha_nacimiento=date(1990, HOY.month, HOY.day),
+        nombre="Vencido",
+    )
+    # Vigente, pero cumple otro día.
+    otro_dia = HOY - timedelta(days=40)
+    crear_usuario(
+        "cliente",
+        fecha_vencimiento=HOY + timedelta(days=30),
+        fecha_nacimiento=date(1990, otro_dia.month, otro_dia.day),
+        nombre="Otro dia",
+    )
+
     body = client.get("/dashboard/resumen", headers=admin_headers).json()
     assert [c["nombre"] for c in body["cumpleaneros"]] == ["Cumpleañero"]
 

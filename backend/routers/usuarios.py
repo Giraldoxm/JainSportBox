@@ -457,14 +457,6 @@ def query_cumpleaneros_hoy(db: Session) -> List[Usuario]:
     )
 
 
-@router.get("/cumpleanos-hoy", response_model=List[UsuarioResponse])
-def cumpleanos_hoy(
-    db: Session = Depends(get_db),
-    _: Usuario = Depends(_require_admin_or_coach),
-):
-    return query_cumpleaneros_hoy(db)
-
-
 @router.get("/{usuario_id}", response_model=UsuarioResponse)
 def obtener_usuario(
     usuario_id: int,
@@ -518,18 +510,6 @@ def activar_usuario(
         "usuario_id": usuario.id,
         "nueva_fecha_vencimiento": nueva_fecha,
     }
-
-
-@router.get("/huella/{huella_id}", response_model=UsuarioResponse)
-def buscar_por_huella(
-    huella_id: str,
-    db: Session = Depends(get_db),
-    current_user: Usuario = Depends(_require_admin_or_coach),
-):
-    usuario = db.query(Usuario).filter(Usuario.huella_id == huella_id).first()
-    if not usuario:
-        raise HTTPException(status_code=404, detail="Usuario no encontrado con esa huella.")
-    return usuario
 
 
 class HuellaTemplatePayload(BaseModel):
